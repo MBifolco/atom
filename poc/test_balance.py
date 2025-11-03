@@ -232,9 +232,11 @@ def test_mass_stamina_cost():
         print(f"      This creates meaningful tradeoff vs damage advantage")
 
     # Note about current stamina economy
-    print("\n   💡 NOTE: Current stamina regen (0.15/tick) is high enough")
-    print("      that fighters can sustain acceleration indefinitely.")
-    print("      Mass-cost difference IS implemented, but economy may need tuning")
+    print("\n   💡 STAMINA ECONOMY:")
+    print("      - Light fighters (40kg): Can sustain max accel in neutral")
+    print("      - Heavy fighters (100kg): Burn stamina even at max accel")
+    print("      - Aggressive stances: Always drain stamina")
+    print("      - Mass creates real tradeoff: power vs endurance")
     print()
 
 

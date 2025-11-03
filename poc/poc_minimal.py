@@ -20,10 +20,10 @@ MAX_ACCELERATION = 5.0  # m/s²
 MAX_VELOCITY = 3.0  # m/s
 DT = 0.067  # seconds per tick (15 Hz)
 
-# Stamina
-STAMINA_ACCEL_COST = 0.1
-STAMINA_BASE_REGEN = 0.15
-STAMINA_NEUTRAL_BONUS = 1.5
+# Stamina (rebalanced for meaningful resource management)
+STAMINA_ACCEL_COST = 0.15
+STAMINA_BASE_REGEN = 0.015
+STAMINA_NEUTRAL_BONUS = 4.0
 
 # Damage (tuned for ~8-12 hits to KO)
 BASE_COLLISION_DAMAGE = 2.5
