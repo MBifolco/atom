@@ -25,18 +25,56 @@ from poc_minimal import (
 # ============================================================================
 
 PARAM_SPACE = {
+    # Physics constants
+    "ARENA_WIDTH": (8.0, 15.0),              # Arena size in meters
+    "FRICTION": (0.3, 1.2),                  # Velocity decay rate
+    "MAX_ACCELERATION": (3.0, 8.0),          # m/s² max acceleration
+    "MAX_VELOCITY": (2.0, 5.0),              # m/s max velocity cap
+    "DT": (0.04, 0.1),                       # Seconds per tick (25Hz-10Hz)
+
     # Stamina economy
-    "STAMINA_ACCEL_COST": (0.05, 0.25),      # Cost per m/s² acceleration
-    "STAMINA_BASE_REGEN": (0.01, 0.10),      # Base regen per tick
-    "STAMINA_NEUTRAL_BONUS": (2.0, 6.0),     # Multiplier when in neutral
+    "STAMINA_ACCEL_COST": (0.05, 0.30),     # Cost per m/s² acceleration
+    "STAMINA_BASE_REGEN": (0.005, 0.05),    # Base regen per tick
+    "STAMINA_NEUTRAL_BONUS": (1.5, 8.0),    # Multiplier when in neutral
 
     # Damage scaling
-    "BASE_COLLISION_DAMAGE": (1.5, 5.0),     # Base damage per collision
-    "VELOCITY_DAMAGE_SCALE": (0.5, 1.5),     # Velocity contribution
-    "MASS_DAMAGE_SCALE": (0.3, 0.7),         # Mass contribution exponent
+    "BASE_COLLISION_DAMAGE": (1.0, 6.0),    # Base damage per collision
+    "VELOCITY_DAMAGE_SCALE": (0.3, 2.0),    # Velocity contribution
+    "MASS_DAMAGE_SCALE": (0.2, 0.9),        # Mass contribution exponent
 
-    # Physics
-    "FRICTION": (0.5, 1.0),                  # Velocity decay rate
+    # Mass constraints
+    "MIN_MASS": (30.0, 50.0),               # Minimum fighter mass
+    "MAX_MASS": (90.0, 120.0),              # Maximum fighter mass
+
+    # Fighter stats formulas (HP and stamina ranges)
+    "HP_MIN": (40.0, 80.0),                 # Light fighter HP
+    "HP_MAX": (80.0, 150.0),                # Heavy fighter HP
+    "STAMINA_MAX": (8.0, 16.0),             # Light fighter stamina
+    "STAMINA_MIN": (4.0, 12.0),             # Heavy fighter stamina
+
+    # Stance: neutral
+    "STANCE_NEUTRAL_REACH": (0.1, 0.4),
+    "STANCE_NEUTRAL_WIDTH": (0.2, 0.5),
+    "STANCE_NEUTRAL_DRAIN": (0.0, 0.01),
+    "STANCE_NEUTRAL_DEFENSE": (0.9, 1.1),
+
+    # Stance: extended
+    "STANCE_EXTENDED_REACH": (0.4, 1.0),
+    "STANCE_EXTENDED_WIDTH": (0.1, 0.3),
+    "STANCE_EXTENDED_DRAIN": (0.02, 0.1),
+    "STANCE_EXTENDED_DEFENSE": (0.6, 0.9),
+
+    # Stance: retracted
+    "STANCE_RETRACTED_REACH": (0.05, 0.2),
+    "STANCE_RETRACTED_WIDTH": (0.1, 0.3),
+    "STANCE_RETRACTED_DRAIN": (0.01, 0.05),
+    "STANCE_RETRACTED_DEFENSE": (0.9, 1.2),
+
+    # Stance: defending
+    "STANCE_DEFENDING_REACH": (0.2, 0.5),
+    "STANCE_DEFENDING_WIDTH": (0.3, 0.6),
+    "STANCE_DEFENDING_DRAIN": (0.01, 0.08),
+    "STANCE_DEFENDING_DEFENSE": (1.2, 2.0),
 }
 
 
@@ -300,10 +338,63 @@ def run_instrumented_match(fighter_a_archetype, fighter_b_archetype, params: Dic
     import poc_minimal
     original_values = {}
 
-    for param_name, param_value in params.items():
-        if hasattr(poc_minimal, param_name):
+    # Apply simple module-level constants
+    simple_params = ["ARENA_WIDTH", "FRICTION", "MAX_ACCELERATION", "MAX_VELOCITY", "DT",
+                     "STAMINA_ACCEL_COST", "STAMINA_BASE_REGEN", "STAMINA_NEUTRAL_BONUS",
+                     "BASE_COLLISION_DAMAGE", "VELOCITY_DAMAGE_SCALE", "MASS_DAMAGE_SCALE"]
+
+    for param_name in simple_params:
+        if param_name in params:
             original_values[param_name] = getattr(poc_minimal, param_name)
-            setattr(poc_minimal, param_name, param_value)
+            setattr(poc_minimal, param_name, params[param_name])
+
+    # Rebuild STANCES dict from parameters
+    if any(k.startswith("STANCE_") for k in params):
+        original_values['STANCES'] = poc_minimal.STANCES.copy()
+        poc_minimal.STANCES = {
+            "neutral": {
+                "reach": params.get("STANCE_NEUTRAL_REACH", 0.2),
+                "width": params.get("STANCE_NEUTRAL_WIDTH", 0.3),
+                "drain": params.get("STANCE_NEUTRAL_DRAIN", 0.0),
+                "defense": params.get("STANCE_NEUTRAL_DEFENSE", 1.0)
+            },
+            "extended": {
+                "reach": params.get("STANCE_EXTENDED_REACH", 0.6),
+                "width": params.get("STANCE_EXTENDED_WIDTH", 0.2),
+                "drain": params.get("STANCE_EXTENDED_DRAIN", 0.05),
+                "defense": params.get("STANCE_EXTENDED_DEFENSE", 0.8)
+            },
+            "retracted": {
+                "reach": params.get("STANCE_RETRACTED_REACH", 0.1),
+                "width": params.get("STANCE_RETRACTED_WIDTH", 0.2),
+                "drain": params.get("STANCE_RETRACTED_DRAIN", 0.02),
+                "defense": params.get("STANCE_RETRACTED_DEFENSE", 1.0)
+            },
+            "defending": {
+                "reach": params.get("STANCE_DEFENDING_REACH", 0.3),
+                "width": params.get("STANCE_DEFENDING_WIDTH", 0.4),
+                "drain": params.get("STANCE_DEFENDING_DRAIN", 0.03),
+                "defense": params.get("STANCE_DEFENDING_DEFENSE", 1.5)
+            }
+        }
+
+    # Override calculate_fighter_stats if HP/stamina params present
+    if any(k in params for k in ["HP_MIN", "HP_MAX", "STAMINA_MAX", "STAMINA_MIN", "MIN_MASS", "MAX_MASS"]):
+        original_values['calculate_fighter_stats'] = poc_minimal.calculate_fighter_stats
+
+        min_mass = params.get("MIN_MASS", 40.0)
+        max_mass = params.get("MAX_MASS", 100.0)
+        hp_min = params.get("HP_MIN", 60.0)
+        hp_max = params.get("HP_MAX", 100.0)
+        stam_max = params.get("STAMINA_MAX", 12.0)
+        stam_min = params.get("STAMINA_MIN", 8.0)
+
+        def custom_calculate_fighter_stats(mass: float) -> dict:
+            hp = hp_min + (mass - min_mass) * (hp_max - hp_min) / (max_mass - min_mass)
+            stamina = stam_max - (mass - min_mass) * (stam_max - stam_min) / (max_mass - min_mass)
+            return {"max_hp": round(hp, 1), "max_stamina": round(stamina, 1)}
+
+        poc_minimal.calculate_fighter_stats = custom_calculate_fighter_stats
 
     try:
         # Create fighter specs
@@ -384,7 +475,12 @@ def run_instrumented_match(fighter_a_archetype, fighter_b_archetype, params: Dic
     finally:
         # Restore original values
         for param_name, original_value in original_values.items():
-            setattr(poc_minimal, param_name, original_value)
+            if param_name == 'STANCES':
+                poc_minimal.STANCES = original_value
+            elif param_name == 'calculate_fighter_stats':
+                poc_minimal.calculate_fighter_stats = original_value
+            else:
+                setattr(poc_minimal, param_name, original_value)
 
 
 # ============================================================================
