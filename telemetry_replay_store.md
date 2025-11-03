@@ -29,23 +29,68 @@ It captures every tick, move, and event that happens during a match — creating
 
 ---
 
-## Replay File Structure
+## Replay File Structure (POC Example)
 ```json
 {
-  "match_id": "abc123",
-  "protocol": "proto_v1",
+  "match_id": "poc_001",
+  "protocol": "proto_1d_poc_v1",
+  "world_spec": "world_1d_poc_v1",
   "seed": 42,
-  "fighters": ["FighterA", "FighterB"],
+  "fighters": {
+    "A": {"id": "aggressive_bot", "spec": {...}},
+    "B": {"id": "defensive_bot", "spec": {...}}
+  },
   "ticks": [
     {
       "tick": 1,
-      "actions": {"A":"step_forward","B":"idle"},
+      "actions": {
+        "A": {"acceleration": 5.0, "stance": "neutral"},
+        "B": {"acceleration": 0.0, "stance": "neutral"}
+      },
       "events": [],
-      "states": {"A":{"hp":100},"B":{"hp":100}}
+      "states": {
+        "A": {"position": 2.17, "velocity": 0.34, "hp": 100, "stamina": 9.97, "stance": "neutral"},
+        "B": {"position": 8.0, "velocity": 0.0, "hp": 100, "stamina": 10.0, "stance": "neutral"}
+      }
     },
-    ...
+    {
+      "tick": 2,
+      "actions": {
+        "A": {"acceleration": 5.0, "stance": "neutral"},
+        "B": {"acceleration": 2.0, "stance": "neutral"}
+      },
+      "events": [],
+      "states": {
+        "A": {"position": 2.57, "velocity": 0.61, "hp": 100, "stamina": 9.94},
+        "B": {"position": 7.93, "velocity": 0.13, "hp": 100, "stamina": 9.99}
+      }
+    },
+    {
+      "tick": 15,
+      "actions": {
+        "A": {"acceleration": 3.0, "stance": "extended"},
+        "B": {"acceleration": 0.0, "stance": "defending"}
+      },
+      "events": [
+        {
+          "type": "COLLISION",
+          "fighters": ["A", "B"],
+          "damage": {"A": 8.2, "B": 12.5},
+          "relative_velocity": 1.8
+        }
+      ],
+      "states": {
+        "A": {"position": 5.8, "velocity": 1.2, "hp": 91.8, "stamina": 8.1, "stance": "extended"},
+        "B": {"position": 6.1, "velocity": -0.6, "hp": 87.5, "stamina": 9.7, "stance": "defending"}
+      }
+    }
   ],
-  "result": {"winner":"B","reason":"timeout"}
+  "result": {
+    "winner": "A",
+    "reason": "KO",
+    "tick": 387,
+    "final_hp": {"A": 45.2, "B": 0.0}
+  }
 }
 ```
 

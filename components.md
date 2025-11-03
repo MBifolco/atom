@@ -17,7 +17,7 @@ Fighter A (mind) Fighter B (mind)
 │ │
 ▼ ▼
 ┌─────── Match Orchestrator (tick-by-tick) ───────┐
-│ share snapshot → get moves → apply → log │
+│ share snapshot → get actions → apply → log │
 └───────────────→ Arena (rules & physics) ←────────
 │
 ▼
@@ -38,17 +38,17 @@ Telemetry & Replays
 
 ### B) **Combat Protocol (The Contract)**
 - **Role:** The shared language between fighters and the Arena.
-- **Responsible for:** what fighters can *sense* each moment, what *moves* are legal, decision timing/budgets.
+- **Responsible for:** what fighters can *sense* each moment, what *actions* are valid, decision timing/budgets.
 - **Promises:** fairness and compatibility regardless of how a fighter was built or trained.
 
 ### C) **Match Orchestrator (The Director)**
 - **Role:** The heartbeat of the fight.
-- **Responsible for:** per-tick scheduling, delivering snapshots to fighters, enforcing legality and time limits, applying moves, emitting events.
-- **Output:** the complete replay timeline (snapshots, moves, outcomes).
+- **Responsible for:** per-tick scheduling, delivering snapshots to fighters, enforcing legality and time limits, applying actions, emitting events.
+- **Output:** the complete replay timeline (snapshots, actions, outcomes).
 
 ### D) **Fighter Runtime (The Mind in the Ring)**
-- **Role:** Make one legal decision per tick.
-- **Responsible for:** reading the snapshot, selecting a legal move within the budget, returning it on time.
+- **Role:** Make one decision per tick.
+- **Responsible for:** reading the snapshot, deciding on an action within the time budget, returning it on time.
 - **Note:** No learning occurs here; this is match-time decision only.
 
 ### E) **Telemetry & Replay Store (The Record Keeper)**
@@ -82,11 +82,11 @@ Telemetry & Replays
 
 ## 3) Key artifacts (core)
 
-- **Fighter Sheet:** what a fighter *is* in the ring (body, moves, limits, costs).
-- **Fighter Artifact:** the packaged “mind” used at match time.
+- **Fighter Spec:** what a fighter *is* in the ring (body, stats, sensors, constraints).
+- **Fighter Artifact:** the packaged "mind" (spec + runtime logic) used at match time.
 - **Match Spec:** arena, ruleset, participants, seed.
-- **Replay:** authoritative timeline of snapshots, moves, and events.
-- **Score Report:** evaluator’s official outcome + metrics.
+- **Replay:** authoritative timeline of snapshots, actions, and events.
+- **Score Report:** evaluator's official outcome + metrics.
 - **Season Patch:** division-wide adjustments between seasons (never mid-match).
 
 ---
@@ -116,7 +116,7 @@ They are **extensions**, not requirements, and are not involved during sanctione
 
 ## 6) Versioning & longevity (core stance)
 
-- **Protocol versions** define what can be sensed, what moves exist, and timing budgets in a division.
+- **Protocol versions** define what can be sensed, what actions are valid, and timing budgets in a division.
 - **Replays** remain reproducible forever within their protocol version.
 - **Patches** are applied between seasons, with clear notes and migration paths.
 

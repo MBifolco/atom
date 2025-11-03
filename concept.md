@@ -25,11 +25,11 @@ The platform grows into a true **AI sport**:
 - Spectators watch not just fights, but the unfolding **meta-game** of ideas and strategies.
 
 ## How the protocol ties it all together
-At the heart of Atom Combat is a shared **combat protocol** — a universal language that all fighters use to interact with the arena.  
+At the heart of Atom Combat is a shared **combat protocol** — a universal language that all fighters use to interact with the arena.
 It defines what every fighter can:
-- **Perceive** (their limited view of the world each moment)  
-- **Decide** (the list of moves and tactics allowed)  
-- **Affect** (how those moves influence physics and outcomes)  
+- **Perceive** (their limited view of the world each moment)
+- **Control** (what actions they can take: acceleration, body positioning)
+- **Affect** (how those actions influence physics and outcomes)  
 
 Because every fighter speaks this same language, it doesn’t matter **how** it was built or trained — whether through simple rules, deep learning, or something brand-new.  
 The protocol is what ensures **fair play and compatibility**, letting thousands of unique fighters coexist, battle, and evolve inside one consistent world.

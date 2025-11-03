@@ -26,12 +26,41 @@ It never affects gameplay outcomes — it simply replays what really happened.
 
 ---
 
-## Output Example (text)
+## Output Example (text - POC format)
 ```
-[00.0] A steps forward
-[00.1] B charges heavy attack
-[00.3] A hit by heavy! (-10 HP)
-[01.0] Timeout → Winner: B
+═══════════════════════════════════════════════════
+    ATOM COMBAT - Match poc_001
+    aggressive_bot (A) vs defensive_bot (B)
+═══════════════════════════════════════════════════
+
+[T:1  | 0.07s] A [██------] accelerates forward (5.0 m/s²)
+                B [------██] holds position
+                Distance: 5.8m
+
+[T:5  | 0.33s] A [███-----] rushes forward (v=1.2 m/s)
+                B [-----███] advances slowly (2.0 m/s²)
+                Distance: 3.2m
+
+[T:12 | 0.80s] A [████----] extends stance, closing in!
+                B [----████] takes defensive stance
+                Distance: 1.5m
+
+[T:15 | 1.00s] 💥 COLLISION!
+                A [████====] crashes into B (rel. vel: 1.8 m/s)
+                Damage: A -8.2 HP, B -12.5 HP (defending reduced impact)
+                A: 91.8 HP | B: 87.5 HP
+
+[T:45 | 3.00s] A [███-----] stamina recovering (neutral stance)
+                B [-----███] counter-extends!
+                Distance: 2.1m
+
+...
+
+[T:387 | 25.8s] 💀 KNOCKOUT!
+                B's HP reaches 0
+                Winner: aggressive_bot (A)
+                Final: A 45.2 HP vs B 0.0 HP
+═══════════════════════════════════════════════════
 ```
 
 ---

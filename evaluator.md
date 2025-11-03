@@ -20,14 +20,16 @@ It decides winners, scores, and style metrics that drive league rankings.
 ## Score Report Example
 ```json
 {
-  "match_id": "abc123",
+  "match_id": "poc_001",
   "winner": "FighterB",
   "method": "timeout",
-  "hp_remaining": {"A":50,"B":70},
+  "hp_remaining": {"A": 50.0, "B": 70.0},
   "metrics": {
-    "aggression": {"A":0.65,"B":0.72},
-    "defense": {"A":0.4,"B":0.55},
-    "illegal_moves": 0
+    "aggression": {"A": 0.65, "B": 0.72},
+    "defense": {"A": 0.4, "B": 0.55},
+    "avg_velocity": {"A": 1.2, "B": 0.9},
+    "collisions": {"A": 12, "B": 12},
+    "invalid_actions": 0
   }
 }
 ```
@@ -38,8 +40,8 @@ It decides winners, scores, and style metrics that drive league rankings.
 | Type | Description |
 |-------|--------------|
 | **Performance** | Win/loss, KO, time remaining. |
-| **Style** | Aggression, defense, action diversity. |
-| **Compliance** | Violations, lateness, illegal moves. |
+| **Style** | Aggression, defense, action diversity, positioning. |
+| **Compliance** | Violations, lateness, invalid actions. |
 
 ---
 
