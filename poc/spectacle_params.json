@@ -1,0 +1,1802 @@
+[
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.5221768707482994,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.57,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5814285714285715,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.56,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5657142857142857,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4735714285714286,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4164285714285714,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5957142857142858,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5142857142857143,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.7,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.6,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5528571428571428,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5928571428571429,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5642857142857143,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 1.0,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.4
+        },
+        "overall_score": 0.5571428571428572,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.5221768707482994,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.57,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5814285714285715,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.56,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5657142857142857,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4735714285714286,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4164285714285714,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5957142857142858,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5142857142857143,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.7,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.6,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5528571428571428,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5928571428571429,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5642857142857143,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 1.0,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.4
+        },
+        "overall_score": 0.5571428571428572,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.5221768707482994,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.57,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5814285714285715,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.56,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5657142857142857,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4735714285714286,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4164285714285714,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5957142857142858,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5142857142857143,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.7,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.6,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5528571428571428,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5928571428571429,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5642857142857143,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 1.0,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.4
+        },
+        "overall_score": 0.5571428571428572,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.5221768707482994,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.57,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5814285714285715,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.56,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5657142857142857,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4735714285714286,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4164285714285714,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5957142857142858,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5142857142857143,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.7,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.6,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5528571428571428,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5928571428571429,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5642857142857143,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 1.0,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.4
+        },
+        "overall_score": 0.5571428571428572,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.5221768707482994,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.57,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5814285714285715,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.56,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5657142857142857,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.55,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4928571428571429,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4735714285714286,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.54,
+          "close_finish": 0.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.875
+        },
+        "overall_score": 0.4164285714285714,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5957142857142858,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.65,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.55,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.63,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5042857142857143,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5142857142857143,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.4,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4428571428571429,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.7,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.6,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.2,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.4857142857142857,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.67,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5528571428571428,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.9,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5928571428571429,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.75,
+          "close_finish": 0.7,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 1.0
+        },
+        "overall_score": 0.5642857142857143,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 1.0,
+          "close_finish": 1.0,
+          "stamina_drama": 0.3,
+          "comeback_potential": 0.2,
+          "positional_exchange": 0.0,
+          "pacing_variety": 1.0,
+          "collision_drama": 0.4
+        },
+        "overall_score": 0.5571428571428572,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  }
+]

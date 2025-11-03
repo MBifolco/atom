@@ -14,28 +14,28 @@ from typing import Dict, Tuple, List
 # WORLD SPEC - Physics Constants
 # ============================================================================
 
-ARENA_WIDTH = 10.0  # meters
-FRICTION = 0.8
-MAX_ACCELERATION = 5.0  # m/s²
-MAX_VELOCITY = 3.0  # m/s
-DT = 0.067  # seconds per tick (15 Hz)
+ARENA_WIDTH = 12.4760  # meters (optimized for spectacle)
+FRICTION = 0.3225
+MAX_ACCELERATION = 4.3751  # m/s²
+MAX_VELOCITY = 2.6696  # m/s
+DT = 0.0842  # seconds per tick (~12 Hz)
 
-# Stamina (rebalanced for meaningful resource management)
-STAMINA_ACCEL_COST = 0.15
-STAMINA_BASE_REGEN = 0.015
-STAMINA_NEUTRAL_BONUS = 4.0
+# Stamina (optimized for drama and exhaustion moments)
+STAMINA_ACCEL_COST = 0.2192
+STAMINA_BASE_REGEN = 0.0451
+STAMINA_NEUTRAL_BONUS = 2.0651
 
-# Damage (tuned for ~8-12 hits to KO)
-BASE_COLLISION_DAMAGE = 2.5
-VELOCITY_DAMAGE_SCALE = 0.8
-MASS_DAMAGE_SCALE = 0.5
+# Damage (optimized for close finishes)
+BASE_COLLISION_DAMAGE = 3.1096
+VELOCITY_DAMAGE_SCALE = 0.3507
+MASS_DAMAGE_SCALE = 0.3530
 
-# Stances: {reach, width, drain, defense_multiplier}
+# Stances: {reach, width, drain, defense_multiplier} (optimized for variety)
 STANCES = {
-    "neutral": {"reach": 0.2, "width": 0.3, "drain": 0.0, "defense": 1.0},
-    "extended": {"reach": 0.6, "width": 0.2, "drain": 0.05, "defense": 0.8},
-    "retracted": {"reach": 0.1, "width": 0.2, "drain": 0.02, "defense": 1.0},
-    "defending": {"reach": 0.3, "width": 0.4, "drain": 0.03, "defense": 1.5},
+    "neutral": {"reach": 0.2768, "width": 0.4428, "drain": 0.0001, "defense": 1.0612},
+    "extended": {"reach": 0.8189, "width": 0.1681, "drain": 0.0324, "defense": 0.8872},
+    "retracted": {"reach": 0.1005, "width": 0.1185, "drain": 0.0139, "defense": 1.1542},
+    "defending": {"reach": 0.3811, "width": 0.5421, "drain": 0.0611, "defense": 1.6290},
 }
 
 
@@ -50,18 +50,24 @@ def calculate_fighter_stats(mass: float) -> dict:
     - Heavy: High HP, low stamina (tank, slow)
     - Light: Low HP, high stamina (fragile, mobile)
 
-    40kg → 60 HP, 12.0 stamina (glass cannon)
-    70kg → 80 HP, 10.0 stamina (balanced)
-    100kg → 100 HP, 8.0 stamina (tank)
+    Optimized ranges for spectacle:
+    40kg → 48 HP, 12.4 stamina (glass cannon)
+    70kg → 88 HP, 8.8 stamina (balanced)
+    91kg → 125 HP, 5.8 stamina (tank)
     """
-    MIN_MASS = 40.0
-    MAX_MASS = 100.0
+    MIN_MASS = 40.1071
+    MAX_MASS = 90.7961
+
+    HP_MIN = 47.9535
+    HP_MAX = 125.4919
+    STAMINA_MAX = 12.3595
+    STAMINA_MIN = 5.7635
 
     # HP increases with mass (more mass = more damage absorption)
-    hp = 60 + (mass - MIN_MASS) * (100 - 60) / (MAX_MASS - MIN_MASS)
+    hp = HP_MIN + (mass - MIN_MASS) * (HP_MAX - HP_MIN) / (MAX_MASS - MIN_MASS)
 
     # Stamina decreases with mass (more mass = harder to move)
-    stamina = 12.0 - (mass - MIN_MASS) * (12.0 - 8.0) / (MAX_MASS - MIN_MASS)
+    stamina = STAMINA_MAX - (mass - MIN_MASS) * (STAMINA_MAX - STAMINA_MIN) / (MAX_MASS - MIN_MASS)
 
     return {
         "max_hp": round(hp, 1),
@@ -107,13 +113,13 @@ class Arena1D:
 
     def _validate_fighter(self, fighter: FighterState):
         """Enforce world spec constraints. Mass is the only spec - HP/stamina derived by world."""
-        MIN_MASS = 40.0
-        MAX_MASS = 100.0
+        MIN_MASS = 40.1071
+        MAX_MASS = 90.7961
 
         if not (MIN_MASS <= fighter.mass <= MAX_MASS):
             raise ValueError(
                 f"Fighter '{fighter.name}' mass {fighter.mass}kg outside legal range "
-                f"({MIN_MASS}-{MAX_MASS}kg)"
+                f"({MIN_MASS:.1f}-{MAX_MASS:.1f}kg)"
             )
 
         # HP and stamina are world-calculated from mass, so they're always valid
