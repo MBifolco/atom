@@ -300,10 +300,108 @@ def generate_snapshot(my_fighter: FighterState, opp_fighter: FighterState, tick:
 
 
 # ============================================================================
+# VISUALIZATION
+# ============================================================================
+
+def render_arena(fighter_a: FighterState, fighter_b: FighterState, events: List[Dict], tick: int):
+    """Render the arena state with visual position indicators."""
+    # Arena visualization parameters
+    arena_display_width = 50  # characters
+    scale = ARENA_WIDTH / arena_display_width
+
+    # Calculate positions on display
+    pos_a = int(fighter_a.position / scale)
+    pos_b = int(fighter_b.position / scale)
+
+    # Create position bar
+    bar = ['-'] * arena_display_width
+
+    # Mark fighter positions with different characters based on stance
+    stance_chars = {
+        'neutral': '●',
+        'extended': '▶',
+        'retracted': '◀',
+        'defending': '■'
+    }
+
+    char_a = stance_chars.get(fighter_a.stance, '●')
+    char_b = stance_chars.get(fighter_b.stance, '●')
+
+    # Place fighters (handle overlap)
+    # Clamp positions to valid range
+    pos_a = min(pos_a, arena_display_width - 1)
+    pos_b = min(pos_b, arena_display_width - 1)
+
+    if pos_a == pos_b:
+        bar[pos_a] = '⚔'  # Both at same position
+    else:
+        bar[pos_a] = char_a
+        bar[pos_b] = char_b
+
+    arena_bar = ''.join(bar)
+
+    # Check if collision occurred
+    collision = any(e['type'] == 'COLLISION' for e in events)
+
+    # Print header
+    print(f"\n[Tick {tick:3d} | {tick*DT:5.2f}s]")
+    print("┌" + "─" * 52 + "┐")
+
+    # Print arena
+    if collision:
+        print(f"│ {'💥 COLLISION!':^50s} │")
+    else:
+        print(f"│ {' ':50s} │")
+
+    print(f"│ |{arena_bar}| │")
+    print("└" + "─" * 52 + "┘")
+
+    # Print fighter stats
+    print(f"\n{fighter_a.name:^26s} │ {fighter_b.name:^26s}")
+    print("─" * 26 + "┼" + "─" * 26)
+
+    # HP bars
+    hp_a_pct = fighter_a.hp / fighter_a.max_hp
+    hp_b_pct = fighter_b.hp / fighter_b.max_hp
+    hp_bar_a = _make_bar(hp_a_pct, 20, '█', '░')
+    hp_bar_b = _make_bar(hp_b_pct, 20, '█', '░')
+    print(f"HP  {hp_bar_a} {fighter_a.hp:5.1f} │ HP  {hp_bar_b} {fighter_b.hp:5.1f}")
+
+    # Stamina bars
+    stam_a_pct = fighter_a.stamina / fighter_a.max_stamina
+    stam_b_pct = fighter_b.stamina / fighter_b.max_stamina
+    stam_bar_a = _make_bar(stam_a_pct, 20, '▓', '░')
+    stam_bar_b = _make_bar(stam_b_pct, 20, '▓', '░')
+    print(f"STA {stam_bar_a} {fighter_a.stamina:5.1f} │ STA {stam_bar_b} {fighter_b.stamina:5.1f}")
+
+    # Stats
+    print(f"Vel {fighter_a.velocity:+5.2f} m/s          │ Vel {fighter_b.velocity:+5.2f} m/s")
+    print(f"Pos {fighter_a.position:5.2f}m             │ Pos {fighter_b.position:5.2f}m")
+    print(f"Mass {fighter_a.mass:.0f}kg [{fighter_a.stance:9s}] │ Mass {fighter_b.mass:.0f}kg [{fighter_b.stance:9s}]")
+
+    # Event details
+    if collision:
+        for event in events:
+            if event['type'] == 'COLLISION':
+                print(f"\n💥 Impact! Dmg: {fighter_a.name} -{event['damage_to_a']:.1f} HP  |  {fighter_b.name} -{event['damage_to_b']:.1f} HP")
+                print(f"   Relative velocity: {event['relative_velocity']:.2f} m/s")
+
+    distance = abs(fighter_a.position - fighter_b.position)
+    print(f"\nDistance: {distance:.2f}m")
+
+
+def _make_bar(percentage: float, width: int, fill_char: str, empty_char: str) -> str:
+    """Create a progress bar string."""
+    filled = int(percentage * width)
+    empty = width - filled
+    return fill_char * filled + empty_char * empty
+
+
+# ============================================================================
 # MATCH ORCHESTRATOR
 # ============================================================================
 
-def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True):
+def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True, display_frequency=15):
     """Run a complete match between two fighters."""
 
     # Initialize fighters
@@ -331,11 +429,11 @@ def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True):
     decide_b = fighter_b_spec["decide_fn"]
 
     if verbose:
-        print("=" * 60)
-        print(f"  ATOM COMBAT POC - Match Starting")
-        print(f"  {fighter_a.name} vs {fighter_b.name}")
-        print("=" * 60)
-        print()
+        print("\n" + "═" * 60)
+        print(f"{'ATOM COMBAT - 1D ARENA':^60s}")
+        print("═" * 60)
+        print(f"{fighter_a.name} ({fighter_a.mass:.0f}kg) vs {fighter_b.name} ({fighter_b.mass:.0f}kg)".center(60))
+        print("═" * 60)
 
     # Main match loop
     for tick in range(max_ticks):
@@ -350,61 +448,54 @@ def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True):
         # Execute physics step
         events = arena.step(action_a, action_b)
 
-        # Print every 15 ticks (~1 second of simulation time)
-        if verbose and tick % 15 == 0:
-            print(f"[T:{tick:3d} | {tick*DT:5.2f}s]")
-            print(f"  {fighter_a.name:15s} pos:{fighter_a.position:5.2f} vel:{fighter_a.velocity:5.2f} hp:{fighter_a.hp:5.1f} stam:{fighter_a.stamina:4.1f} [{fighter_a.stance}]")
-            print(f"  {fighter_b.name:15s} pos:{fighter_b.position:5.2f} vel:{fighter_b.velocity:5.2f} hp:{fighter_b.hp:5.1f} stam:{fighter_b.stamina:4.1f} [{fighter_b.stance}]")
-            print(f"  Distance: {abs(fighter_a.position - fighter_b.position):.2f}m")
-            print()
-
-        # Print events
-        if verbose:
-            for event in events:
-                if event["type"] == "COLLISION":
-                    print(f"  💥 COLLISION at tick {event['tick']}!")
-                    print(f"     {fighter_a.name} takes {event['damage_to_a']:.1f} damage")
-                    print(f"     {fighter_b.name} takes {event['damage_to_b']:.1f} damage")
-                    print(f"     Relative velocity: {event['relative_velocity']:.2f} m/s")
-                    print()
+        # Render arena at specified frequency or on collision
+        has_collision = any(e['type'] == 'COLLISION' for e in events)
+        if verbose and (tick % display_frequency == 0 or has_collision):
+            render_arena(fighter_a, fighter_b, events, tick)
 
         # Check win conditions
         if not fighter_a.is_alive():
             if verbose:
-                print("=" * 60)
-                print(f"  💀 KNOCKOUT! {fighter_b.name} wins at tick {tick}")
-                print(f"  Final HP: {fighter_a.name}={fighter_a.hp:.1f}, {fighter_b.name}={fighter_b.hp:.1f}")
-                print("=" * 60)
+                print("\n" + "═" * 60)
+                print(f"{'💀 KNOCKOUT!':^60s}")
+                print("═" * 60)
+                print(f"{fighter_b.name} wins at {tick*DT:.2f}s (tick {tick})".center(60))
+                print(f"Final: {fighter_a.name} {fighter_a.hp:.1f} HP  |  {fighter_b.name} {fighter_b.hp:.1f} HP".center(60))
+                print("═" * 60)
             return {"winner": fighter_b.name, "reason": "KO", "tick": tick}
 
         if not fighter_b.is_alive():
             if verbose:
-                print("=" * 60)
-                print(f"  💀 KNOCKOUT! {fighter_a.name} wins at tick {tick}")
-                print(f"  Final HP: {fighter_a.name}={fighter_a.hp:.1f}, {fighter_b.name}={fighter_b.hp:.1f}")
-                print("=" * 60)
+                print("\n" + "═" * 60)
+                print(f"{'💀 KNOCKOUT!':^60s}")
+                print("═" * 60)
+                print(f"{fighter_a.name} wins at {tick*DT:.2f}s (tick {tick})".center(60))
+                print(f"Final: {fighter_a.name} {fighter_a.hp:.1f} HP  |  {fighter_b.name} {fighter_b.hp:.1f} HP".center(60))
+                print("═" * 60)
             return {"winner": fighter_a.name, "reason": "KO", "tick": tick}
 
     # Timeout - determine winner by HP
     if verbose:
-        print("=" * 60)
-        print(f"  ⏱️  TIMEOUT at tick {max_ticks}")
-        print(f"  Final HP: {fighter_a.name}={fighter_a.hp:.1f}, {fighter_b.name}={fighter_b.hp:.1f}")
+        print("\n" + "═" * 60)
+        print(f"{'⏱️  TIME EXPIRED':^60s}")
+        print("═" * 60)
+        print(f"Match duration: {max_ticks*DT:.2f}s ({max_ticks} ticks)".center(60))
+        print(f"Final: {fighter_a.name} {fighter_a.hp:.1f} HP  |  {fighter_b.name} {fighter_b.hp:.1f} HP".center(60))
 
     if fighter_a.hp > fighter_b.hp:
         if verbose:
-            print(f"  Winner: {fighter_a.name} by HP")
-            print("=" * 60)
+            print(f"{fighter_a.name} wins by HP".center(60))
+            print("═" * 60)
         return {"winner": fighter_a.name, "reason": "timeout", "tick": max_ticks}
     elif fighter_b.hp > fighter_a.hp:
         if verbose:
-            print(f"  Winner: {fighter_b.name} by HP")
-            print("=" * 60)
+            print(f"{fighter_b.name} wins by HP".center(60))
+            print("═" * 60)
         return {"winner": fighter_b.name, "reason": "timeout", "tick": max_ticks}
     else:
         if verbose:
-            print(f"  Result: DRAW")
-            print("=" * 60)
+            print(f"{'DRAW':^60s}")
+            print("═" * 60)
         return {"winner": "draw", "reason": "timeout", "tick": max_ticks}
 
 
@@ -418,7 +509,7 @@ if __name__ == "__main__":
         "name": "AggressiveBot",
         "mass": 60.0,
         "max_hp": 100,
-        "max_stamina": 12.0,
+        "max_stamina": 8.0,
         "decide_fn": aggressive_fighter
     }
 
