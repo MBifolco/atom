@@ -1,0 +1,956 @@
+[
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.4339580498866213,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.38,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43599999999999994,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.37333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43466666666666665,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4493333333333333,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.025,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.365,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.4666666666666667,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.10714285714285714,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.47076190476190477,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.4533333333333333,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.1875,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.49083333333333334,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.9,
+          "stamina_usage": 0.5892857142857143,
+          "hp_variance": 0.3,
+          "action_diversity": 1.0,
+          "collision_rate": 0.6
+        },
+        "overall_score": 0.6778571428571429,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.4339580498866213,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.38,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43599999999999994,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.37333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43466666666666665,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4493333333333333,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.025,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.365,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.4666666666666667,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.10714285714285714,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.47076190476190477,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.4533333333333333,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.1875,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.49083333333333334,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.9,
+          "stamina_usage": 0.5892857142857143,
+          "hp_variance": 0.3,
+          "action_diversity": 1.0,
+          "collision_rate": 0.6
+        },
+        "overall_score": 0.6778571428571429,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  },
+  {
+    "params": {
+      "ARENA_WIDTH": 12.475987589205186,
+      "FRICTION": 0.32250967970040023,
+      "MAX_ACCELERATION": 4.3751465918455965,
+      "MAX_VELOCITY": 2.669632214446468,
+      "DT": 0.08418827284984075,
+      "STAMINA_ACCEL_COST": 0.21917487185572782,
+      "STAMINA_BASE_REGEN": 0.045148080546718046,
+      "STAMINA_NEUTRAL_BONUS": 2.065102412091205,
+      "BASE_COLLISION_DAMAGE": 3.1096090984263522,
+      "VELOCITY_DAMAGE_SCALE": 0.35065527304471955,
+      "MASS_DAMAGE_SCALE": 0.35304658236252234,
+      "MIN_MASS": 40.10710576206725,
+      "MAX_MASS": 90.7960790905159,
+      "HP_MIN": 47.95350602746594,
+      "HP_MAX": 125.49191064456662,
+      "STAMINA_MAX": 12.359531844825733,
+      "STAMINA_MIN": 5.763524976325574,
+      "STANCE_NEUTRAL_REACH": 0.2767797051627726,
+      "STANCE_NEUTRAL_WIDTH": 0.44282913700334803,
+      "STANCE_NEUTRAL_DRAIN": 6.498759678061017e-05,
+      "STANCE_NEUTRAL_DEFENSE": 1.0611638503665617,
+      "STANCE_EXTENDED_REACH": 0.8188836369929362,
+      "STANCE_EXTENDED_WIDTH": 0.16805010330359837,
+      "STANCE_EXTENDED_DRAIN": 0.03243835998494252,
+      "STANCE_EXTENDED_DEFENSE": 0.8871639216620344,
+      "STANCE_RETRACTED_REACH": 0.10048918176689403,
+      "STANCE_RETRACTED_WIDTH": 0.11854916867602959,
+      "STANCE_RETRACTED_DRAIN": 0.013868655073338561,
+      "STANCE_RETRACTED_DEFENSE": 1.1542483099042378,
+      "STANCE_DEFENDING_REACH": 0.38111780941006734,
+      "STANCE_DEFENDING_WIDTH": 0.5421384819823141,
+      "STANCE_DEFENDING_DRAIN": 0.06108122506856726,
+      "STANCE_DEFENDING_DEFENSE": 1.6289824731637605
+    },
+    "avg_score": 0.4339580498866213,
+    "match_results": [
+      {
+        "matchup": "LightAggro vs LightDefensive",
+        "quality_scores": {
+          "duration": 0.38,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43599999999999994,
+        "winner": "LightDefensive",
+        "duration": 57
+      },
+      {
+        "matchup": "LightAggro vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.37333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.43466666666666665,
+        "winner": "LightBalanced",
+        "duration": 56
+      },
+      {
+        "matchup": "LightAggro vs MidAggro",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidAggro",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.36666666666666664,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 55
+      },
+      {
+        "matchup": "LightAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyAggro",
+        "duration": 54
+      },
+      {
+        "matchup": "LightAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.36,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.875
+        },
+        "overall_score": 0.40700000000000003,
+        "winner": "HeavyTank",
+        "duration": 54
+      },
+      {
+        "matchup": "LightDefensive vs LightBalanced",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.4493333333333333,
+        "winner": "LightBalanced",
+        "duration": 67
+      },
+      {
+        "matchup": "LightDefensive vs MidAggro",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidAggro",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.43333333333333335,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44666666666666666,
+        "winner": "MidDefensive",
+        "duration": 65
+      },
+      {
+        "matchup": "LightDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyAggro",
+        "duration": 63
+      },
+      {
+        "matchup": "LightDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.42,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.44399999999999995,
+        "winner": "HeavyTank",
+        "duration": 63
+      },
+      {
+        "matchup": "LightBalanced vs MidAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "MidDefensive",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "LightBalanced vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.025,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.365,
+        "winner": "HeavyTank",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs MidDefensive",
+        "quality_scores": {
+          "duration": 0.4666666666666667,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9
+        },
+        "overall_score": 0.4333333333333333,
+        "winner": "MidDefensive",
+        "duration": 70
+      },
+      {
+        "matchup": "MidAggro vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.0,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.36,
+        "winner": "HeavyAggro",
+        "duration": 600
+      },
+      {
+        "matchup": "MidAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.44666666666666666,
+          "stamina_usage": 0.10714285714285714,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 1.0
+        },
+        "overall_score": 0.47076190476190477,
+        "winner": "HeavyTank",
+        "duration": 67
+      },
+      {
+        "matchup": "MidDefensive vs HeavyAggro",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.0,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.4533333333333333,
+        "winner": "HeavyAggro",
+        "duration": 75
+      },
+      {
+        "matchup": "MidDefensive vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.5,
+          "stamina_usage": 0.1875,
+          "hp_variance": 0.3,
+          "action_diversity": 0.5,
+          "collision_rate": 0.9666666666666667
+        },
+        "overall_score": 0.49083333333333334,
+        "winner": "HeavyTank",
+        "duration": 75
+      },
+      {
+        "matchup": "HeavyAggro vs HeavyTank",
+        "quality_scores": {
+          "duration": 0.9,
+          "stamina_usage": 0.5892857142857143,
+          "hp_variance": 0.3,
+          "action_diversity": 1.0,
+          "collision_rate": 0.6
+        },
+        "overall_score": 0.6778571428571429,
+        "winner": "HeavyTank",
+        "duration": 135
+      }
+    ],
+    "win_distribution": {
+      "Light": 3,
+      "Mid": 7,
+      "Heavy": 11
+    }
+  }
+]

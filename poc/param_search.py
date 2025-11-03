@@ -234,79 +234,142 @@ TEST_FIGHTERS = [
 
 def calculate_match_quality(telemetry: Dict) -> Dict[str, float]:
     """
-    Score a match on multiple quality dimensions.
+    Score a match on SPECTACLE - how exciting is the fight?
+
+    Focus on drama, momentum swings, close finishes, and variety.
+    WHO wins doesn't matter - only QUALITY of the fight matters.
 
     Returns dict of metric_name -> score (higher is better, 0-1 range)
     """
     scores = {}
 
-    # 1. Match Duration (want 150-300 ticks / 10-20 seconds)
+    # 1. Match Duration (want 100-400 ticks - not too quick, not endless)
     duration = telemetry['tick']
-    if duration < 50:
-        scores['duration'] = 0.0  # Too quick
+    if duration < 30:
+        scores['duration'] = 0.0  # Instant KO, no drama
     elif duration > 500:
-        scores['duration'] = 0.0  # Too long
-    elif 150 <= duration <= 300:
-        scores['duration'] = 1.0  # Perfect
+        scores['duration'] = 0.2  # Boring slugfest
+    elif 100 <= duration <= 400:
+        scores['duration'] = 1.0  # Perfect length
     else:
-        # Gradual falloff
-        if duration < 150:
-            scores['duration'] = duration / 150
+        if duration < 100:
+            scores['duration'] = duration / 100
         else:
-            scores['duration'] = max(0, 1.0 - (duration - 300) / 200)
+            scores['duration'] = max(0.2, 1.0 - (duration - 400) / 200)
 
-    # 2. Stamina Variance (fighters should use stamina, not stay maxed)
+    # 2. Close Finish (nail-biters are exciting!)
+    winner_hp_pct = telemetry.get('winner_hp_pct', 1.0)
+    if winner_hp_pct < 0.2:
+        scores['close_finish'] = 1.0  # Photo finish!
+    elif winner_hp_pct < 0.4:
+        scores['close_finish'] = 0.9  # Close call
+    elif winner_hp_pct < 0.6:
+        scores['close_finish'] = 0.7  # Competitive
+    elif winner_hp_pct < 0.8:
+        scores['close_finish'] = 0.4  # Dominant
+    else:
+        scores['close_finish'] = 0.0  # Boring stomp
+
+    # 3. Stamina Drama (exhaustion moments = tension!)
     stamina_samples = telemetry.get('stamina_samples', [])
     if stamina_samples:
-        # Calculate what % of time fighters were below 90% stamina
-        below_90_count = sum(1 for s in stamina_samples if s < 0.9)
-        stamina_usage_rate = below_90_count / len(stamina_samples)
-        scores['stamina_usage'] = min(1.0, stamina_usage_rate * 1.5)  # Want 66%+ usage
-    else:
-        scores['stamina_usage'] = 0.0
+        # Count moments where fighters were gasping (<30% stamina)
+        critical_moments = sum(1 for s in stamina_samples if s < 0.3)
+        drama_rate = critical_moments / len(stamina_samples)
 
-    # 3. HP Trajectory Variance (want back-and-forth, not monotonic decline)
+        # Want 10-30% of fight at critical stamina
+        if 0.1 <= drama_rate <= 0.3:
+            scores['stamina_drama'] = 1.0
+        elif 0.05 <= drama_rate < 0.1:
+            scores['stamina_drama'] = 0.7
+        elif drama_rate > 0.3:
+            scores['stamina_drama'] = 0.5  # Too much exhaustion
+        else:
+            scores['stamina_drama'] = 0.3  # No drama
+    else:
+        scores['stamina_drama'] = 0.0
+
+    # 4. Comeback Potential (HP lead changes = exciting!)
     hp_changes = telemetry.get('hp_changes', [])
-    if len(hp_changes) >= 3:
-        # Look for "swings" where damage lead changes
+    if len(hp_changes) >= 5:
         lead_changes = 0
         for i in range(1, len(hp_changes)):
-            # hp_changes[i] = (hp_a, hp_b)
             prev_lead = hp_changes[i-1][0] - hp_changes[i-1][1]
             curr_lead = hp_changes[i][0] - hp_changes[i][1]
-            if prev_lead * curr_lead < 0:  # Sign change = lead swap
+            if prev_lead * curr_lead < 0:  # Lead swapped
                 lead_changes += 1
 
-        # Want 2-4 lead changes for exciting back-and-forth
-        if 2 <= lead_changes <= 4:
-            scores['hp_variance'] = 1.0
-        elif lead_changes == 1 or lead_changes == 5:
-            scores['hp_variance'] = 0.7
+        # More lead changes = more exciting
+        if lead_changes >= 3:
+            scores['comeback_potential'] = 1.0
+        elif lead_changes == 2:
+            scores['comeback_potential'] = 0.8
+        elif lead_changes == 1:
+            scores['comeback_potential'] = 0.5
         else:
-            scores['hp_variance'] = 0.3
+            scores['comeback_potential'] = 0.2
     else:
-        scores['hp_variance'] = 0.5  # Neutral if not enough data
+        scores['comeback_potential'] = 0.3
 
-    # 4. Action Diversity (not just always max acceleration)
-    actions = telemetry.get('actions', [])
-    if actions:
-        max_accel_rate = sum(1 for a in actions if abs(a) > 4.5) / len(actions)
-        # Want 40-70% max acceleration (aggressive but strategic)
-        if 0.4 <= max_accel_rate <= 0.7:
-            scores['action_diversity'] = 1.0
+    # 5. Positional Exchanges (movement across arena, not wall grinding)
+    positions = telemetry.get('position_samples', [])
+    if positions and len(positions) >= 10:
+        # Count position swaps (fighter A left→right, B right→left)
+        swaps = 0
+        for i in range(1, len(positions)):
+            prev_a, prev_b = positions[i-1]
+            curr_a, curr_b = positions[i]
+            # Swap = relative position flips
+            if (prev_a < prev_b and curr_a > curr_b) or (prev_a > prev_b and curr_a < curr_b):
+                swaps += 1
+
+        swap_rate = swaps / len(positions)
+        # Want 5-20% of ticks to have position swaps
+        if 0.05 <= swap_rate <= 0.2:
+            scores['positional_exchange'] = 1.0
+        elif swap_rate > 0.2:
+            scores['positional_exchange'] = 0.6  # Too chaotic
         else:
-            scores['action_diversity'] = 0.5
+            scores['positional_exchange'] = swap_rate / 0.05  # Scale up to 0.05
     else:
-        scores['action_diversity'] = 0.5
+        scores['positional_exchange'] = 0.0
 
-    # 5. Collision Rate (want meaningful contact, not constant wall grinding)
+    # 6. Pacing Variety (mix of speeds, not monotonic)
+    velocity_samples = telemetry.get('velocity_samples', [])
+    if velocity_samples and len(velocity_samples) >= 10:
+        # Calculate variance in speed (fast → slow → fast = good pacing)
+        speeds = [abs(v) for v in velocity_samples]
+        avg_speed = sum(speeds) / len(speeds)
+
+        if avg_speed > 0.1:
+            variance = sum((s - avg_speed) ** 2 for s in speeds) / len(speeds)
+            std_dev = variance ** 0.5
+
+            # Normalize: want std_dev around 0.5-1.5 m/s
+            if 0.5 <= std_dev <= 1.5:
+                scores['pacing_variety'] = 1.0
+            elif std_dev < 0.5:
+                scores['pacing_variety'] = std_dev / 0.5
+            else:
+                scores['pacing_variety'] = max(0.3, 1.0 - (std_dev - 1.5) / 2.0)
+        else:
+            scores['pacing_variety'] = 0.0  # No movement
+    else:
+        scores['pacing_variety'] = 0.5
+
+    # 7. Collision Drama (want impactful exchanges, not grinding)
     collisions = telemetry.get('collision_count', 0)
-    if 8 <= collisions <= 20:
-        scores['collision_rate'] = 1.0
+    avg_collision_damage = telemetry.get('avg_collision_damage', 0)
+
+    # Want 8-25 collisions with meaningful damage
+    if 8 <= collisions <= 25 and avg_collision_damage > 3.0:
+        scores['collision_drama'] = 1.0
     elif collisions < 8:
-        scores['collision_rate'] = collisions / 8
+        scores['collision_drama'] = collisions / 8
+    elif collisions > 25:
+        scores['collision_drama'] = 0.4  # Wall grinding
     else:
-        scores['collision_rate'] = max(0, 1.0 - (collisions - 20) / 30)
+        scores['collision_drama'] = 0.5
 
     return scores
 
@@ -421,6 +484,9 @@ def run_instrumented_match(fighter_a_archetype, fighter_b_archetype, params: Dic
             'hp_changes': [],
             'actions': [],
             'collision_count': 0,
+            'collision_damages': [],
+            'position_samples': [],
+            'velocity_samples': [],
             'tick': 0
         }
 
@@ -433,6 +499,9 @@ def run_instrumented_match(fighter_a_archetype, fighter_b_archetype, params: Dic
                               fighter_b.stamina / fighter_b.max_stamina) / 2
                 telemetry['stamina_samples'].append(avg_stamina)
                 telemetry['hp_changes'].append((fighter_a.hp, fighter_b.hp))
+                telemetry['position_samples'].append((fighter_a.position, fighter_b.position))
+                avg_velocity = (abs(fighter_a.velocity) + abs(fighter_b.velocity)) / 2
+                telemetry['velocity_samples'].append(avg_velocity)
 
             # Generate snapshots
             from poc_minimal import generate_snapshot
@@ -448,27 +517,48 @@ def run_instrumented_match(fighter_a_archetype, fighter_b_archetype, params: Dic
             # Execute step
             events = arena.step(action_a, action_b)
 
-            # Count collisions
-            if any(e['type'] == 'COLLISION' for e in events):
-                telemetry['collision_count'] += 1
+            # Track collisions and damage
+            for event in events:
+                if event['type'] == 'COLLISION':
+                    telemetry['collision_count'] += 1
+                    avg_damage = (event.get('damage_to_a', 0) + event.get('damage_to_b', 0)) / 2
+                    telemetry['collision_damages'].append(avg_damage)
 
             # Check win conditions
             if not fighter_a.is_alive():
                 telemetry['winner'] = fighter_b.name
+                telemetry['winner_hp'] = fighter_b.hp
+                telemetry['winner_max_hp'] = fighter_b.max_hp
                 telemetry['reason'] = 'KO'
                 telemetry['tick'] = tick
                 break
 
             if not fighter_b.is_alive():
                 telemetry['winner'] = fighter_a.name
+                telemetry['winner_hp'] = fighter_a.hp
+                telemetry['winner_max_hp'] = fighter_a.max_hp
                 telemetry['reason'] = 'KO'
                 telemetry['tick'] = tick
                 break
         else:
             # Timeout
-            telemetry['winner'] = fighter_a.name if fighter_a.hp > fighter_b.hp else fighter_b.name
+            if fighter_a.hp > fighter_b.hp:
+                telemetry['winner'] = fighter_a.name
+                telemetry['winner_hp'] = fighter_a.hp
+                telemetry['winner_max_hp'] = fighter_a.max_hp
+            else:
+                telemetry['winner'] = fighter_b.name
+                telemetry['winner_hp'] = fighter_b.hp
+                telemetry['winner_max_hp'] = fighter_b.max_hp
             telemetry['reason'] = 'timeout'
             telemetry['tick'] = max_ticks
+
+        # Calculate derived metrics
+        telemetry['winner_hp_pct'] = telemetry['winner_hp'] / telemetry['winner_max_hp']
+        if telemetry['collision_damages']:
+            telemetry['avg_collision_damage'] = sum(telemetry['collision_damages']) / len(telemetry['collision_damages'])
+        else:
+            telemetry['avg_collision_damage'] = 0
 
         return telemetry
 
@@ -526,17 +616,14 @@ def evaluate_parameter_set(params: Dict, matchups: List[Tuple]) -> Dict:
                 'error': str(e)
             })
 
-    # Aggregate across all matches
+    # Aggregate across all matches - PURE SPECTACLE SCORE
+    # We don't care WHO wins, only QUALITY of fights!
     avg_score = sum(m['overall_score'] for m in match_results) / len(match_results)
 
-    # Win distribution analysis
+    # Win distribution (for info only, not used in scoring)
     winners = [m.get('winner') for m in match_results if 'winner' in m]
     win_counts = {}
     for winner in winners:
-        archetype = winner.replace("LightAggro", "Light").replace("LightDefensive", "Light")\
-                          .replace("MidAggro", "Mid").replace("MidDefensive", "Mid")\
-                          .replace("HeavyAggro", "Heavy").replace("HeavyTank", "Heavy")
-
         # Extract archetype (Light/Mid/Heavy)
         if "Light" in winner:
             archetype = "Light"
@@ -546,17 +633,6 @@ def evaluate_parameter_set(params: Dict, matchups: List[Tuple]) -> Dict:
             archetype = "Mid"
 
         win_counts[archetype] = win_counts.get(archetype, 0) + 1
-
-    # Penalty for imbalanced win distribution
-    if len(win_counts) > 0:
-        max_wins = max(win_counts.values())
-        total_matches = len(winners)
-        dominance = max_wins / total_matches if total_matches > 0 else 0
-
-        # Penalize if one archetype wins >60% of matches
-        if dominance > 0.6:
-            balance_penalty = (dominance - 0.6) * 2  # Up to 0.8 penalty
-            avg_score *= (1.0 - balance_penalty)
 
     return {
         'params': params,
