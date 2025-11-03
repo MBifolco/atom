@@ -43,18 +43,47 @@ STANCES = {
 # FIGHTER STATE
 # ============================================================================
 
+def calculate_fighter_stats(mass: float) -> dict:
+    """
+    The world determines HP and stamina from mass.
+    Creates natural tradeoffs:
+    - Heavy: High HP, low stamina (tank, slow)
+    - Light: Low HP, high stamina (fragile, mobile)
+
+    40kg → 60 HP, 12.0 stamina (glass cannon)
+    70kg → 80 HP, 10.0 stamina (balanced)
+    100kg → 100 HP, 8.0 stamina (tank)
+    """
+    MIN_MASS = 40.0
+    MAX_MASS = 100.0
+
+    # HP increases with mass (more mass = more damage absorption)
+    hp = 60 + (mass - MIN_MASS) * (100 - 60) / (MAX_MASS - MIN_MASS)
+
+    # Stamina decreases with mass (more mass = harder to move)
+    stamina = 12.0 - (mass - MIN_MASS) * (12.0 - 8.0) / (MAX_MASS - MIN_MASS)
+
+    return {
+        "max_hp": round(hp, 1),
+        "max_stamina": round(stamina, 1)
+    }
+
+
 class FighterState:
-    def __init__(self, name, mass, max_hp, max_stamina, position):
+    def __init__(self, name, mass, position):
         self.name = name
         self.mass = mass
-        self.max_hp = max_hp
-        self.max_stamina = max_stamina
+
+        # World calculates stats from mass
+        stats = calculate_fighter_stats(mass)
+        self.max_hp = stats["max_hp"]
+        self.max_stamina = stats["max_stamina"]
 
         # Dynamic state
         self.position = position
         self.velocity = 0.0
-        self.hp = max_hp
-        self.stamina = max_stamina
+        self.hp = self.max_hp
+        self.stamina = self.max_stamina
         self.stance = "neutral"
 
     def is_alive(self):
@@ -77,11 +106,9 @@ class Arena1D:
         random.seed(seed)
 
     def _validate_fighter(self, fighter: FighterState):
-        """Enforce world spec constraints to prevent 'perfect fighter' builds."""
+        """Enforce world spec constraints. Mass is the only spec - HP/stamina derived by world."""
         MIN_MASS = 40.0
         MAX_MASS = 100.0
-        MAX_HP = 100.0
-        MAX_STAMINA = 10.0
 
         if not (MIN_MASS <= fighter.mass <= MAX_MASS):
             raise ValueError(
@@ -89,15 +116,7 @@ class Arena1D:
                 f"({MIN_MASS}-{MAX_MASS}kg)"
             )
 
-        if fighter.max_hp > MAX_HP:
-            raise ValueError(
-                f"Fighter '{fighter.name}' HP {fighter.max_hp} exceeds maximum {MAX_HP}"
-            )
-
-        if fighter.max_stamina > MAX_STAMINA:
-            raise ValueError(
-                f"Fighter '{fighter.name}' stamina {fighter.max_stamina} exceeds maximum {MAX_STAMINA}"
-            )
+        # HP and stamina are world-calculated from mass, so they're always valid
 
     def step(self, action_a: Dict, action_b: Dict) -> List[Dict]:
         """Execute one physics tick with both fighter actions."""
@@ -408,16 +427,12 @@ def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True, displ
     fighter_a = FighterState(
         name=fighter_a_spec["name"],
         mass=fighter_a_spec["mass"],
-        max_hp=fighter_a_spec["max_hp"],
-        max_stamina=fighter_a_spec["max_stamina"],
         position=2.0
     )
 
     fighter_b = FighterState(
         name=fighter_b_spec["name"],
         mass=fighter_b_spec["mass"],
-        max_hp=fighter_b_spec["max_hp"],
-        max_stamina=fighter_b_spec["max_stamina"],
         position=8.0
     )
 
@@ -504,20 +519,16 @@ def run_match(fighter_a_spec, fighter_b_spec, max_ticks=600, verbose=True, displ
 # ============================================================================
 
 if __name__ == "__main__":
-    # Define fighter specs
+    # Define fighter specs (only mass - world calculates HP/stamina)
     aggressive_spec = {
         "name": "AggressiveBot",
-        "mass": 60.0,
-        "max_hp": 100,
-        "max_stamina": 8.0,
+        "mass": 60.0,  # Light: 73.3 HP, 10.7 stamina
         "decide_fn": aggressive_fighter
     }
 
     defensive_spec = {
         "name": "DefensiveBot",
-        "mass": 80.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,
+        "mass": 80.0,  # Heavy: 86.7 HP, 9.3 stamina
         "decide_fn": defensive_fighter
     }
 

@@ -26,8 +26,6 @@ def test_mass_constraints():
     normal = {
         "name": "Normal (70kg)",
         "mass": 70.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,
         "decide_fn": aggressive_fighter
     }
 
@@ -35,8 +33,6 @@ def test_mass_constraints():
     super_heavy = {
         "name": "SuperHeavy (6000kg)",
         "mass": 6000.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,
         "decide_fn": aggressive_fighter
     }
 
@@ -44,8 +40,6 @@ def test_mass_constraints():
     ultra_light = {
         "name": "UltraLight (1kg)",
         "mass": 1.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,
         "decide_fn": aggressive_fighter
     }
 
@@ -68,52 +62,48 @@ def test_mass_constraints():
     print()
 
 
-def test_hp_stamina_extremes():
-    """Test extreme HP and stamina values."""
+def test_world_calculated_stats():
+    """Test that HP and stamina are correctly calculated from mass by the world."""
     print("=" * 70)
-    print("TEST: HP & Stamina Extremes")
+    print("TEST: World-Calculated Stats (Mass → HP/Stamina)")
     print("=" * 70)
 
-    normal = {
-        "name": "Normal",
-        "mass": 70.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,
-        "decide_fn": aggressive_fighter
-    }
+    from poc_minimal import calculate_fighter_stats
 
-    ultra_hp = {
-        "name": "UltraHP (10000)",
-        "mass": 70.0,
-        "max_hp": 10000,
-        "max_stamina": 10.0,
-        "decide_fn": aggressive_fighter
-    }
+    print("\n   World stat formulas:")
+    print("   40kg  → 60 HP, 12.0 stamina (glass cannon)")
+    print("   70kg  → 80 HP, 10.0 stamina (balanced)")
+    print("   100kg → 100 HP, 8.0 stamina (tank)")
+    print()
 
-    ultra_stamina = {
-        "name": "UltraStamina (1000)",
-        "mass": 70.0,
-        "max_hp": 100,
-        "max_stamina": 1000.0,
-        "decide_fn": aggressive_fighter
-    }
+    # Test the calculation function
+    test_cases = [
+        (40.0, 60.0, 12.0),
+        (70.0, 80.0, 10.0),
+        (100.0, 100.0, 8.0),
+        (60.0, 73.3, 10.7),
+        (80.0, 86.7, 9.3),
+    ]
 
-    print("\n1. Attempting Normal vs Ultra HP (10000)")
-    try:
-        result1 = run_match(normal, ultra_hp, max_ticks=300, verbose=False)
-        print(f"   ❌ FAIL: Match allowed! Winner: {result1['winner']}")
-    except ValueError as e:
-        print(f"   ✓ PASS: Rejected - {e}")
+    print("   Verification:")
+    all_pass = True
+    for mass, expected_hp, expected_stam in test_cases:
+        stats = calculate_fighter_stats(mass)
+        hp_match = abs(stats["max_hp"] - expected_hp) < 0.2
+        stam_match = abs(stats["max_stamina"] - expected_stam) < 0.2
 
-    print("\n2. Attempting Normal vs Ultra Stamina (1000)")
-    try:
-        result2 = run_match(normal, ultra_stamina, max_ticks=300, verbose=False)
-        print(f"   ❌ FAIL: Match allowed! Winner: {result2['winner']}")
-    except ValueError as e:
-        print(f"   ✓ PASS: Rejected - {e}")
+        status = "✓" if (hp_match and stam_match) else "❌"
+        print(f"   {status} {mass:5.1f}kg → {stats['max_hp']:5.1f} HP, {stats['max_stamina']:5.1f} stamina")
 
-    print("\n✓ HP/Stamina constraints now enforced!")
-    print("   Max HP: 100, Max Stamina: 10.0")
+        if not (hp_match and stam_match):
+            all_pass = False
+
+    if all_pass:
+        print("\n✓ World correctly calculates stats from mass!")
+        print("   Players can ONLY choose mass - HP/stamina are derived")
+        print("   No 'perfect fighter' possible!")
+    else:
+        print("\n❌ FAIL: Stat calculation mismatch!")
     print()
 
 
@@ -134,16 +124,12 @@ def test_mass_tradeoffs():
         heavy = {
             "name": f"Heavy_{mass}kg",
             "mass": float(mass),
-            "max_hp": 100,
-            "max_stamina": 10.0,
             "decide_fn": aggressive_fighter
         }
 
         light = {
             "name": "Light_50kg",
             "mass": 50.0,
-            "max_hp": 100,
-            "max_stamina": 10.0,
             "decide_fn": aggressive_fighter
         }
 
@@ -164,28 +150,26 @@ def test_stamina_relevance():
     print("TEST: Stamina Pool Relevance (Within Legal Range)")
     print("=" * 70)
 
-    high_stamina = {
-        "name": "HighStam_10",
-        "mass": 70.0,
-        "max_hp": 100,
-        "max_stamina": 10.0,  # Max legal stamina
+    # Light fighter (more stamina)
+    light = {
+        "name": "Light_40kg",
+        "mass": 40.0,  # 60 HP, 12.0 stamina
         "decide_fn": aggressive_fighter
     }
 
-    low_stamina = {
-        "name": "LowStam_6",
-        "mass": 70.0,
-        "max_hp": 100,
-        "max_stamina": 6.0,  # Lower but legal
+    # Heavy fighter (less stamina)
+    heavy = {
+        "name": "Heavy_100kg",
+        "mass": 100.0,  # 100 HP, 8.0 stamina
         "decide_fn": aggressive_fighter
     }
 
-    result = run_match(high_stamina, low_stamina, max_ticks=300, verbose=False)
+    result = run_match(light, heavy, max_ticks=300, verbose=False)
     print(f"   Winner: {result['winner']} ({result['reason']} at tick {result['tick']})")
 
     print("\n💡 OBSERVATION:")
-    print("   Stamina pool size variation (6 vs 10) within legal range")
-    print("   Current fighters may not use this strategically yet")
+    print("   Light fighter (60 HP, 12.0 stamina) vs Heavy (100 HP, 8.0 stamina)")
+    print("   Stamina difference creates mobility vs durability tradeoff")
     print()
 
 
@@ -269,8 +253,11 @@ def test_zero_stamina():
 
     from poc_minimal import Arena1D, FighterState
 
-    fighter = FighterState("TestFighter", mass=70.0, max_hp=100, max_stamina=0.5, position=5.0)
-    dummy = FighterState("Dummy", mass=70.0, max_hp=100, max_stamina=10.0, position=8.0)
+    fighter = FighterState("TestFighter", mass=70.0, position=5.0)
+    # Manually drain stamina to near-zero for test
+    fighter.stamina = 0.5
+
+    dummy = FighterState("Dummy", mass=70.0, position=8.0)
 
     arena = Arena1D(fighter, dummy)
 
@@ -298,8 +285,8 @@ def test_wall_collision():
 
     from poc_minimal import Arena1D, FighterState
 
-    fighter = FighterState("TestFighter", mass=70.0, max_hp=100, max_stamina=10.0, position=0.5)
-    dummy = FighterState("Dummy", mass=70.0, max_hp=100, max_stamina=10.0, position=5.0)
+    fighter = FighterState("TestFighter", mass=70.0, position=0.5)
+    dummy = FighterState("Dummy", mass=70.0, position=5.0)
 
     arena = Arena1D(fighter, dummy)
 
@@ -327,7 +314,7 @@ if __name__ == "__main__":
     print()
 
     test_mass_constraints()
-    test_hp_stamina_extremes()
+    test_world_calculated_stats()
     test_mass_tradeoffs()
     test_stamina_relevance()
     test_mass_stamina_cost()
@@ -339,11 +326,13 @@ if __name__ == "__main__":
     print("SUMMARY")
     print("=" * 70)
     print()
-    print("✅ FIXED: Constraint enforcement")
-    print("   - Mass limited to 40-100kg")
-    print("   - HP limited to 100 max")
-    print("   - Stamina limited to 10.0 max")
-    print("   - Invalid fighters are rejected before match starts")
+    print("✅ FIXED: World-Calculated Stats (No 'Perfect Fighter'!)")
+    print("   - Players choose ONLY mass (40-100kg)")
+    print("   - World calculates HP and stamina from mass:")
+    print("     • 40kg  → 60 HP, 12.0 stamina (glass cannon)")
+    print("     • 70kg  → 80 HP, 10.0 stamina (balanced)")
+    print("     • 100kg → 100 HP, 8.0 stamina (tank)")
+    print("   - No way to max out all stats!")
     print()
     print("✅ FIXED: Mass → Stamina cost implemented")
     print("   - Heavy fighters burn more stamina when accelerating")
