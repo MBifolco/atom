@@ -67,10 +67,37 @@ class FighterState:
 
 class Arena1D:
     def __init__(self, fighter_a: FighterState, fighter_b: FighterState, seed=42):
+        # Validate fighter constraints (from world_spec.md)
+        self._validate_fighter(fighter_a)
+        self._validate_fighter(fighter_b)
+
         self.fighter_a = fighter_a
         self.fighter_b = fighter_b
         self.tick = 0
         random.seed(seed)
+
+    def _validate_fighter(self, fighter: FighterState):
+        """Enforce world spec constraints to prevent 'perfect fighter' builds."""
+        MIN_MASS = 40.0
+        MAX_MASS = 100.0
+        MAX_HP = 100.0
+        MAX_STAMINA = 10.0
+
+        if not (MIN_MASS <= fighter.mass <= MAX_MASS):
+            raise ValueError(
+                f"Fighter '{fighter.name}' mass {fighter.mass}kg outside legal range "
+                f"({MIN_MASS}-{MAX_MASS}kg)"
+            )
+
+        if fighter.max_hp > MAX_HP:
+            raise ValueError(
+                f"Fighter '{fighter.name}' HP {fighter.max_hp} exceeds maximum {MAX_HP}"
+            )
+
+        if fighter.max_stamina > MAX_STAMINA:
+            raise ValueError(
+                f"Fighter '{fighter.name}' stamina {fighter.max_stamina} exceeds maximum {MAX_STAMINA}"
+            )
 
     def step(self, action_a: Dict, action_b: Dict) -> List[Dict]:
         """Execute one physics tick with both fighter actions."""
@@ -167,9 +194,11 @@ class Arena1D:
         return damage
 
     def _update_stamina(self, fighter: FighterState, action: Dict):
-        """Update stamina based on acceleration, stance, and regen."""
-        # Cost of acceleration
-        accel_cost = abs(action["acceleration"]) * STAMINA_ACCEL_COST * DT
+        """Update stamina based on acceleration, stance, mass, and regen."""
+        # Cost of acceleration (scaled by mass - heavier = more expensive)
+        # 70kg is baseline (1.0x cost), lighter is cheaper, heavier is more expensive
+        mass_factor = fighter.mass / 70.0
+        accel_cost = abs(action["acceleration"]) * STAMINA_ACCEL_COST * DT * mass_factor
 
         # Stance drain
         stance_drain = STANCES[action["stance"]]["drain"]
