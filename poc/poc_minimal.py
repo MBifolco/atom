@@ -304,12 +304,18 @@ def generate_snapshot(my_fighter: FighterState, opp_fighter: FighterState, tick:
             "position": my_fighter.position,
             "velocity": my_fighter.velocity,
             "hp": my_fighter.hp,
+            "max_hp": my_fighter.max_hp,
             "stamina": my_fighter.stamina,
+            "max_stamina": my_fighter.max_stamina,
             "stance": my_fighter.stance
         },
         "opponent": {
             "distance": distance,
             "velocity": rel_velocity,
+            "hp": opp_fighter.hp,
+            "max_hp": opp_fighter.max_hp,
+            "stamina": opp_fighter.stamina,
+            "max_stamina": opp_fighter.max_stamina,
             "stance_hint": opp_fighter.stance
         },
         "arena": {
