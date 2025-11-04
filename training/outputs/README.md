@@ -40,14 +40,28 @@ outputs/
 
 **Note:** Curriculum training uses continual learning - each level continues training from the previous level to prevent catastrophic forgetting.
 
-### Checkpoints
-Periodic checkpoints during training:
+### Checkpoints and Logs
+Periodic checkpoints and training logs are stored with the model:
 ```
-outputs/checkpoints/
-├── fighter_checkpoint_10000_steps.zip
-├── fighter_checkpoint_20000_steps.zip
-...
+outputs/
+└── parzival_1.0.12/
+    ├── level1.zip
+    ├── level1.onnx
+    ├── level1.py
+    ├── checkpoints/
+    │   ├── fighter_checkpoint_100000_steps.zip
+    │   ├── fighter_checkpoint_200000_steps.zip
+    │   └── ...
+    └── logs/                              # NEW: Logs live with their models
+        ├── parzival_1.0.12_level_1_timestamp.log
+        ├── parzival_1.0.12_level_2_timestamp.log
+        └── ...
 ```
+
+**Benefits:**
+- Clear association: logs are with their models
+- Easy cleanup: delete the entire fighter directory
+- No shared/mixed log directories
 
 ## Using Trained Fighters
 

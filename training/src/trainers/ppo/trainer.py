@@ -361,11 +361,8 @@ def train_fighter(
     else:
         log_name = level_name
 
-    # Determine logs directory (relative to output_path)
-    if "training/" in str(output_path):
-        logs_dir = output_path_obj.parent.parent / "logs"
-    else:
-        logs_dir = output_path_obj.parent / "logs"
+    # Logs go in the model's directory (e.g., outputs/parzival_1.0.12/logs/)
+    logs_dir = output_path_obj.parent / "logs"
     logs_dir.mkdir(exist_ok=True)
 
     log_path = logs_dir / f"{log_name}_{timestamp}.log"
