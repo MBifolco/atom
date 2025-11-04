@@ -1,0 +1,33 @@
+2025-11-04 10:47:36,515 - INFO - ================================================================================
+2025-11-04 10:47:36,515 - INFO - TRAINING SESSION STARTED
+2025-11-04 10:47:36,516 - INFO - Opponents: wanderer
+2025-11-04 10:47:36,516 - INFO - Number of environments: 12
+2025-11-04 10:47:36,516 - INFO - ================================================================================
+2025-11-04 10:47:36,589 - DEBUG - Episode 1 | Env 9 | Opponent: wanderer | Reward: -425.5 | Length: 85 ticks
+2025-11-04 10:47:36,589 - DEBUG -   Final HP: Fighter=0.0, Opponent=71.0
+2025-11-04 10:47:36,589 - DEBUG -   Damage: Dealt=22.7, Taken=93.7
+2025-11-04 10:47:36,589 - DEBUG -   Result: LOSS
+2025-11-04 10:47:37,828 - DEBUG - Episode 2 | Env 9 | Opponent: wanderer | Reward: -393.1 | Length: 90 ticks
+2025-11-04 10:47:37,829 - DEBUG -   Final HP: Fighter=0.0, Opponent=60.7
+2025-11-04 10:47:37,829 - DEBUG -   Damage: Dealt=33.0, Taken=93.7
+2025-11-04 10:47:37,829 - DEBUG -   Result: LOSS
+2025-11-04 10:47:37,851 - DEBUG - Episode 3 | Env 3 | Opponent: wanderer | Reward: -388.1 | Length: 189 ticks
+2025-11-04 10:47:37,852 - DEBUG -   Final HP: Fighter=0.0, Opponent=51.7
+2025-11-04 10:47:37,852 - DEBUG -   Damage: Dealt=42.0, Taken=93.7
+2025-11-04 10:47:37,852 - DEBUG -   Result: LOSS
+2025-11-04 10:47:37,959 - DEBUG - Episode 4 | Env 9 | Opponent: wanderer | Reward: -401.4 | Length: 91 ticks
+2025-11-04 10:47:37,960 - DEBUG -   Final HP: Fighter=0.0, Opponent=61.9
+2025-11-04 10:47:37,960 - DEBUG -   Damage: Dealt=31.8, Taken=93.7
+2025-11-04 10:47:37,960 - DEBUG -   Result: LOSS
+2025-11-04 10:47:37,982 - DEBUG - Episode 5 | Env 6 | Opponent: wanderer | Reward: -334.3 | Length: 277 ticks
+2025-11-04 10:47:37,982 - DEBUG -   Final HP: Fighter=0.0, Opponent=30.9
+2025-11-04 10:47:37,982 - DEBUG -   Damage: Dealt=62.8, Taken=93.7
+2025-11-04 10:47:37,982 - DEBUG -   Result: LOSS
+2025-11-04 10:47:37,984 - DEBUG - Episode 6 | Env 5 | Opponent: wanderer | Reward: -376.4 | Length: 279 ticks
+2025-11-04 10:47:37,985 - DEBUG -   Final HP: Fighter=0.0, Opponent=42.8
+2025-11-04 10:47:37,985 - DEBUG -   Damage: Dealt=50.9, Taken=93.7
+2025-11-04 10:47:37,985 - DEBUG -   Result: LOSS
+2025-11-04 10:47:38,028 - DEBUG - Episode 7 | Env 11 | Opponent: wanderer | Reward: -426.8 | Length: 314 ticks
+2025-11-04 10:47:38,029 - DEBUG -   Final HP: Fighter=0.0, Opponent=56.6
+2025-11-04 10:47:38,029 - DEBUG -   Damage: Dealt=37.1, Taken=93.7
+2025-11-04 10:47:38,029 - DEBUG -   Result: LOSS

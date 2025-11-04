@@ -1,0 +1,20 @@
+# Trained models
+outputs/*.zip
+outputs/*.onnx
+outputs/*.py
+outputs/checkpoints/*.zip
+
+# Logs
+logs/*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Keep README files
+!outputs/README.md
+!logs/README.md
+!outputs/checkpoints/README.md

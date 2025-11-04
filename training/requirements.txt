@@ -1,0 +1,18 @@
+# Atom Combat - Training Dependencies
+#
+# Install with: pip install -r requirements-training.txt
+
+# Reinforcement Learning
+stable-baselines3>=2.0.0
+gymnasium>=0.28.0
+
+# Deep Learning
+torch>=2.0.0
+tensorboard>=2.13.0
+
+# ONNX Export/Inference
+onnx>=1.14.0
+onnxruntime>=1.15.0
+
+# Utilities
+numpy>=1.24.0

@@ -1,0 +1,1449 @@
+2025-11-04 10:44:12,909 - INFO - ================================================================================
+2025-11-04 10:44:12,909 - INFO - TRAINING SESSION STARTED
+2025-11-04 10:44:12,909 - INFO - Opponents: training_dummy
+2025-11-04 10:44:12,909 - INFO - Number of environments: 12
+2025-11-04 10:44:12,909 - INFO - ================================================================================
+2025-11-04 10:44:16,254 - DEBUG - Episode 1 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,254 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,254 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,254 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,254 - DEBUG - Episode 2 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,254 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,254 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,254 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,254 - DEBUG - Episode 3 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,254 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,254 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,254 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,254 - DEBUG - Episode 4 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,254 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,254 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,254 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 5 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 6 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 7 | Env 6 | Opponent: training_dummy | Reward: -340.1 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=53.7, Opponent=74.8
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=18.9, Taken=40.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 8 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 9 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 10 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 11 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:16,255 - DEBUG - Episode 12 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:16,255 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:16,255 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:16,255 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,589 - DEBUG - Episode 13 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,589 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,589 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,589 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,589 - DEBUG - Episode 14 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,589 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,589 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,589 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,589 - DEBUG - Episode 15 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,589 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 16 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 17 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 18 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 19 | Env 6 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 20 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 21 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,590 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,590 - DEBUG - Episode 22 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,590 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,590 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,591 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,591 - DEBUG - Episode 23 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,591 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,591 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,591 - DEBUG -   Result: LOSS
+2025-11-04 10:44:22,591 - DEBUG - Episode 24 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:22,591 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:22,591 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:22,591 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,887 - DEBUG - Episode 25 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,887 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,887 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 26 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 27 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 28 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 29 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 30 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 31 | Env 6 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 32 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 33 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 34 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 35 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:28,888 - DEBUG - Episode 36 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:28,888 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:28,888 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:28,888 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 37 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 38 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 39 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 40 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 41 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 42 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 43 | Env 6 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 44 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 45 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 46 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 47 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:34,206 - DEBUG - Episode 48 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:34,206 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:34,206 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:34,206 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 49 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,893 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,893 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,893 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 50 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,893 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,893 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,893 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 51 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,893 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,893 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,893 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 52 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,893 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,893 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,893 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 53 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,893 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,893 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,893 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,893 - DEBUG - Episode 54 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 55 | Env 6 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 56 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 57 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 58 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 59 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:38,894 - DEBUG - Episode 60 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:38,894 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:38,894 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:38,894 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,055 - DEBUG - Episode 61 | Env 0 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,055 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 62 | Env 1 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 63 | Env 2 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 64 | Env 3 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 65 | Env 4 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 66 | Env 5 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 67 | Env 6 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 68 | Env 7 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 69 | Env 8 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 70 | Env 9 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 71 | Env 10 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,056 - DEBUG - Episode 72 | Env 11 | Opponent: training_dummy | Reward: -224.8 | Length: 1000 ticks
+2025-11-04 10:44:45,056 - DEBUG -   Final HP: Fighter=93.7, Opponent=93.7
+2025-11-04 10:44:45,056 - DEBUG -   Damage: Dealt=0.0, Taken=0.0
+2025-11-04 10:44:45,056 - DEBUG -   Result: LOSS
+2025-11-04 10:44:45,788 - DEBUG - Episode 73 | Env 7 | Opponent: training_dummy | Reward: -442.4 | Length: 207 ticks
+2025-11-04 10:44:45,788 - DEBUG -   Final HP: Fighter=0.0, Opponent=67.9
+2025-11-04 10:44:45,788 - DEBUG -   Damage: Dealt=25.8, Taken=93.7
+2025-11-04 10:44:45,788 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,337 - DEBUG - Episode 74 | Env 0 | Opponent: training_dummy | Reward: -147.2 | Length: 1000 ticks
+2025-11-04 10:44:50,337 - DEBUG -   Final HP: Fighter=67.5, Opponent=67.0
+2025-11-04 10:44:50,337 - DEBUG -   Damage: Dealt=26.7, Taken=26.2
+2025-11-04 10:44:50,337 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,337 - DEBUG - Episode 75 | Env 1 | Opponent: training_dummy | Reward: -321.4 | Length: 1000 ticks
+2025-11-04 10:44:50,337 - DEBUG -   Final HP: Fighter=66.3, Opponent=77.8
+2025-11-04 10:44:50,337 - DEBUG -   Damage: Dealt=15.9, Taken=27.4
+2025-11-04 10:44:50,337 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,337 - DEBUG - Episode 76 | Env 2 | Opponent: training_dummy | Reward: -326.9 | Length: 1000 ticks
+2025-11-04 10:44:50,337 - DEBUG -   Final HP: Fighter=40.5, Opponent=55.8
+2025-11-04 10:44:50,337 - DEBUG -   Damage: Dealt=37.9, Taken=53.2
+2025-11-04 10:44:50,337 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,337 - DEBUG - Episode 77 | Env 3 | Opponent: training_dummy | Reward: -323.9 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=65.7, Opponent=78.3
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=15.4, Taken=28.0
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 78 | Env 4 | Opponent: training_dummy | Reward: -302.9 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=71.3, Opponent=73.5
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=20.2, Taken=22.4
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 79 | Env 5 | Opponent: training_dummy | Reward: -301.8 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=67.6, Opponent=69.2
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=24.5, Taken=26.1
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 80 | Env 6 | Opponent: training_dummy | Reward: -144.4 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=59.6, Opponent=58.1
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=35.6, Taken=34.1
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 81 | Env 8 | Opponent: training_dummy | Reward: -311.9 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=66.0, Opponent=72.6
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=21.1, Taken=27.7
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 82 | Env 9 | Opponent: training_dummy | Reward: -319.8 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=66.8, Opponent=77.3
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=16.4, Taken=26.9
+2025-11-04 10:44:50,338 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,338 - DEBUG - Episode 83 | Env 10 | Opponent: training_dummy | Reward: -313.9 | Length: 1000 ticks
+2025-11-04 10:44:50,338 - DEBUG -   Final HP: Fighter=63.7, Opponent=71.6
+2025-11-04 10:44:50,338 - DEBUG -   Damage: Dealt=22.1, Taken=30.0
+2025-11-04 10:44:50,339 - DEBUG -   Result: LOSS
+2025-11-04 10:44:50,339 - DEBUG - Episode 84 | Env 11 | Opponent: training_dummy | Reward: -316.7 | Length: 1000 ticks
+2025-11-04 10:44:50,339 - DEBUG -   Final HP: Fighter=63.8, Opponent=73.0
+2025-11-04 10:44:50,339 - DEBUG -   Damage: Dealt=20.7, Taken=29.9
+2025-11-04 10:44:50,339 - DEBUG -   Result: LOSS
+2025-11-04 10:44:51,158 - DEBUG - Episode 85 | Env 7 | Opponent: training_dummy | Reward: -144.9 | Length: 1000 ticks
+2025-11-04 10:44:51,158 - DEBUG -   Final HP: Fighter=73.9, Opponent=72.2
+2025-11-04 10:44:51,158 - DEBUG -   Damage: Dealt=21.5, Taken=19.8
+2025-11-04 10:44:51,158 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,374 - DEBUG - Episode 86 | Env 0 | Opponent: training_dummy | Reward: -311.2 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=70.9, Opponent=77.2
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=16.5, Taken=22.8
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 87 | Env 1 | Opponent: training_dummy | Reward: -146.0 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=76.5, Opponent=75.2
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=18.5, Taken=17.2
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 88 | Env 2 | Opponent: training_dummy | Reward: -141.1 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=77.1, Opponent=73.3
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=20.4, Taken=16.6
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 89 | Env 3 | Opponent: training_dummy | Reward: -314.2 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=66.8, Opponent=74.5
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=19.2, Taken=26.9
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 90 | Env 4 | Opponent: training_dummy | Reward: -306.9 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=65.7, Opponent=69.9
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=23.8, Taken=28.0
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 91 | Env 5 | Opponent: training_dummy | Reward: -310.8 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=66.2, Opponent=72.3
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=21.4, Taken=27.5
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 92 | Env 6 | Opponent: training_dummy | Reward: -305.8 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=70.9, Opponent=74.4
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=19.3, Taken=22.8
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 93 | Env 8 | Opponent: training_dummy | Reward: -312.8 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=66.9, Opponent=74.0
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=19.7, Taken=26.8
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 94 | Env 9 | Opponent: training_dummy | Reward: -323.7 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=61.0, Opponent=73.5
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=20.2, Taken=32.7
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 95 | Env 10 | Opponent: training_dummy | Reward: -328.1 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=65.4, Opponent=80.1
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=13.6, Taken=28.3
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:55,375 - DEBUG - Episode 96 | Env 11 | Opponent: training_dummy | Reward: -320.7 | Length: 1000 ticks
+2025-11-04 10:44:55,375 - DEBUG -   Final HP: Fighter=66.0, Opponent=76.9
+2025-11-04 10:44:55,375 - DEBUG -   Damage: Dealt=16.8, Taken=27.7
+2025-11-04 10:44:55,375 - DEBUG -   Result: LOSS
+2025-11-04 10:44:56,716 - DEBUG - Episode 97 | Env 7 | Opponent: training_dummy | Reward: -126.7 | Length: 1000 ticks
+2025-11-04 10:44:56,716 - DEBUG -   Final HP: Fighter=82.1, Opponent=71.1
+2025-11-04 10:44:56,716 - DEBUG -   Damage: Dealt=22.6, Taken=11.6
+2025-11-04 10:44:56,716 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,534 - DEBUG - Episode 98 | Env 0 | Opponent: training_dummy | Reward: -315.5 | Length: 1000 ticks
+2025-11-04 10:45:00,534 - DEBUG -   Final HP: Fighter=65.6, Opponent=74.0
+2025-11-04 10:45:00,534 - DEBUG -   Damage: Dealt=19.7, Taken=28.1
+2025-11-04 10:45:00,534 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,534 - DEBUG - Episode 99 | Env 1 | Opponent: training_dummy | Reward: -146.2 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=76.6, Opponent=75.4
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=18.3, Taken=17.1
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 100 | Env 2 | Opponent: training_dummy | Reward: -319.8 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=65.3, Opponent=75.9
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=17.8, Taken=28.4
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 101 | Env 3 | Opponent: training_dummy | Reward: -310.3 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=65.7, Opponent=71.5
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=22.2, Taken=28.0
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 102 | Env 4 | Opponent: training_dummy | Reward: -311.0 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=67.6, Opponent=74.0
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=19.7, Taken=26.1
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 103 | Env 5 | Opponent: training_dummy | Reward: -314.5 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=71.7, Opponent=79.5
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=14.2, Taken=22.0
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 104 | Env 6 | Opponent: training_dummy | Reward: -126.5 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=82.2, Opponent=71.2
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=22.5, Taken=11.5
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 105 | Env 8 | Opponent: training_dummy | Reward: -138.5 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=82.2, Opponent=77.0
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=16.7, Taken=11.5
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 106 | Env 9 | Opponent: training_dummy | Reward: -302.3 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=71.1, Opponent=73.0
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=20.7, Taken=22.6
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 107 | Env 10 | Opponent: training_dummy | Reward: -335.6 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=60.4, Opponent=78.9
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=14.8, Taken=33.3
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:00,535 - DEBUG - Episode 108 | Env 11 | Opponent: training_dummy | Reward: -302.3 | Length: 1000 ticks
+2025-11-04 10:45:00,535 - DEBUG -   Final HP: Fighter=71.4, Opponent=73.3
+2025-11-04 10:45:00,535 - DEBUG -   Damage: Dealt=20.4, Taken=22.3
+2025-11-04 10:45:00,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:02,940 - DEBUG - Episode 109 | Env 7 | Opponent: training_dummy | Reward: -299.2 | Length: 1000 ticks
+2025-11-04 10:45:02,940 - DEBUG -   Final HP: Fighter=76.9, Opponent=77.1
+2025-11-04 10:45:02,940 - DEBUG -   Damage: Dealt=16.6, Taken=16.8
+2025-11-04 10:45:02,940 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,621 - DEBUG - Episode 110 | Env 0 | Opponent: training_dummy | Reward: -310.3 | Length: 1000 ticks
+2025-11-04 10:45:07,621 - DEBUG -   Final HP: Fighter=72.1, Opponent=77.9
+2025-11-04 10:45:07,621 - DEBUG -   Damage: Dealt=15.8, Taken=21.6
+2025-11-04 10:45:07,621 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,621 - DEBUG - Episode 111 | Env 1 | Opponent: training_dummy | Reward: -147.2 | Length: 1000 ticks
+2025-11-04 10:45:07,621 - DEBUG -   Final HP: Fighter=77.6, Opponent=76.8
+2025-11-04 10:45:07,621 - DEBUG -   Damage: Dealt=16.9, Taken=16.1
+2025-11-04 10:45:07,621 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,621 - DEBUG - Episode 112 | Env 2 | Opponent: training_dummy | Reward: -317.4 | Length: 1000 ticks
+2025-11-04 10:45:07,621 - DEBUG -   Final HP: Fighter=66.2, Opponent=75.5
+2025-11-04 10:45:07,621 - DEBUG -   Damage: Dealt=18.2, Taken=27.5
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 113 | Env 3 | Opponent: training_dummy | Reward: -326.5 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=65.5, Opponent=79.4
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=14.3, Taken=28.2
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 114 | Env 4 | Opponent: training_dummy | Reward: -141.2 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=71.0, Opponent=67.5
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=26.2, Taken=22.7
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 115 | Env 5 | Opponent: training_dummy | Reward: -142.1 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=71.5, Opponent=68.5
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=25.2, Taken=22.2
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 116 | Env 6 | Opponent: training_dummy | Reward: -317.9 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=67.2, Opponent=76.9
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=16.8, Taken=26.5
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 117 | Env 8 | Opponent: training_dummy | Reward: -304.3 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=71.0, Opponent=73.8
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=19.9, Taken=22.7
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 118 | Env 9 | Opponent: training_dummy | Reward: -322.8 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=63.4, Opponent=75.4
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=18.3, Taken=30.3
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 119 | Env 10 | Opponent: training_dummy | Reward: -146.2 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=76.6, Opponent=75.4
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=18.3, Taken=17.1
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:07,622 - DEBUG - Episode 120 | Env 11 | Opponent: training_dummy | Reward: -312.1 | Length: 1000 ticks
+2025-11-04 10:45:07,622 - DEBUG -   Final HP: Fighter=62.3, Opponent=69.3
+2025-11-04 10:45:07,622 - DEBUG -   Damage: Dealt=24.4, Taken=31.4
+2025-11-04 10:45:07,622 - DEBUG -   Result: LOSS
+2025-11-04 10:45:09,534 - DEBUG - Episode 121 | Env 7 | Opponent: training_dummy | Reward: -300.0 | Length: 1000 ticks
+2025-11-04 10:45:09,534 - DEBUG -   Final HP: Fighter=71.2, Opponent=71.9
+2025-11-04 10:45:09,534 - DEBUG -   Damage: Dealt=21.8, Taken=22.5
+2025-11-04 10:45:09,534 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 122 | Env 0 | Opponent: training_dummy | Reward: -309.5 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=71.6, Opponent=77.0
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=16.7, Taken=22.1
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 123 | Env 1 | Opponent: training_dummy | Reward: -147.5 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=71.4, Opponent=71.0
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=22.7, Taken=22.3
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 124 | Env 2 | Opponent: training_dummy | Reward: -307.8 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=66.0, Opponent=70.7
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=23.0, Taken=27.7
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 125 | Env 3 | Opponent: training_dummy | Reward: -312.7 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=71.0, Opponent=78.0
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=15.7, Taken=22.7
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 126 | Env 4 | Opponent: training_dummy | Reward: -323.7 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=65.4, Opponent=77.9
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=15.8, Taken=28.3
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 127 | Env 5 | Opponent: training_dummy | Reward: -317.5 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=71.3, Opponent=80.8
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=12.9, Taken=22.4
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 128 | Env 6 | Opponent: training_dummy | Reward: -310.8 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=79.1, Opponent=85.0
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=8.7, Taken=14.6
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 129 | Env 8 | Opponent: training_dummy | Reward: -310.9 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=71.4, Opponent=77.5
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=16.2, Taken=22.3
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 130 | Env 9 | Opponent: training_dummy | Reward: -146.2 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=76.5, Opponent=75.3
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=18.4, Taken=17.2
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 131 | Env 10 | Opponent: training_dummy | Reward: -144.2 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=77.4, Opponent=75.2
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=18.5, Taken=16.3
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:14,201 - DEBUG - Episode 132 | Env 11 | Opponent: training_dummy | Reward: -147.7 | Length: 1000 ticks
+2025-11-04 10:45:14,201 - DEBUG -   Final HP: Fighter=77.6, Opponent=77.0
+2025-11-04 10:45:14,201 - DEBUG -   Damage: Dealt=16.7, Taken=16.1
+2025-11-04 10:45:14,201 - DEBUG -   Result: LOSS
+2025-11-04 10:45:15,538 - DEBUG - Episode 133 | Env 7 | Opponent: training_dummy | Reward: -323.4 | Length: 1000 ticks
+2025-11-04 10:45:15,538 - DEBUG -   Final HP: Fighter=61.4, Opponent=73.8
+2025-11-04 10:45:15,538 - DEBUG -   Damage: Dealt=19.9, Taken=32.3
+2025-11-04 10:45:15,538 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,700 - DEBUG - Episode 134 | Env 0 | Opponent: training_dummy | Reward: -316.7 | Length: 1000 ticks
+2025-11-04 10:45:20,700 - DEBUG -   Final HP: Fighter=71.5, Opponent=80.5
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=13.2, Taken=22.2
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 135 | Env 1 | Opponent: training_dummy | Reward: -137.2 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=71.3, Opponent=65.8
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=27.9, Taken=22.4
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 136 | Env 2 | Opponent: training_dummy | Reward: -144.8 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=77.1, Opponent=75.2
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=18.5, Taken=16.6
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 137 | Env 3 | Opponent: training_dummy | Reward: -129.7 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=76.3, Opponent=67.1
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=26.6, Taken=17.4
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 138 | Env 4 | Opponent: training_dummy | Reward: -320.5 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=65.3, Opponent=76.2
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=17.5, Taken=28.4
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 139 | Env 5 | Opponent: training_dummy | Reward: -303.7 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=71.0, Opponent=73.6
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=20.1, Taken=22.7
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,701 - DEBUG - Episode 140 | Env 6 | Opponent: training_dummy | Reward: -314.8 | Length: 1000 ticks
+2025-11-04 10:45:20,701 - DEBUG -   Final HP: Fighter=71.9, Opponent=80.1
+2025-11-04 10:45:20,701 - DEBUG -   Damage: Dealt=13.6, Taken=21.8
+2025-11-04 10:45:20,701 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,702 - DEBUG - Episode 141 | Env 8 | Opponent: training_dummy | Reward: -316.2 | Length: 1000 ticks
+2025-11-04 10:45:20,702 - DEBUG -   Final HP: Fighter=65.9, Opponent=74.7
+2025-11-04 10:45:20,702 - DEBUG -   Damage: Dealt=19.0, Taken=27.8
+2025-11-04 10:45:20,702 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,702 - DEBUG - Episode 142 | Env 9 | Opponent: training_dummy | Reward: -134.2 | Length: 1000 ticks
+2025-11-04 10:45:20,702 - DEBUG -   Final HP: Fighter=71.9, Opponent=64.8
+2025-11-04 10:45:20,702 - DEBUG -   Damage: Dealt=28.9, Taken=21.8
+2025-11-04 10:45:20,702 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,702 - DEBUG - Episode 143 | Env 10 | Opponent: training_dummy | Reward: -302.0 | Length: 1000 ticks
+2025-11-04 10:45:20,702 - DEBUG -   Final HP: Fighter=77.1, Opponent=78.7
+2025-11-04 10:45:20,702 - DEBUG -   Damage: Dealt=15.0, Taken=16.6
+2025-11-04 10:45:20,702 - DEBUG -   Result: LOSS
+2025-11-04 10:45:20,702 - DEBUG - Episode 144 | Env 11 | Opponent: training_dummy | Reward: -319.3 | Length: 1000 ticks
+2025-11-04 10:45:20,702 - DEBUG -   Final HP: Fighter=65.6, Opponent=76.1
+2025-11-04 10:45:20,702 - DEBUG -   Damage: Dealt=17.6, Taken=28.1
+2025-11-04 10:45:20,702 - DEBUG -   Result: LOSS
+2025-11-04 10:45:21,556 - DEBUG - Episode 145 | Env 7 | Opponent: training_dummy | Reward: -136.5 | Length: 1000 ticks
+2025-11-04 10:45:21,556 - DEBUG -   Final HP: Fighter=77.5, Opponent=71.7
+2025-11-04 10:45:21,556 - DEBUG -   Damage: Dealt=22.0, Taken=16.2
+2025-11-04 10:45:21,556 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,890 - DEBUG - Episode 146 | Env 0 | Opponent: training_dummy | Reward: -304.9 | Length: 1000 ticks
+2025-11-04 10:45:26,890 - DEBUG -   Final HP: Fighter=74.0, Opponent=77.2
+2025-11-04 10:45:26,890 - DEBUG -   Damage: Dealt=16.5, Taken=19.7
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 147 | Env 1 | Opponent: training_dummy | Reward: -300.3 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=71.9, Opponent=72.9
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=20.8, Taken=21.8
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 148 | Env 2 | Opponent: training_dummy | Reward: -133.1 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=82.0, Opponent=74.4
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=19.3, Taken=11.7
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 149 | Env 3 | Opponent: training_dummy | Reward: -303.2 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=76.5, Opponent=78.8
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=14.9, Taken=17.2
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 150 | Env 4 | Opponent: training_dummy | Reward: -136.2 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=82.5, Opponent=76.4
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=17.3, Taken=11.2
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 151 | Env 5 | Opponent: training_dummy | Reward: -306.0 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=71.4, Opponent=75.1
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=18.6, Taken=22.3
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 152 | Env 6 | Opponent: training_dummy | Reward: -312.7 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=71.0, Opponent=78.0
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=15.7, Taken=22.7
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 153 | Env 8 | Opponent: training_dummy | Reward: -320.5 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=71.5, Opponent=82.4
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=11.3, Taken=22.2
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 154 | Env 9 | Opponent: training_dummy | Reward: -309.6 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=72.2, Opponent=77.6
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=16.1, Taken=21.5
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 155 | Env 10 | Opponent: training_dummy | Reward: -146.6 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=76.6, Opponent=75.5
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=18.2, Taken=17.1
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:26,891 - DEBUG - Episode 156 | Env 11 | Opponent: training_dummy | Reward: -144.9 | Length: 1000 ticks
+2025-11-04 10:45:26,891 - DEBUG -   Final HP: Fighter=71.6, Opponent=69.9
+2025-11-04 10:45:26,891 - DEBUG -   Damage: Dealt=23.8, Taken=22.1
+2025-11-04 10:45:26,891 - DEBUG -   Result: LOSS
+2025-11-04 10:45:28,207 - DEBUG - Episode 157 | Env 7 | Opponent: training_dummy | Reward: -305.2 | Length: 1000 ticks
+2025-11-04 10:45:28,207 - DEBUG -   Final HP: Fighter=71.4, Opponent=74.6
+2025-11-04 10:45:28,207 - DEBUG -   Damage: Dealt=19.1, Taken=22.3
+2025-11-04 10:45:28,207 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,523 - DEBUG - Episode 158 | Env 0 | Opponent: training_dummy | Reward: -148.4 | Length: 1000 ticks
+2025-11-04 10:45:33,523 - DEBUG -   Final HP: Fighter=76.7, Opponent=76.5
+2025-11-04 10:45:33,523 - DEBUG -   Damage: Dealt=17.2, Taken=17.0
+2025-11-04 10:45:33,523 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,523 - DEBUG - Episode 159 | Env 1 | Opponent: training_dummy | Reward: -132.5 | Length: 1000 ticks
+2025-11-04 10:45:33,523 - DEBUG -   Final HP: Fighter=82.2, Opponent=74.1
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=19.6, Taken=11.5
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 160 | Env 2 | Opponent: training_dummy | Reward: -305.5 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=71.4, Opponent=74.9
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=18.8, Taken=22.3
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 161 | Env 3 | Opponent: training_dummy | Reward: -314.7 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=71.7, Opponent=79.6
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=14.1, Taken=22.0
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 162 | Env 4 | Opponent: training_dummy | Reward: -138.3 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=76.9, Opponent=71.8
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=21.9, Taken=16.8
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 163 | Env 5 | Opponent: training_dummy | Reward: -146.2 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=71.9, Opponent=70.8
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=22.9, Taken=21.8
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 164 | Env 6 | Opponent: training_dummy | Reward: -305.1 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=71.7, Opponent=74.9
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=18.8, Taken=22.0
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 165 | Env 8 | Opponent: training_dummy | Reward: -144.5 | Length: 1000 ticks
+2025-11-04 10:45:33,524 - DEBUG -   Final HP: Fighter=74.8, Opponent=72.8
+2025-11-04 10:45:33,524 - DEBUG -   Damage: Dealt=20.9, Taken=18.9
+2025-11-04 10:45:33,524 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,524 - DEBUG - Episode 166 | Env 9 | Opponent: training_dummy | Reward: -141.8 | Length: 1000 ticks
+2025-11-04 10:45:33,525 - DEBUG -   Final HP: Fighter=76.4, Opponent=73.1
+2025-11-04 10:45:33,525 - DEBUG -   Damage: Dealt=20.6, Taken=17.3
+2025-11-04 10:45:33,525 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,525 - DEBUG - Episode 167 | Env 10 | Opponent: training_dummy | Reward: -322.4 | Length: 1000 ticks
+2025-11-04 10:45:33,525 - DEBUG -   Final HP: Fighter=65.4, Opponent=77.1
+2025-11-04 10:45:33,525 - DEBUG -   Damage: Dealt=16.6, Taken=28.3
+2025-11-04 10:45:33,525 - DEBUG -   Result: LOSS
+2025-11-04 10:45:33,525 - DEBUG - Episode 168 | Env 11 | Opponent: training_dummy | Reward: -309.1 | Length: 1000 ticks
+2025-11-04 10:45:33,525 - DEBUG -   Final HP: Fighter=77.3, Opponent=82.3
+2025-11-04 10:45:33,525 - DEBUG -   Damage: Dealt=11.4, Taken=16.4
+2025-11-04 10:45:33,525 - DEBUG -   Result: LOSS
+2025-11-04 10:45:34,275 - DEBUG - Episode 169 | Env 7 | Opponent: training_dummy | Reward: -316.3 | Length: 1000 ticks
+2025-11-04 10:45:34,275 - DEBUG -   Final HP: Fighter=71.5, Opponent=80.2
+2025-11-04 10:45:34,275 - DEBUG -   Damage: Dealt=13.5, Taken=22.2
+2025-11-04 10:45:34,275 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 170 | Env 0 | Opponent: training_dummy | Reward: -312.3 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=71.0, Opponent=77.8
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=15.9, Taken=22.7
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 171 | Env 1 | Opponent: training_dummy | Reward: -317.1 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=66.2, Opponent=75.4
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=18.3, Taken=27.5
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 172 | Env 2 | Opponent: training_dummy | Reward: -304.7 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=71.6, Opponent=74.8
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=18.9, Taken=22.1
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 173 | Env 3 | Opponent: training_dummy | Reward: -128.5 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=83.0, Opponent=73.0
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=20.7, Taken=10.7
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 174 | Env 4 | Opponent: training_dummy | Reward: -122.9 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=82.7, Opponent=70.0
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=23.7, Taken=11.0
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 175 | Env 5 | Opponent: training_dummy | Reward: -146.4 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=82.2, Opponent=80.9
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=12.8, Taken=11.5
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 176 | Env 6 | Opponent: training_dummy | Reward: -308.3 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=73.4, Opponent=78.1
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=15.6, Taken=20.3
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 177 | Env 8 | Opponent: training_dummy | Reward: -303.9 | Length: 1000 ticks
+2025-11-04 10:45:40,035 - DEBUG -   Final HP: Fighter=76.5, Opponent=79.1
+2025-11-04 10:45:40,035 - DEBUG -   Damage: Dealt=14.6, Taken=17.2
+2025-11-04 10:45:40,035 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,035 - DEBUG - Episode 178 | Env 9 | Opponent: training_dummy | Reward: -317.3 | Length: 1000 ticks
+2025-11-04 10:45:40,036 - DEBUG -   Final HP: Fighter=66.2, Opponent=75.5
+2025-11-04 10:45:40,036 - DEBUG -   Damage: Dealt=18.2, Taken=27.5
+2025-11-04 10:45:40,036 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,036 - DEBUG - Episode 179 | Env 10 | Opponent: training_dummy | Reward: -300.6 | Length: 1000 ticks
+2025-11-04 10:45:40,036 - DEBUG -   Final HP: Fighter=70.8, Opponent=71.9
+2025-11-04 10:45:40,036 - DEBUG -   Damage: Dealt=21.8, Taken=22.9
+2025-11-04 10:45:40,036 - DEBUG -   Result: LOSS
+2025-11-04 10:45:40,036 - DEBUG - Episode 180 | Env 11 | Opponent: training_dummy | Reward: -299.7 | Length: 1000 ticks
+2025-11-04 10:45:40,036 - DEBUG -   Final HP: Fighter=71.3, Opponent=72.0
+2025-11-04 10:45:40,036 - DEBUG -   Damage: Dealt=21.7, Taken=22.4
+2025-11-04 10:45:40,036 - DEBUG -   Result: LOSS
+2025-11-04 10:45:41,395 - DEBUG - Episode 181 | Env 7 | Opponent: training_dummy | Reward: -299.4 | Length: 1000 ticks
+2025-11-04 10:45:41,395 - DEBUG -   Final HP: Fighter=71.6, Opponent=72.2
+2025-11-04 10:45:41,395 - DEBUG -   Damage: Dealt=21.5, Taken=22.1
+2025-11-04 10:45:41,395 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,190 - DEBUG - Episode 182 | Env 0 | Opponent: training_dummy | Reward: -313.8 | Length: 1000 ticks
+2025-11-04 10:45:47,190 - DEBUG -   Final HP: Fighter=65.7, Opponent=73.4
+2025-11-04 10:45:47,190 - DEBUG -   Damage: Dealt=20.3, Taken=28.0
+2025-11-04 10:45:47,190 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,190 - DEBUG - Episode 183 | Env 1 | Opponent: training_dummy | Reward: -300.0 | Length: 1000 ticks
+2025-11-04 10:45:47,190 - DEBUG -   Final HP: Fighter=76.6, Opponent=77.3
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=16.4, Taken=17.1
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 184 | Env 2 | Opponent: training_dummy | Reward: -134.4 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=82.3, Opponent=75.3
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=18.4, Taken=11.4
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 185 | Env 3 | Opponent: training_dummy | Reward: -307.7 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=71.4, Opponent=75.8
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=17.9, Taken=22.3
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 186 | Env 4 | Opponent: training_dummy | Reward: -118.7 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=88.2, Opponent=73.3
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=20.4, Taken=5.5
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 187 | Env 5 | Opponent: training_dummy | Reward: -133.5 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=77.0, Opponent=69.6
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=24.1, Taken=16.7
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 188 | Env 6 | Opponent: training_dummy | Reward: -327.3 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=66.2, Opponent=80.4
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=13.3, Taken=27.5
+2025-11-04 10:45:47,191 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,191 - DEBUG - Episode 189 | Env 8 | Opponent: training_dummy | Reward: -303.4 | Length: 1000 ticks
+2025-11-04 10:45:47,191 - DEBUG -   Final HP: Fighter=72.8, Opponent=75.3
+2025-11-04 10:45:47,191 - DEBUG -   Damage: Dealt=18.4, Taken=20.9
+2025-11-04 10:45:47,192 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,192 - DEBUG - Episode 190 | Env 9 | Opponent: training_dummy | Reward: -301.9 | Length: 1000 ticks
+2025-11-04 10:45:47,192 - DEBUG -   Final HP: Fighter=76.6, Opponent=78.2
+2025-11-04 10:45:47,192 - DEBUG -   Damage: Dealt=15.5, Taken=17.1
+2025-11-04 10:45:47,192 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,192 - DEBUG - Episode 191 | Env 10 | Opponent: training_dummy | Reward: -130.7 | Length: 1000 ticks
+2025-11-04 10:45:47,192 - DEBUG -   Final HP: Fighter=78.3, Opponent=69.6
+2025-11-04 10:45:47,192 - DEBUG -   Damage: Dealt=24.1, Taken=15.4
+2025-11-04 10:45:47,192 - DEBUG -   Result: LOSS
+2025-11-04 10:45:47,192 - DEBUG - Episode 192 | Env 11 | Opponent: training_dummy | Reward: -309.3 | Length: 1000 ticks
+2025-11-04 10:45:47,192 - DEBUG -   Final HP: Fighter=71.9, Opponent=77.2
+2025-11-04 10:45:47,192 - DEBUG -   Damage: Dealt=16.5, Taken=21.8
+2025-11-04 10:45:47,192 - DEBUG -   Result: LOSS
+2025-11-04 10:45:48,534 - DEBUG - Episode 193 | Env 7 | Opponent: training_dummy | Reward: -145.1 | Length: 1000 ticks
+2025-11-04 10:45:48,535 - DEBUG -   Final HP: Fighter=76.4, Opponent=74.7
+2025-11-04 10:45:48,535 - DEBUG -   Damage: Dealt=19.0, Taken=17.3
+2025-11-04 10:45:48,535 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,953 - DEBUG - Episode 194 | Env 0 | Opponent: training_dummy | Reward: -140.8 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=76.9, Opponent=73.0
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=20.7, Taken=16.8
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 195 | Env 1 | Opponent: training_dummy | Reward: -146.9 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=77.2, Opponent=76.4
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=17.3, Taken=16.5
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 196 | Env 2 | Opponent: training_dummy | Reward: -305.7 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=70.9, Opponent=74.4
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=19.3, Taken=22.8
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 197 | Env 3 | Opponent: training_dummy | Reward: -305.4 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=66.2, Opponent=69.8
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=23.9, Taken=27.5
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 198 | Env 4 | Opponent: training_dummy | Reward: -148.2 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=71.5, Opponent=71.4
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=22.3, Taken=22.2
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 199 | Env 5 | Opponent: training_dummy | Reward: -313.2 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=72.1, Opponent=79.4
+2025-11-04 10:45:53,954 - DEBUG -   Damage: Dealt=14.3, Taken=21.6
+2025-11-04 10:45:53,954 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,954 - DEBUG - Episode 200 | Env 6 | Opponent: training_dummy | Reward: -303.3 | Length: 1000 ticks
+2025-11-04 10:45:53,954 - DEBUG -   Final HP: Fighter=66.9, Opponent=69.4
+2025-11-04 10:45:53,955 - DEBUG -   Damage: Dealt=24.3, Taken=26.8
+2025-11-04 10:45:53,955 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,955 - DEBUG - Episode 201 | Env 8 | Opponent: training_dummy | Reward: -300.8 | Length: 1000 ticks
+2025-11-04 10:45:53,955 - DEBUG -   Final HP: Fighter=71.3, Opponent=72.4
+2025-11-04 10:45:53,955 - DEBUG -   Damage: Dealt=21.3, Taken=22.4
+2025-11-04 10:45:53,955 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,955 - DEBUG - Episode 202 | Env 9 | Opponent: training_dummy | Reward: -318.0 | Length: 1000 ticks
+2025-11-04 10:45:53,955 - DEBUG -   Final HP: Fighter=66.7, Opponent=76.5
+2025-11-04 10:45:53,955 - DEBUG -   Damage: Dealt=17.2, Taken=27.0
+2025-11-04 10:45:53,955 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,955 - DEBUG - Episode 203 | Env 10 | Opponent: training_dummy | Reward: -322.6 | Length: 1000 ticks
+2025-11-04 10:45:53,955 - DEBUG -   Final HP: Fighter=66.2, Opponent=78.1
+2025-11-04 10:45:53,955 - DEBUG -   Damage: Dealt=15.6, Taken=27.5
+2025-11-04 10:45:53,955 - DEBUG -   Result: LOSS
+2025-11-04 10:45:53,955 - DEBUG - Episode 204 | Env 11 | Opponent: training_dummy | Reward: -304.2 | Length: 1000 ticks
+2025-11-04 10:45:53,955 - DEBUG -   Final HP: Fighter=71.1, Opponent=73.9
+2025-11-04 10:45:53,955 - DEBUG -   Damage: Dealt=19.8, Taken=22.6
+2025-11-04 10:45:53,955 - DEBUG -   Result: LOSS
+2025-11-04 10:45:55,791 - DEBUG - Episode 205 | Env 7 | Opponent: training_dummy | Reward: -311.3 | Length: 1000 ticks
+2025-11-04 10:45:55,792 - DEBUG -   Final HP: Fighter=65.5, Opponent=71.9
+2025-11-04 10:45:55,792 - DEBUG -   Damage: Dealt=21.8, Taken=28.2
+2025-11-04 10:45:55,792 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,269 - DEBUG - Episode 206 | Env 0 | Opponent: training_dummy | Reward: -299.1 | Length: 1000 ticks
+2025-11-04 10:45:59,269 - DEBUG -   Final HP: Fighter=77.0, Opponent=77.1
+2025-11-04 10:45:59,269 - DEBUG -   Damage: Dealt=16.6, Taken=16.7
+2025-11-04 10:45:59,269 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,269 - DEBUG - Episode 207 | Env 1 | Opponent: training_dummy | Reward: -306.9 | Length: 1000 ticks
+2025-11-04 10:45:59,269 - DEBUG -   Final HP: Fighter=71.7, Opponent=75.9
+2025-11-04 10:45:59,269 - DEBUG -   Damage: Dealt=17.8, Taken=22.0
+2025-11-04 10:45:59,269 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,269 - DEBUG - Episode 208 | Env 2 | Opponent: training_dummy | Reward: -306.3 | Length: 1000 ticks
+2025-11-04 10:45:59,269 - DEBUG -   Final HP: Fighter=70.9, Opponent=74.8
+2025-11-04 10:45:59,269 - DEBUG -   Damage: Dealt=18.9, Taken=22.8
+2025-11-04 10:45:59,269 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,269 - DEBUG - Episode 209 | Env 3 | Opponent: training_dummy | Reward: -305.7 | Length: 1000 ticks
+2025-11-04 10:45:59,269 - DEBUG -   Final HP: Fighter=67.3, Opponent=70.8
+2025-11-04 10:45:59,269 - DEBUG -   Damage: Dealt=22.9, Taken=26.4
+2025-11-04 10:45:59,269 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 210 | Env 4 | Opponent: training_dummy | Reward: -326.4 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=60.6, Opponent=74.5
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=19.2, Taken=33.1
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 211 | Env 5 | Opponent: training_dummy | Reward: -311.8 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=71.2, Opponent=77.7
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=16.0, Taken=22.5
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 212 | Env 6 | Opponent: training_dummy | Reward: -135.4 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=82.1, Opponent=75.5
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=18.2, Taken=11.6
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 213 | Env 8 | Opponent: training_dummy | Reward: -143.3 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=76.5, Opponent=73.9
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=19.8, Taken=17.2
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 214 | Env 9 | Opponent: training_dummy | Reward: -307.5 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=65.8, Opponent=70.4
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=23.3, Taken=27.9
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 215 | Env 10 | Opponent: training_dummy | Reward: -313.2 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=66.2, Opponent=73.5
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=20.2, Taken=27.5
+2025-11-04 10:45:59,270 - DEBUG -   Result: LOSS
+2025-11-04 10:45:59,270 - DEBUG - Episode 216 | Env 11 | Opponent: training_dummy | Reward: -141.5 | Length: 1000 ticks
+2025-11-04 10:45:59,270 - DEBUG -   Final HP: Fighter=82.2, Opponent=78.6
+2025-11-04 10:45:59,270 - DEBUG -   Damage: Dealt=15.1, Taken=11.5
+2025-11-04 10:45:59,271 - DEBUG -   Result: LOSS
+2025-11-04 10:46:00,721 - DEBUG - Episode 217 | Env 7 | Opponent: training_dummy | Reward: -135.2 | Length: 1000 ticks
+2025-11-04 10:46:00,721 - DEBUG -   Final HP: Fighter=82.2, Opponent=75.5
+2025-11-04 10:46:00,721 - DEBUG -   Damage: Dealt=18.2, Taken=11.5
+2025-11-04 10:46:00,721 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,442 - DEBUG - Episode 218 | Env 0 | Opponent: training_dummy | Reward: -129.8 | Length: 1000 ticks
+2025-11-04 10:46:06,442 - DEBUG -   Final HP: Fighter=84.2, Opponent=74.8
+2025-11-04 10:46:06,442 - DEBUG -   Damage: Dealt=18.9, Taken=9.5
+2025-11-04 10:46:06,442 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,442 - DEBUG - Episode 219 | Env 1 | Opponent: training_dummy | Reward: -316.2 | Length: 1000 ticks
+2025-11-04 10:46:06,442 - DEBUG -   Final HP: Fighter=67.7, Opponent=76.4
+2025-11-04 10:46:06,442 - DEBUG -   Damage: Dealt=17.3, Taken=26.0
+2025-11-04 10:46:06,442 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,442 - DEBUG - Episode 220 | Env 2 | Opponent: training_dummy | Reward: -127.9 | Length: 1000 ticks
+2025-11-04 10:46:06,442 - DEBUG -   Final HP: Fighter=76.3, Opponent=66.3
+2025-11-04 10:46:06,442 - DEBUG -   Damage: Dealt=27.4, Taken=17.4
+2025-11-04 10:46:06,442 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 221 | Env 3 | Opponent: training_dummy | Reward: -301.7 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=77.2, Opponent=78.7
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=15.0, Taken=16.5
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 222 | Env 4 | Opponent: training_dummy | Reward: -131.1 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=76.4, Opponent=67.9
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=25.8, Taken=17.3
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 223 | Env 5 | Opponent: training_dummy | Reward: -143.3 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=76.4, Opponent=73.8
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=19.9, Taken=17.3
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 224 | Env 6 | Opponent: training_dummy | Reward: -316.5 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=71.3, Opponent=80.1
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=13.6, Taken=22.4
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 225 | Env 8 | Opponent: training_dummy | Reward: -299.4 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=71.8, Opponent=72.4
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=21.3, Taken=21.9
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 226 | Env 9 | Opponent: training_dummy | Reward: -304.0 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=76.8, Opponent=79.4
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=14.3, Taken=16.9
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 227 | Env 10 | Opponent: training_dummy | Reward: -132.6 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=82.1, Opponent=74.1
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=19.6, Taken=11.6
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:06,443 - DEBUG - Episode 228 | Env 11 | Opponent: training_dummy | Reward: -302.0 | Length: 1000 ticks
+2025-11-04 10:46:06,443 - DEBUG -   Final HP: Fighter=72.2, Opponent=74.0
+2025-11-04 10:46:06,443 - DEBUG -   Damage: Dealt=19.7, Taken=21.5
+2025-11-04 10:46:06,443 - DEBUG -   Result: LOSS
+2025-11-04 10:46:07,777 - DEBUG - Episode 229 | Env 7 | Opponent: training_dummy | Reward: -143.3 | Length: 1000 ticks
+2025-11-04 10:46:07,778 - DEBUG -   Final HP: Fighter=77.3, Opponent=74.7
+2025-11-04 10:46:07,778 - DEBUG -   Damage: Dealt=19.0, Taken=16.4
+2025-11-04 10:46:07,778 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,238 - DEBUG - Episode 230 | Env 0 | Opponent: training_dummy | Reward: -322.7 | Length: 1000 ticks
+2025-11-04 10:46:13,238 - DEBUG -   Final HP: Fighter=65.9, Opponent=77.9
+2025-11-04 10:46:13,238 - DEBUG -   Damage: Dealt=15.8, Taken=27.8
+2025-11-04 10:46:13,238 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,238 - DEBUG - Episode 231 | Env 1 | Opponent: training_dummy | Reward: -305.2 | Length: 1000 ticks
+2025-11-04 10:46:13,238 - DEBUG -   Final HP: Fighter=71.3, Opponent=74.6
+2025-11-04 10:46:13,238 - DEBUG -   Damage: Dealt=19.1, Taken=22.4
+2025-11-04 10:46:13,238 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,238 - DEBUG - Episode 232 | Env 2 | Opponent: training_dummy | Reward: -311.0 | Length: 1000 ticks
+2025-11-04 10:46:13,238 - DEBUG -   Final HP: Fighter=71.3, Opponent=77.5
+2025-11-04 10:46:13,238 - DEBUG -   Damage: Dealt=16.2, Taken=22.4
+2025-11-04 10:46:13,238 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 233 | Env 3 | Opponent: training_dummy | Reward: -314.4 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=67.7, Opponent=75.6
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=18.1, Taken=26.0
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 234 | Env 4 | Opponent: training_dummy | Reward: -310.4 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=65.2, Opponent=71.3
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=22.4, Taken=28.5
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 235 | Env 5 | Opponent: training_dummy | Reward: -144.7 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=76.5, Opponent=74.5
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=19.2, Taken=17.2
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 236 | Env 6 | Opponent: training_dummy | Reward: -131.1 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=87.8, Opponent=78.9
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=14.8, Taken=5.9
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 237 | Env 8 | Opponent: training_dummy | Reward: -132.1 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=87.8, Opponent=79.4
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=14.3, Taken=5.9
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 238 | Env 9 | Opponent: training_dummy | Reward: -311.3 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=65.3, Opponent=71.8
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=21.9, Taken=28.4
+2025-11-04 10:46:13,239 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,239 - DEBUG - Episode 239 | Env 10 | Opponent: training_dummy | Reward: -131.0 | Length: 1000 ticks
+2025-11-04 10:46:13,239 - DEBUG -   Final HP: Fighter=82.0, Opponent=73.3
+2025-11-04 10:46:13,239 - DEBUG -   Damage: Dealt=20.4, Taken=11.7
+2025-11-04 10:46:13,240 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,240 - DEBUG - Episode 240 | Env 11 | Opponent: training_dummy | Reward: -305.5 | Length: 1000 ticks
+2025-11-04 10:46:13,240 - DEBUG -   Final HP: Fighter=71.6, Opponent=75.1
+2025-11-04 10:46:13,240 - DEBUG -   Damage: Dealt=18.6, Taken=22.1
+2025-11-04 10:46:13,240 - DEBUG -   Result: LOSS
+2025-11-04 10:46:13,965 - DEBUG - Episode 241 | Env 7 | Opponent: training_dummy | Reward: -300.5 | Length: 1000 ticks
+2025-11-04 10:46:13,965 - DEBUG -   Final HP: Fighter=70.9, Opponent=72.0
+2025-11-04 10:46:13,965 - DEBUG -   Damage: Dealt=21.7, Taken=22.8
+2025-11-04 10:46:13,965 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,479 - DEBUG - Episode 242 | Env 0 | Opponent: training_dummy | Reward: -145.6 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=76.9, Opponent=75.4
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=18.3, Taken=16.8
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 243 | Env 1 | Opponent: training_dummy | Reward: -321.0 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=66.3, Opponent=77.4
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=16.3, Taken=27.4
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 244 | Env 2 | Opponent: training_dummy | Reward: -317.2 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=67.7, Opponent=77.0
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=16.7, Taken=26.0
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 245 | Env 3 | Opponent: training_dummy | Reward: -133.4 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=76.6, Opponent=69.2
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=24.5, Taken=17.1
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 246 | Env 4 | Opponent: training_dummy | Reward: -311.3 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=65.7, Opponent=72.1
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=21.6, Taken=28.0
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 247 | Env 5 | Opponent: training_dummy | Reward: -313.9 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=65.7, Opponent=73.6
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=20.1, Taken=28.0
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 248 | Env 6 | Opponent: training_dummy | Reward: -138.9 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=76.7, Opponent=72.1
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=21.6, Taken=17.0
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 249 | Env 8 | Opponent: training_dummy | Reward: -312.5 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=73.0, Opponent=79.8
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=13.9, Taken=20.7
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 250 | Env 9 | Opponent: training_dummy | Reward: -321.6 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=65.7, Opponent=77.2
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=16.5, Taken=28.0
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 251 | Env 10 | Opponent: training_dummy | Reward: -316.9 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=71.1, Opponent=80.2
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=13.5, Taken=22.6
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:18,480 - DEBUG - Episode 252 | Env 11 | Opponent: training_dummy | Reward: -308.9 | Length: 1000 ticks
+2025-11-04 10:46:18,480 - DEBUG -   Final HP: Fighter=73.4, Opponent=78.4
+2025-11-04 10:46:18,480 - DEBUG -   Damage: Dealt=15.3, Taken=20.3
+2025-11-04 10:46:18,480 - DEBUG -   Result: LOSS
+2025-11-04 10:46:19,172 - DEBUG - Episode 253 | Env 7 | Opponent: training_dummy | Reward: -302.0 | Length: 1000 ticks
+2025-11-04 10:46:19,173 - DEBUG -   Final HP: Fighter=77.9, Opponent=79.6
+2025-11-04 10:46:19,173 - DEBUG -   Damage: Dealt=14.1, Taken=15.8
+2025-11-04 10:46:19,173 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 254 | Env 0 | Opponent: training_dummy | Reward: -133.2 | Length: 1000 ticks
+2025-11-04 10:46:24,524 - DEBUG -   Final HP: Fighter=82.5, Opponent=74.9
+2025-11-04 10:46:24,524 - DEBUG -   Damage: Dealt=18.8, Taken=11.2
+2025-11-04 10:46:24,524 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 255 | Env 1 | Opponent: training_dummy | Reward: -147.3 | Length: 1000 ticks
+2025-11-04 10:46:24,524 - DEBUG -   Final HP: Fighter=76.6, Opponent=75.9
+2025-11-04 10:46:24,524 - DEBUG -   Damage: Dealt=17.8, Taken=17.1
+2025-11-04 10:46:24,524 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 256 | Env 2 | Opponent: training_dummy | Reward: -140.3 | Length: 1000 ticks
+2025-11-04 10:46:24,524 - DEBUG -   Final HP: Fighter=77.2, Opponent=73.2
+2025-11-04 10:46:24,524 - DEBUG -   Damage: Dealt=20.5, Taken=16.5
+2025-11-04 10:46:24,524 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 257 | Env 3 | Opponent: training_dummy | Reward: -148.4 | Length: 1000 ticks
+2025-11-04 10:46:24,524 - DEBUG -   Final HP: Fighter=76.9, Opponent=76.8
+2025-11-04 10:46:24,524 - DEBUG -   Damage: Dealt=16.9, Taken=16.8
+2025-11-04 10:46:24,524 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 258 | Env 4 | Opponent: training_dummy | Reward: -299.4 | Length: 1000 ticks
+2025-11-04 10:46:24,524 - DEBUG -   Final HP: Fighter=76.5, Opponent=76.9
+2025-11-04 10:46:24,524 - DEBUG -   Damage: Dealt=16.8, Taken=17.2
+2025-11-04 10:46:24,524 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,524 - DEBUG - Episode 259 | Env 5 | Opponent: training_dummy | Reward: -301.1 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=76.6, Opponent=77.9
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=15.8, Taken=17.1
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,525 - DEBUG - Episode 260 | Env 6 | Opponent: training_dummy | Reward: -139.4 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=82.1, Opponent=77.5
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=16.2, Taken=11.6
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,525 - DEBUG - Episode 261 | Env 8 | Opponent: training_dummy | Reward: -140.0 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=78.4, Opponent=74.2
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=19.5, Taken=15.3
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,525 - DEBUG - Episode 262 | Env 9 | Opponent: training_dummy | Reward: -327.6 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=66.1, Opponent=80.5
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=13.2, Taken=27.6
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,525 - DEBUG - Episode 263 | Env 10 | Opponent: training_dummy | Reward: -313.4 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=71.9, Opponent=79.2
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=14.5, Taken=21.8
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:24,525 - DEBUG - Episode 264 | Env 11 | Opponent: training_dummy | Reward: -311.9 | Length: 1000 ticks
+2025-11-04 10:46:24,525 - DEBUG -   Final HP: Fighter=66.1, Opponent=72.9
+2025-11-04 10:46:24,525 - DEBUG -   Damage: Dealt=20.8, Taken=27.6
+2025-11-04 10:46:24,525 - DEBUG -   Result: LOSS
+2025-11-04 10:46:25,907 - DEBUG - Episode 265 | Env 7 | Opponent: training_dummy | Reward: -302.6 | Length: 1000 ticks
+2025-11-04 10:46:25,908 - DEBUG -   Final HP: Fighter=77.0, Opponent=78.9
+2025-11-04 10:46:25,908 - DEBUG -   Damage: Dealt=14.8, Taken=16.7
+2025-11-04 10:46:25,908 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 266 | Env 0 | Opponent: training_dummy | Reward: -304.4 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=77.5, Opponent=80.3
+2025-11-04 10:46:31,883 - DEBUG -   Damage: Dealt=13.4, Taken=16.2
+2025-11-04 10:46:31,883 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 267 | Env 1 | Opponent: training_dummy | Reward: -309.9 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=72.3, Opponent=77.8
+2025-11-04 10:46:31,883 - DEBUG -   Damage: Dealt=15.9, Taken=21.4
+2025-11-04 10:46:31,883 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 268 | Env 2 | Opponent: training_dummy | Reward: -301.9 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=71.7, Opponent=73.4
+2025-11-04 10:46:31,883 - DEBUG -   Damage: Dealt=20.3, Taken=22.0
+2025-11-04 10:46:31,883 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 269 | Env 3 | Opponent: training_dummy | Reward: -141.2 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=82.1, Opponent=78.4
+2025-11-04 10:46:31,883 - DEBUG -   Damage: Dealt=15.3, Taken=11.6
+2025-11-04 10:46:31,883 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 270 | Env 4 | Opponent: training_dummy | Reward: -306.8 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=78.8, Opponent=82.7
+2025-11-04 10:46:31,883 - DEBUG -   Damage: Dealt=11.0, Taken=14.9
+2025-11-04 10:46:31,883 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,883 - DEBUG - Episode 271 | Env 5 | Opponent: training_dummy | Reward: -310.2 | Length: 1000 ticks
+2025-11-04 10:46:31,883 - DEBUG -   Final HP: Fighter=65.6, Opponent=71.6
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=22.1, Taken=28.1
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,884 - DEBUG - Episode 272 | Env 6 | Opponent: training_dummy | Reward: -147.6 | Length: 1000 ticks
+2025-11-04 10:46:31,884 - DEBUG -   Final HP: Fighter=73.2, Opponent=72.9
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=20.8, Taken=20.5
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,884 - DEBUG - Episode 273 | Env 8 | Opponent: training_dummy | Reward: -319.9 | Length: 1000 ticks
+2025-11-04 10:46:31,884 - DEBUG -   Final HP: Fighter=68.5, Opponent=79.2
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=14.5, Taken=25.2
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,884 - DEBUG - Episode 274 | Env 9 | Opponent: training_dummy | Reward: -302.3 | Length: 1000 ticks
+2025-11-04 10:46:31,884 - DEBUG -   Final HP: Fighter=71.8, Opponent=73.8
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=19.9, Taken=21.9
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,884 - DEBUG - Episode 275 | Env 10 | Opponent: training_dummy | Reward: -131.9 | Length: 1000 ticks
+2025-11-04 10:46:31,884 - DEBUG -   Final HP: Fighter=82.0, Opponent=73.8
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=19.9, Taken=11.7
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:31,884 - DEBUG - Episode 276 | Env 11 | Opponent: training_dummy | Reward: -143.1 | Length: 1000 ticks
+2025-11-04 10:46:31,884 - DEBUG -   Final HP: Fighter=76.9, Opponent=74.2
+2025-11-04 10:46:31,884 - DEBUG -   Damage: Dealt=19.5, Taken=16.8
+2025-11-04 10:46:31,884 - DEBUG -   Result: LOSS
+2025-11-04 10:46:33,220 - DEBUG - Episode 277 | Env 7 | Opponent: training_dummy | Reward: -301.2 | Length: 1000 ticks
+2025-11-04 10:46:33,220 - DEBUG -   Final HP: Fighter=76.5, Opponent=77.7
+2025-11-04 10:46:33,220 - DEBUG -   Damage: Dealt=16.0, Taken=17.2
+2025-11-04 10:46:33,220 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,815 - DEBUG - Episode 278 | Env 0 | Opponent: training_dummy | Reward: -315.1 | Length: 1000 ticks
+2025-11-04 10:46:37,815 - DEBUG -   Final HP: Fighter=71.6, Opponent=79.8
+2025-11-04 10:46:37,815 - DEBUG -   Damage: Dealt=13.9, Taken=22.1
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 279 | Env 1 | Opponent: training_dummy | Reward: -137.3 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=84.1, Opponent=78.4
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=15.3, Taken=9.6
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 280 | Env 2 | Opponent: training_dummy | Reward: -302.6 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=72.0, Opponent=74.0
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=19.7, Taken=21.7
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 281 | Env 3 | Opponent: training_dummy | Reward: -306.3 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=76.9, Opponent=80.7
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=13.0, Taken=16.8
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 282 | Env 4 | Opponent: training_dummy | Reward: -321.1 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=65.3, Opponent=76.5
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=17.2, Taken=28.4
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 283 | Env 5 | Opponent: training_dummy | Reward: -321.7 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=67.7, Opponent=79.3
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=14.4, Taken=26.0
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 284 | Env 6 | Opponent: training_dummy | Reward: -300.7 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=71.3, Opponent=72.6
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=21.1, Taken=22.4
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 285 | Env 8 | Opponent: training_dummy | Reward: -144.5 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=82.6, Opponent=80.5
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=13.2, Taken=11.1
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 286 | Env 9 | Opponent: training_dummy | Reward: -130.5 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=82.0, Opponent=73.1
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=20.6, Taken=11.7
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 287 | Env 10 | Opponent: training_dummy | Reward: -139.8 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=78.8, Opponent=74.5
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=19.2, Taken=14.9
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:37,816 - DEBUG - Episode 288 | Env 11 | Opponent: training_dummy | Reward: -136.9 | Length: 1000 ticks
+2025-11-04 10:46:37,816 - DEBUG -   Final HP: Fighter=82.1, Opponent=76.3
+2025-11-04 10:46:37,816 - DEBUG -   Damage: Dealt=17.4, Taken=11.6
+2025-11-04 10:46:37,816 - DEBUG -   Result: LOSS
+2025-11-04 10:46:39,179 - DEBUG - Episode 289 | Env 7 | Opponent: training_dummy | Reward: -141.1 | Length: 1000 ticks
+2025-11-04 10:46:39,179 - DEBUG -   Final HP: Fighter=82.1, Opponent=78.3
+2025-11-04 10:46:39,179 - DEBUG -   Damage: Dealt=15.4, Taken=11.6
+2025-11-04 10:46:39,179 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 290 | Env 0 | Opponent: training_dummy | Reward: -147.5 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=82.6, Opponent=82.0
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=11.7, Taken=11.1
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 291 | Env 1 | Opponent: training_dummy | Reward: -308.5 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=71.3, Opponent=76.3
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=17.4, Taken=22.4
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 292 | Env 2 | Opponent: training_dummy | Reward: -317.9 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=65.7, Opponent=75.4
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=18.3, Taken=28.0
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 293 | Env 3 | Opponent: training_dummy | Reward: -314.8 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=70.9, Opponent=79.0
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=14.7, Taken=22.8
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 294 | Env 4 | Opponent: training_dummy | Reward: -318.2 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=70.9, Opponent=80.7
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=13.0, Taken=22.8
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 295 | Env 5 | Opponent: training_dummy | Reward: -299.8 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=73.2, Opponent=73.9
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=19.8, Taken=20.5
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 296 | Env 6 | Opponent: training_dummy | Reward: -146.1 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=76.4, Opponent=75.3
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=18.4, Taken=17.3
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 297 | Env 8 | Opponent: training_dummy | Reward: -314.4 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=70.9, Opponent=78.8
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=14.9, Taken=22.8
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 298 | Env 9 | Opponent: training_dummy | Reward: -145.9 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=82.6, Opponent=81.1
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=12.6, Taken=11.1
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 299 | Env 10 | Opponent: training_dummy | Reward: -309.0 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=71.1, Opponent=76.2
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=17.5, Taken=22.6
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:43,848 - DEBUG - Episode 300 | Env 11 | Opponent: training_dummy | Reward: -140.1 | Length: 1000 ticks
+2025-11-04 10:46:43,848 - DEBUG -   Final HP: Fighter=76.4, Opponent=72.3
+2025-11-04 10:46:43,848 - DEBUG -   Damage: Dealt=21.4, Taken=17.3
+2025-11-04 10:46:43,848 - DEBUG -   Result: LOSS
+2025-11-04 10:46:45,241 - DEBUG - Episode 301 | Env 7 | Opponent: training_dummy | Reward: -312.2 | Length: 1000 ticks
+2025-11-04 10:46:45,241 - DEBUG -   Final HP: Fighter=70.9, Opponent=77.7
+2025-11-04 10:46:45,241 - DEBUG -   Damage: Dealt=16.0, Taken=22.8
+2025-11-04 10:46:45,241 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 302 | Env 0 | Opponent: training_dummy | Reward: -301.2 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=78.6, Opponent=79.8
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=13.9, Taken=15.1
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 303 | Env 1 | Opponent: training_dummy | Reward: -302.9 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=78.5, Opponent=80.6
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=13.1, Taken=15.2
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 304 | Env 2 | Opponent: training_dummy | Reward: -305.9 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=77.5, Opponent=81.0
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=12.7, Taken=16.2
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 305 | Env 3 | Opponent: training_dummy | Reward: -303.5 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=77.5, Opponent=79.9
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=13.8, Taken=16.2
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 306 | Env 4 | Opponent: training_dummy | Reward: -305.5 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=73.1, Opponent=76.6
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=17.1, Taken=20.6
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 307 | Env 5 | Opponent: training_dummy | Reward: -147.8 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=78.8, Opponent=78.5
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=15.2, Taken=14.9
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 308 | Env 6 | Opponent: training_dummy | Reward: -147.9 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=77.4, Opponent=77.1
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=16.6, Taken=16.3
+2025-11-04 10:46:48,788 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,788 - DEBUG - Episode 309 | Env 8 | Opponent: training_dummy | Reward: -300.3 | Length: 1000 ticks
+2025-11-04 10:46:48,788 - DEBUG -   Final HP: Fighter=76.4, Opponent=77.3
+2025-11-04 10:46:48,788 - DEBUG -   Damage: Dealt=16.4, Taken=17.3
+2025-11-04 10:46:48,789 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,789 - DEBUG - Episode 310 | Env 9 | Opponent: training_dummy | Reward: -142.8 | Length: 1000 ticks
+2025-11-04 10:46:48,789 - DEBUG -   Final HP: Fighter=82.5, Opponent=79.7
+2025-11-04 10:46:48,789 - DEBUG -   Damage: Dealt=14.0, Taken=11.2
+2025-11-04 10:46:48,789 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,789 - DEBUG - Episode 311 | Env 10 | Opponent: training_dummy | Reward: -308.0 | Length: 1000 ticks
+2025-11-04 10:46:48,789 - DEBUG -   Final HP: Fighter=71.3, Opponent=76.0
+2025-11-04 10:46:48,789 - DEBUG -   Damage: Dealt=17.7, Taken=22.4
+2025-11-04 10:46:48,789 - DEBUG -   Result: LOSS
+2025-11-04 10:46:48,789 - DEBUG - Episode 312 | Env 11 | Opponent: training_dummy | Reward: -146.9 | Length: 1000 ticks
+2025-11-04 10:46:48,789 - DEBUG -   Final HP: Fighter=76.9, Opponent=76.1
+2025-11-04 10:46:48,789 - DEBUG -   Damage: Dealt=17.6, Taken=16.8
+2025-11-04 10:46:48,789 - DEBUG -   Result: LOSS
+2025-11-04 10:46:50,671 - DEBUG - Episode 313 | Env 7 | Opponent: training_dummy | Reward: -123.4 | Length: 1000 ticks
+2025-11-04 10:46:50,672 - DEBUG -   Final HP: Fighter=76.7, Opponent=64.4
+2025-11-04 10:46:50,672 - DEBUG -   Damage: Dealt=29.3, Taken=17.0
+2025-11-04 10:46:50,672 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,632 - DEBUG - Episode 314 | Env 0 | Opponent: training_dummy | Reward: -302.0 | Length: 1000 ticks
+2025-11-04 10:46:55,632 - DEBUG -   Final HP: Fighter=73.3, Opponent=75.1
+2025-11-04 10:46:55,632 - DEBUG -   Damage: Dealt=18.6, Taken=20.4
+2025-11-04 10:46:55,632 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,632 - DEBUG - Episode 315 | Env 1 | Opponent: training_dummy | Reward: -298.7 | Length: 1000 ticks
+2025-11-04 10:46:55,632 - DEBUG -   Final HP: Fighter=78.9, Opponent=78.9
+2025-11-04 10:46:55,632 - DEBUG -   Damage: Dealt=14.8, Taken=14.8
+2025-11-04 10:46:55,632 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,632 - DEBUG - Episode 316 | Env 2 | Opponent: training_dummy | Reward: -317.5 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=69.0, Opponent=78.5
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=15.2, Taken=24.7
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 317 | Env 3 | Opponent: training_dummy | Reward: -138.3 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=77.0, Opponent=72.1
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=21.6, Taken=16.7
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 318 | Env 4 | Opponent: training_dummy | Reward: -142.2 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=78.5, Opponent=75.2
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=18.5, Taken=15.2
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 319 | Env 5 | Opponent: training_dummy | Reward: -304.3 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=76.5, Opponent=79.4
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=14.3, Taken=17.2
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 320 | Env 6 | Opponent: training_dummy | Reward: -142.8 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=78.5, Opponent=75.7
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=18.0, Taken=15.2
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 321 | Env 8 | Opponent: training_dummy | Reward: -314.1 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=66.1, Opponent=74.0
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=19.7, Taken=27.6
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,633 - DEBUG - Episode 322 | Env 9 | Opponent: training_dummy | Reward: -316.2 | Length: 1000 ticks
+2025-11-04 10:46:55,633 - DEBUG -   Final HP: Fighter=71.4, Opponent=80.2
+2025-11-04 10:46:55,633 - DEBUG -   Damage: Dealt=13.5, Taken=22.3
+2025-11-04 10:46:55,633 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,634 - DEBUG - Episode 323 | Env 10 | Opponent: training_dummy | Reward: -308.7 | Length: 1000 ticks
+2025-11-04 10:46:55,634 - DEBUG -   Final HP: Fighter=76.5, Opponent=81.5
+2025-11-04 10:46:55,634 - DEBUG -   Damage: Dealt=12.2, Taken=17.2
+2025-11-04 10:46:55,634 - DEBUG -   Result: LOSS
+2025-11-04 10:46:55,634 - DEBUG - Episode 324 | Env 11 | Opponent: training_dummy | Reward: -133.0 | Length: 1000 ticks
+2025-11-04 10:46:55,634 - DEBUG -   Final HP: Fighter=86.0, Opponent=78.2
+2025-11-04 10:46:55,634 - DEBUG -   Damage: Dealt=15.5, Taken=7.7
+2025-11-04 10:46:55,634 - DEBUG -   Result: LOSS
+2025-11-04 10:46:58,105 - DEBUG - Episode 325 | Env 7 | Opponent: training_dummy | Reward: -309.2 | Length: 1000 ticks
+2025-11-04 10:46:58,105 - DEBUG -   Final HP: Fighter=77.6, Opponent=82.7
+2025-11-04 10:46:58,105 - DEBUG -   Damage: Dealt=11.0, Taken=16.1
+2025-11-04 10:46:58,105 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,252 - DEBUG - Episode 326 | Env 0 | Opponent: training_dummy | Reward: -320.1 | Length: 1000 ticks
+2025-11-04 10:47:02,252 - DEBUG -   Final HP: Fighter=66.3, Opponent=77.1
+2025-11-04 10:47:02,252 - DEBUG -   Damage: Dealt=16.6, Taken=27.4
+2025-11-04 10:47:02,252 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,252 - DEBUG - Episode 327 | Env 1 | Opponent: training_dummy | Reward: -307.2 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=71.8, Opponent=76.2
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=17.5, Taken=21.9
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 328 | Env 2 | Opponent: training_dummy | Reward: -300.0 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=82.4, Opponent=82.9
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=10.8, Taken=11.3
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 329 | Env 3 | Opponent: training_dummy | Reward: -323.3 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=72.0, Opponent=84.1
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=9.6, Taken=21.7
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 330 | Env 4 | Opponent: training_dummy | Reward: -304.0 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=71.7, Opponent=74.6
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=19.1, Taken=22.0
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 331 | Env 5 | Opponent: training_dummy | Reward: -135.8 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=82.0, Opponent=75.7
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=18.0, Taken=11.7
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 332 | Env 6 | Opponent: training_dummy | Reward: -136.6 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=84.1, Opponent=78.1
+2025-11-04 10:47:02,253 - DEBUG -   Damage: Dealt=15.6, Taken=9.6
+2025-11-04 10:47:02,253 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,253 - DEBUG - Episode 333 | Env 8 | Opponent: training_dummy | Reward: -310.5 | Length: 1000 ticks
+2025-11-04 10:47:02,253 - DEBUG -   Final HP: Fighter=78.0, Opponent=83.7
+2025-11-04 10:47:02,254 - DEBUG -   Damage: Dealt=10.0, Taken=15.7
+2025-11-04 10:47:02,254 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,254 - DEBUG - Episode 334 | Env 9 | Opponent: training_dummy | Reward: -303.4 | Length: 1000 ticks
+2025-11-04 10:47:02,254 - DEBUG -   Final HP: Fighter=71.7, Opponent=74.3
+2025-11-04 10:47:02,254 - DEBUG -   Damage: Dealt=19.4, Taken=22.0
+2025-11-04 10:47:02,254 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,254 - DEBUG - Episode 335 | Env 10 | Opponent: training_dummy | Reward: -146.9 | Length: 1000 ticks
+2025-11-04 10:47:02,254 - DEBUG -   Final HP: Fighter=76.4, Opponent=75.6
+2025-11-04 10:47:02,254 - DEBUG -   Damage: Dealt=18.1, Taken=17.3
+2025-11-04 10:47:02,254 - DEBUG -   Result: LOSS
+2025-11-04 10:47:02,254 - DEBUG - Episode 336 | Env 11 | Opponent: training_dummy | Reward: -303.5 | Length: 1000 ticks
+2025-11-04 10:47:02,254 - DEBUG -   Final HP: Fighter=76.9, Opponent=79.4
+2025-11-04 10:47:02,254 - DEBUG -   Damage: Dealt=14.3, Taken=16.8
+2025-11-04 10:47:02,254 - DEBUG -   Result: LOSS
+2025-11-04 10:47:03,636 - DEBUG - Episode 337 | Env 7 | Opponent: training_dummy | Reward: -314.6 | Length: 1000 ticks
+2025-11-04 10:47:03,636 - DEBUG -   Final HP: Fighter=70.9, Opponent=78.9
+2025-11-04 10:47:03,636 - DEBUG -   Damage: Dealt=14.8, Taken=22.8
+2025-11-04 10:47:03,636 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 338 | Env 0 | Opponent: training_dummy | Reward: -310.2 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=76.7, Opponent=82.3
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=11.4, Taken=17.0
+2025-11-04 10:47:10,053 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 339 | Env 1 | Opponent: training_dummy | Reward: -142.4 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=76.4, Opponent=73.4
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=20.3, Taken=17.3
+2025-11-04 10:47:10,053 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 340 | Env 2 | Opponent: training_dummy | Reward: -140.6 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=76.3, Opponent=72.7
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=21.0, Taken=17.4
+2025-11-04 10:47:10,053 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 341 | Env 3 | Opponent: training_dummy | Reward: -308.3 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=77.3, Opponent=82.1
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=11.6, Taken=16.4
+2025-11-04 10:47:10,053 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 342 | Env 4 | Opponent: training_dummy | Reward: -319.9 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=68.0, Opponent=78.5
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=15.2, Taken=25.7
+2025-11-04 10:47:10,053 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,053 - DEBUG - Episode 343 | Env 5 | Opponent: training_dummy | Reward: -124.0 | Length: 1000 ticks
+2025-11-04 10:47:10,053 - DEBUG -   Final HP: Fighter=87.7, Opponent=75.4
+2025-11-04 10:47:10,053 - DEBUG -   Damage: Dealt=18.3, Taken=6.0
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,054 - DEBUG - Episode 344 | Env 6 | Opponent: training_dummy | Reward: -313.9 | Length: 1000 ticks
+2025-11-04 10:47:10,054 - DEBUG -   Final HP: Fighter=73.4, Opponent=80.9
+2025-11-04 10:47:10,054 - DEBUG -   Damage: Dealt=12.8, Taken=20.3
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,054 - DEBUG - Episode 345 | Env 8 | Opponent: training_dummy | Reward: -118.9 | Length: 1000 ticks
+2025-11-04 10:47:10,054 - DEBUG -   Final HP: Fighter=87.7, Opponent=72.9
+2025-11-04 10:47:10,054 - DEBUG -   Damage: Dealt=20.8, Taken=6.0
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,054 - DEBUG - Episode 346 | Env 9 | Opponent: training_dummy | Reward: -305.9 | Length: 1000 ticks
+2025-11-04 10:47:10,054 - DEBUG -   Final HP: Fighter=72.8, Opponent=76.5
+2025-11-04 10:47:10,054 - DEBUG -   Damage: Dealt=17.2, Taken=20.9
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,054 - DEBUG - Episode 347 | Env 10 | Opponent: training_dummy | Reward: -302.9 | Length: 1000 ticks
+2025-11-04 10:47:10,054 - DEBUG -   Final HP: Fighter=76.5, Opponent=78.6
+2025-11-04 10:47:10,054 - DEBUG -   Damage: Dealt=15.1, Taken=17.2
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,054 - DEBUG - Episode 348 | Env 11 | Opponent: training_dummy | Reward: -143.3 | Length: 1000 ticks
+2025-11-04 10:47:10,054 - DEBUG -   Final HP: Fighter=76.4, Opponent=73.9
+2025-11-04 10:47:10,054 - DEBUG -   Damage: Dealt=19.8, Taken=17.3
+2025-11-04 10:47:10,054 - DEBUG -   Result: LOSS
+2025-11-04 10:47:10,738 - DEBUG - Episode 349 | Env 7 | Opponent: training_dummy | Reward: -145.7 | Length: 1000 ticks
+2025-11-04 10:47:10,738 - DEBUG -   Final HP: Fighter=78.5, Opponent=77.0
+2025-11-04 10:47:10,738 - DEBUG -   Damage: Dealt=16.7, Taken=15.2
+2025-11-04 10:47:10,738 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,594 - DEBUG - Episode 350 | Env 0 | Opponent: training_dummy | Reward: -311.5 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=72.9, Opponent=79.4
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=14.3, Taken=20.8
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 351 | Env 1 | Opponent: training_dummy | Reward: -301.6 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=76.8, Opponent=78.2
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=15.5, Taken=16.9
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 352 | Env 2 | Opponent: training_dummy | Reward: -315.9 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=65.1, Opponent=74.0
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=19.7, Taken=28.6
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 353 | Env 3 | Opponent: training_dummy | Reward: -145.2 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=78.5, Opponent=76.7
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=17.0, Taken=15.2
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 354 | Env 4 | Opponent: training_dummy | Reward: -130.5 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=82.4, Opponent=73.5
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=20.2, Taken=11.3
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 355 | Env 5 | Opponent: training_dummy | Reward: -311.0 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=70.9, Opponent=77.2
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=16.5, Taken=22.8
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 356 | Env 6 | Opponent: training_dummy | Reward: -142.2 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=74.7, Opponent=71.7
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=22.0, Taken=19.0
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 357 | Env 8 | Opponent: training_dummy | Reward: -310.0 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=71.5, Opponent=77.3
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=16.4, Taken=22.2
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 358 | Env 9 | Opponent: training_dummy | Reward: -314.9 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=65.2, Opponent=73.5
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=20.2, Taken=28.5
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,595 - DEBUG - Episode 359 | Env 10 | Opponent: training_dummy | Reward: -134.8 | Length: 1000 ticks
+2025-11-04 10:47:16,595 - DEBUG -   Final HP: Fighter=76.7, Opponent=70.1
+2025-11-04 10:47:16,595 - DEBUG -   Damage: Dealt=23.6, Taken=17.0
+2025-11-04 10:47:16,595 - DEBUG -   Result: LOSS
+2025-11-04 10:47:16,596 - DEBUG - Episode 360 | Env 11 | Opponent: training_dummy | Reward: -127.5 | Length: 1000 ticks
+2025-11-04 10:47:16,596 - DEBUG -   Final HP: Fighter=87.7, Opponent=77.1
+2025-11-04 10:47:16,596 - DEBUG -   Damage: Dealt=16.6, Taken=6.0
+2025-11-04 10:47:16,596 - DEBUG -   Result: LOSS
+2025-11-04 10:47:17,954 - DEBUG - Episode 361 | Env 7 | Opponent: training_dummy | Reward: -146.6 | Length: 1000 ticks
+2025-11-04 10:47:17,954 - DEBUG -   Final HP: Fighter=72.5, Opponent=71.7
+2025-11-04 10:47:17,954 - DEBUG -   Damage: Dealt=22.0, Taken=21.2
+2025-11-04 10:47:17,954 - DEBUG -   Result: LOSS
