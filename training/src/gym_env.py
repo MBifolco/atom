@@ -91,6 +91,12 @@ class AtomCombatEnv(gym.Env):
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
 
+        # Reward component tracking
+        self.episode_proximity_reward = 0
+        self.episode_damage_reward = 0
+        self.episode_inaction_penalty = 0
+        self.episode_terminal_reward = 0
+
     def reset(self, seed=None, options=None):
         """Reset the environment for a new episode."""
         super().reset(seed=seed)
@@ -108,6 +114,12 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
+
+        # Reset reward component tracking
+        self.episode_proximity_reward = 0
+        self.episode_damage_reward = 0
+        self.episode_inaction_penalty = 0
+        self.episode_terminal_reward = 0
 
         # Return initial observation
         obs = self._get_observation()
@@ -184,26 +196,49 @@ class AtomCombatEnv(gym.Env):
                 hp_diff = opponent_hp_pct - fighter_hp_pct  # 0.0 to 1.0
                 hp_penalty = hp_diff * 100  # Up to -100 for getting dominated
                 reward = -200.0 - hp_penalty
+            self.episode_terminal_reward = reward
         elif truncated:
             # Timeout - compare HP percentage
             hp_pct_diff = fighter_hp_pct - opponent_hp_pct
             if hp_pct_diff > 0:
-                # Winning on HP but timed out - small reward
-                reward = 50.0
+                # Winning on HP but timed out - very small reward
+                # Keep this much lower than KO rewards (200-350) to encourage finishing
+                reward = 25.0
             elif hp_pct_diff < 0:
                 # Losing on HP - penalty
                 reward = -100.0
             else:
                 # Exact tie - small penalty (encourage decisive action)
                 reward = -25.0
+            self.episode_terminal_reward = reward
         else:
             # Mid-episode: Pure damage differential
             # Positive reward for dealing more damage than taking
-            reward = (damage_dealt - damage_taken) * 2.0
+            damage_reward = (damage_dealt - damage_taken) * 2.0
+            reward = damage_reward
+            self.episode_damage_reward += damage_reward
 
-            # Small penalty for being too passive (no damage dealt or taken)
+            # Small proximity bonus - encourages engagement but doesn't dominate
+            # This helps training discover that getting close leads to damage opportunities
+            distance = abs(self.fighter.position - self.opponent.position)
+            arena_width = self.config.arena_width  # ~12.5 meters
+
+            # Reward for being close (within 30% of arena = ~3.75 meters)
+            # Capped at +0.15 per tick to avoid overwhelming damage rewards
+            proximity_bonus = 0
+            if distance < arena_width * 0.3:
+                proximity_bonus = 0.15 * (1.0 - distance / (arena_width * 0.3))
+                reward += proximity_bonus
+                self.episode_proximity_reward += proximity_bonus
+
+            # Penalty for being too passive (no damage dealt or taken)
+            # Increased from -0.2 to -0.5 to prevent combat avoidance
+            # At -0.5/tick, 1000 ticks of inaction = -500 (worse than fighting and losing)
+            inaction_penalty = 0
             if damage_dealt == 0 and damage_taken == 0:
-                reward -= 0.2  # Penalty for inaction
+                inaction_penalty = -0.5
+                reward += inaction_penalty
+                self.episode_inaction_penalty += inaction_penalty
 
         # Info dict
         info = {
@@ -214,7 +249,16 @@ class AtomCombatEnv(gym.Env):
             "episode_damage_taken": self.episode_damage_taken,
             "fighter_hp": self.fighter.hp,
             "opponent_hp": self.opponent.hp,
-            "won": fighter_hp_pct > opponent_hp_pct if terminated else None  # Only actual wins count
+            "won": fighter_hp_pct > opponent_hp_pct if (terminated or truncated) else None,
+            # Reward breakdown (only available at episode end)
+            "reward_breakdown": {
+                "proximity": self.episode_proximity_reward,
+                "damage": self.episode_damage_reward,
+                "inaction": self.episode_inaction_penalty,
+                "terminal": self.episode_terminal_reward,
+                "total": self.episode_proximity_reward + self.episode_damage_reward +
+                        self.episode_inaction_penalty + self.episode_terminal_reward
+            } if (terminated or truncated) else None
         }
 
         return obs, reward, terminated, truncated, info

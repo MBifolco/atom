@@ -35,7 +35,7 @@ class WorldConfig:
 
     # Stamina economy
     stamina_accel_cost: float = 0.5  # High cost for acceleration
-    stamina_base_regen: float = 0.015  # Low base regen
+    stamina_base_regen: float = 0.03  # Base regen (doubled from 0.015)
     stamina_neutral_bonus: float = 3.5  # Good bonus for neutral stance
 
     # Damage

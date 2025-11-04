@@ -114,36 +114,73 @@ class ONNXFighter:
 def export_to_onnx(sb3_model_path: str, output_path: str):
     """
     Export Stable-Baselines3 model to ONNX format.
+    Supports both PPO and SAC models.
 
     Args:
         sb3_model_path: Path to saved SB3 model (.zip)
         output_path: Where to save ONNX model (.onnx)
     """
     import torch
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, SAC
     import torch.nn as nn
 
     print(f"Loading SB3 model from: {sb3_model_path}")
-    model = PPO.load(sb3_model_path)
 
+    # Try to detect model type and load appropriately
+    try:
+        model = PPO.load(sb3_model_path)
+        model_type = "PPO"
+    except:
+        try:
+            model = SAC.load(sb3_model_path)
+            model_type = "SAC"
+        except Exception as e:
+            raise ValueError(f"Could not load model as PPO or SAC: {e}")
+
+    print(f"Detected model type: {model_type}")
     print("Extracting policy network with action processing...")
 
-    # Create a wrapper that includes the action squashing (tanh)
-    class PolicyWrapper(nn.Module):
-        def __init__(self, policy):
-            super().__init__()
-            self.features_extractor = policy.features_extractor
-            self.mlp_extractor = policy.mlp_extractor
-            self.action_net = policy.action_net
+    # Create a wrapper that handles both PPO and SAC policies
+    if model_type == "PPO":
+        class PolicyWrapper(nn.Module):
+            def __init__(self, policy):
+                super().__init__()
+                self.features_extractor = policy.features_extractor
+                self.mlp_extractor = policy.mlp_extractor
+                self.action_net = policy.action_net
 
-        def forward(self, obs):
-            # Replicate the policy's forward pass for actions
-            features = self.features_extractor(obs)
-            latent_pi, _ = self.mlp_extractor(features)
-            mean_actions = self.action_net(latent_pi)
-            return mean_actions
+            def forward(self, obs):
+                features = self.features_extractor(obs)
+                latent_pi, _ = self.mlp_extractor(features)
+                mean_actions = self.action_net(latent_pi)
+                return mean_actions
+    else:  # SAC
+        class PolicyWrapper(nn.Module):
+            def __init__(self, policy, action_space):
+                super().__init__()
+                # SAC actor (includes squashing via tanh)
+                self.actor = policy.actor
+                # Action space bounds for rescaling
+                self.action_space_low = torch.FloatTensor(action_space.low)
+                self.action_space_high = torch.FloatTensor(action_space.high)
 
-    wrapped_policy = PolicyWrapper(model.policy)
+            def forward(self, obs):
+                # Get squashed actions from actor (deterministic=True uses mean with tanh)
+                mean_actions = self.actor(obs, deterministic=True)
+
+                # Rescale from [-1, 1] (after tanh) to action space bounds
+                # Formula: low + (action + 1) / 2 * (high - low)
+                actions = self.action_space_low + (mean_actions + 1.0) / 2.0 * (
+                    self.action_space_high - self.action_space_low
+                )
+
+                return actions
+
+    # Pass action space for SAC rescaling
+    if model_type == "SAC":
+        wrapped_policy = PolicyWrapper(model.policy, model.action_space)
+    else:
+        wrapped_policy = PolicyWrapper(model.policy)
     wrapped_policy.eval()
 
     # Create dummy input (batch_size=1, obs_dim=9)

@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import argparse
 import glob
 
-from training.src.trainer import train_fighter, train_curriculum
+from training.src.trainers import train_fighter_ppo, train_curriculum_ppo, train_fighter_sac, train_curriculum_sac
 from training.src.onnx_fighter import export_to_onnx, create_fighter_wrapper
 
 
@@ -70,15 +70,30 @@ def main():
     # Post-training
     parser.add_argument('--create-wrapper', action='store_true', help='Create standalone .py wrapper')
 
+    # Algorithm selection
+    parser.add_argument('--algorithm', choices=['ppo', 'sac'], default='ppo',
+                       help='Training algorithm: ppo (default, best for curriculum) or sac (better exploration)')
+
     args = parser.parse_args()
 
     # Default opponent mass to same as fighter mass if not specified
     if args.opponent_mass is None:
         args.opponent_mass = args.mass
 
+    # Select training functions based on algorithm
+    if args.algorithm == 'sac':
+        train_fighter = train_fighter_sac
+        train_curriculum = train_curriculum_sac
+        if args.cores > 1:
+            print(f"⚠️  Note: SAC works best with single environment, adjusting --cores from {args.cores} to 1")
+            args.cores = 1  # SAC is off-policy, doesn't benefit from parallel envs
+    else:  # ppo
+        train_fighter = train_fighter_ppo
+        train_curriculum = train_curriculum_ppo
+
     # Handle curriculum mode
     if args.curriculum:
-        print("Using curriculum learning mode...")
+        print(f"Using curriculum learning mode with {args.algorithm.upper()}...")
 
         # Set up output directory
         output_dir = Path(__file__).parent / "outputs"
@@ -89,7 +104,6 @@ def main():
             train_curriculum(
                 output_base=output_base,
                 episodes_per_level=args.episodes,
-                n_envs=args.cores,
                 fighter_mass=args.mass,
                 opponent_mass=args.opponent_mass,
                 max_ticks=args.max_ticks,

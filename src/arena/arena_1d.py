@@ -67,9 +67,18 @@ class Arena1D:
         footprint_b = self._compute_footprint(self.fighter_b)
 
         if self._check_collision(footprint_a, footprint_b):
-            # Calculate damage for both fighters
-            damage_to_a = self._calculate_damage(self.fighter_b, self.fighter_a)
-            damage_to_b = self._calculate_damage(self.fighter_a, self.fighter_b)
+            # Only attackers (extended stance) deal damage
+            # Neutral/defensive stances deal NO damage
+            damage_to_a = 0.0
+            damage_to_b = 0.0
+
+            # Fighter B attacking Fighter A
+            if self.fighter_b.stance == "extended":
+                damage_to_a = self._calculate_damage(self.fighter_b, self.fighter_a)
+
+            # Fighter A attacking Fighter B
+            if self.fighter_a.stance == "extended":
+                damage_to_b = self._calculate_damage(self.fighter_a, self.fighter_b)
 
             self.fighter_a.hp = max(0, self.fighter_a.hp - damage_to_a)
             self.fighter_b.hp = max(0, self.fighter_b.hp - damage_to_b)
@@ -148,7 +157,12 @@ class Arena1D:
         return not (a_right < b_left or b_right < a_left)
 
     def _calculate_damage(self, attacker: FighterState, defender: FighterState) -> float:
-        """Calculate damage dealt by attacker to defender."""
+        """
+        Calculate damage dealt by attacker to defender.
+
+        NOTE: This should only be called when attacker is in extended stance.
+        The collision logic already filters out non-attackers.
+        """
         # Relative velocity (how hard they're hitting each other)
         relative_velocity = abs(attacker.velocity - defender.velocity)
 
@@ -157,13 +171,6 @@ class Arena1D:
 
         # Defense multiplier from stance
         defense_mult = self.config.stances[defender.stance].defense
-
-        # Attack advantage - HUGE asymmetry when attacker is extended
-        # If defender is attacking (extended) and attacker is not, defender takes minimal damage
-        attack_advantage = 1.0
-        if defender.stance == "extended" and attacker.stance != "extended":
-            # Defender is attacking, attacker is passive → attacker takes WAY more damage
-            attack_advantage = 0.01  # Defender only takes 1% damage!
 
         # Stamina scaling - exhausted fighters deal less damage
         # 100% stamina = 100% damage, 0% stamina = 25% damage
@@ -175,7 +182,6 @@ class Arena1D:
                  * (1 + relative_velocity * self.config.velocity_damage_scale) \
                  * (mass_ratio ** self.config.mass_damage_scale) \
                  / defense_mult \
-                 * attack_advantage \
                  * stamina_mult
 
         return damage
