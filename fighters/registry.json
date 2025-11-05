@@ -1,0 +1,300 @@
+{
+  "version": "1.0",
+  "generated": "2025-11-05T15:00:43.440955",
+  "fighters": {
+    "stamina_manager": {
+      "id": "stamina_manager",
+      "name": "Stamina Manager",
+      "description": "Strategy: - Hyper-aware of stamina levels - Alternates aggressive and recovery phases - Teaches learning fighter to manage stamina as a resource - Uses recovery windows to advantage",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/stamina_manager.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "stamina-aware"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.436306",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "5e719d7ff7e7fa5970deeb234c00a23594c48943f4b478be67f5199a8c53a184"
+    },
+    "dodger": {
+      "id": "dodger",
+      "name": "Dodger",
+      "description": "Strategy: - Constantly moves to avoid opponent - Kites away and counter-attacks - Teaches learning fighter how to pursue and predict movement - Uses stamina efficiently for mobility",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/dodger.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "stamina-aware",
+        "counter-puncher"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.436489",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "fbee55181347ebab4b6c43fa7b7fa15f45badc0c1bb115d999bb0b0873ef1fde"
+    },
+    "hit_and_run": {
+      "id": "hit_and_run",
+      "name": "Hit-and-Run",
+      "description": "Strategy: - Hits opponent then immediately backs away - Repeats hit-retreat cycle constantly - Teaches learning fighter dealing with mobile opponents - Forces learner to predict and catch opponents",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/hit_and_run.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "evasive"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.436645",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "f58472aa6cf05e280cfdc39e3307cfc995e8f24ba30f5357adb821c120e7ab11"
+    },
+    "berserker": {
+      "id": "berserker",
+      "name": "Berserker",
+      "description": "Strategy: - Attacks aggressively at all times - Never backs down or defends - Teaches learning fighter to develop absolute defense - Forces learner to survive onslaught and counter-attack",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/berserker.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "defensive",
+        "counter-puncher"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.436798",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "d18f75405bdc8905733628a0b4f1e3a38f2d94cf1a02d74c73f22109851d4ac0"
+    },
+    "zoner": {
+      "id": "zoner",
+      "name": "Zoner",
+      "description": "Strategy: - Maintains maximum distance and pokes opponent - Uses light attacks to damage from range - Teaches learning fighter range management - Forces learner to close distance effectively",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/zoner.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "range-control"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.436952",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "e78c46885d61104d3b2b81d8fb3ec465a9d111b6503b2eb1ff88aa2cfd6c491a"
+    },
+    "balanced": {
+      "id": "balanced",
+      "name": "Balanced",
+      "description": "Strategy: - Aggressive when winning - Defensive when losing - Adapts based on HP advantage - Smart stamina management",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/balanced.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "balanced",
+        "stamina-aware"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.437094",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "1b792f31a5604a5dca4c2e5bfcead6bf60e9afba1faf274d829087df6de5c99a"
+    },
+    "rusher": {
+      "id": "rusher",
+      "name": "Rusher",
+      "description": "Strategy: - Rushes forward constantly - Extends when close to opponent - Backs away from walls - Retreats when HP is critical",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/rusher.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.437232",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "3899d31a03b09ef5071e96627ff76996e8cfb4f0cb6194b26ecd286b35d45ed2"
+    },
+    "grappler": {
+      "id": "grappler",
+      "name": "Grappler",
+      "description": "Strategy: - Forces close-range combat - Extended stance at close range constantly - Teaches learning fighter close-quarters fighting - Teaches defensive stance usage",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/grappler.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "range-control"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.437368",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "3ae8b3dd4fdf8d66b7c4a8c8e334f5161a0a588f8f8cca03f896be5cc24b9a9d"
+    },
+    "tank": {
+      "id": "tank",
+      "name": "Tank",
+      "description": "Strategy: - Maintains optimal distance (2-4m) - Defends when opponent charges - Counter-attacks when close - Avoids walls strategically",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/tank.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "defensive",
+        "counter-puncher",
+        "range-control"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.437504",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "f16fedf6fa4060f50d47a4fdb9d421df20bde8c68f2ad1125d6c250058804190"
+    },
+    "counter_puncher": {
+      "id": "counter_puncher",
+      "name": "Counter Puncher",
+      "description": "Strategy: - Waits for opponent to overextend - Punishes aggressive mistakes - Teaches learning fighter about timing, patience, and risk/reward - Uses defensive stance effectively",
+      "creator": "system",
+      "type": "rule-based",
+      "file_path": "fighters/examples/counter_puncher.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "counter-puncher"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.437642",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "dd34a12055b1df1b9580e4c0774a77cca860167813f2588961bdc02a6a141aea"
+    },
+    "novice": {
+      "id": "novice",
+      "name": "Novice",
+      "description": "Difficulty: Level 4 Has the fundamentals: - Moves toward opponent - Uses extended stance at correct range - Basic stamina awareness - But: predictable, no adaptation, no defense",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/novice.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "balanced",
+        "stamina-aware",
+        "range-control"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.438351",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "eec7dceb09f2574d0363f25931fce6c1cc6e314f419f2daa63b08cd9c76edcee"
+    },
+    "wanderer": {
+      "id": "wanderer",
+      "name": "Wanderer",
+      "description": "Difficulty: Level 2 (after training_dummy) Just wanders around randomly. Sometimes accidentally hits things. Good for learning that movement and positioning matter.",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/wanderer.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.439600",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "816e88b30302150afe1faa0720c41c86d7659642b67a3ac4815c15ab40537db8"
+    },
+    "training_dummy": {
+      "id": "training_dummy",
+      "name": "Training Dummy",
+      "description": "Perfect first opponent for RL agents to learn against. Configure this as a 50kg fighter so it takes more damage.",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/training_dummy.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.439897",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "2b9251ce3c51beb0f724c90c0b234a6c8d597094b5c0b64bb8c269ebfc1718da"
+    },
+    "punching_bag": {
+      "id": "punching_bag",
+      "name": "Punching Bag",
+      "description": "Does absolutely nothing. Perfect for learning to approach and strike.",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/punching_bag.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.440176",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "c510878d15e13b02919e034a3da823dc16f6d1e3bd4bc03c5fcc0f77783e6ecc"
+    },
+    "dummy": {
+      "id": "dummy",
+      "name": "Dummy Fighter",
+      "description": "Just moves forward slowly with neutral stance.",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/dummy.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.440452",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "4df4d6e83f95d967f20c74c9418da66da4a2107d687bd11068daebb38addd574"
+    },
+    "bumbler": {
+      "id": "bumbler",
+      "name": "Bumbler",
+      "description": "Difficulty: Level 3 Has basic combat instincts but terrible execution: - Moves toward opponent but not strategically - Uses extended stance but at wrong times - Doesn't manage stamina - No defensive awareness",
+      "creator": "system",
+      "type": "training",
+      "file_path": "fighters/training_opponents/bumbler.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "stamina-aware"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:00:43.440876",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "c8ea2e27418ab6e0ab777922ab4ada9d0a0f839bcb3e142666242a0407a109ac"
+    }
+  }
+}
