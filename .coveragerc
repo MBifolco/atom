@@ -1,0 +1,19 @@
+[run]
+source = src,training/src
+omit =
+    */tests/*
+    */__pycache__/*
+    */site-packages/*
+    */.pytest_cache/*
+    */outputs/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov
+
+[coverage:report]
+fail_under = 12.0
