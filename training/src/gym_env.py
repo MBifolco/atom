@@ -8,6 +8,13 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
+import sys
+from pathlib import Path
+# Add parent directory if not already in path
+parent_dir = str(Path(__file__).parent.parent.parent)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from src.arena import WorldConfig, FighterState, Arena1D
 from src.protocol.combat_protocol import generate_snapshot
 
@@ -90,12 +97,18 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
+        self.last_distance = None
+        self.stamina_used = 0
+        self.hits_landed = 0
+        self.hits_taken = 0
 
         # Reward component tracking
         self.episode_proximity_reward = 0
         self.episode_damage_reward = 0
         self.episode_inaction_penalty = 0
         self.episode_terminal_reward = 0
+        self.episode_stamina_reward = 0
+        self.episode_stance_reward = 0
 
     def reset(self, seed=None, options=None):
         """Reset the environment for a new episode."""
@@ -114,12 +127,18 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
+        self.last_distance = None
+        self.stamina_used = 0
+        self.hits_landed = 0
+        self.hits_taken = 0
 
         # Reset reward component tracking
         self.episode_proximity_reward = 0
         self.episode_damage_reward = 0
         self.episode_inaction_penalty = 0
         self.episode_terminal_reward = 0
+        self.episode_stamina_reward = 0
+        self.episode_stance_reward = 0
 
         # Return initial observation
         obs = self._get_observation()
@@ -155,15 +174,23 @@ class AtomCombatEnv(gym.Env):
         # Execute tick in arena
         prev_fighter_hp = self.fighter.hp
         prev_opponent_hp = self.opponent.hp
+        prev_fighter_stamina = self.fighter.stamina
 
         events = self.arena.step(fighter_action, opponent_action_dict)
 
         # Calculate damage dealt/taken this step
         damage_dealt = prev_opponent_hp - self.opponent.hp
         damage_taken = prev_fighter_hp - self.fighter.hp
+        stamina_spent = prev_fighter_stamina - self.fighter.stamina
 
         self.episode_damage_dealt += damage_dealt
         self.episode_damage_taken += damage_taken
+        self.stamina_used += max(0, stamina_spent)  # Only count stamina spent, not regen
+
+        if damage_dealt > 0:
+            self.hits_landed += 1
+        if damage_taken > 0:
+            self.hits_taken += 1
 
         self.tick += 1
 
@@ -182,11 +209,18 @@ class AtomCombatEnv(gym.Env):
         if terminated:
             # Someone died - determine winner
             if fighter_hp_pct > opponent_hp_pct:
-                # WIN: Base bonus + time bonus + HP differential bonus
+                # WIN: Base bonus + time bonus + HP differential bonus + efficiency bonus
                 time_bonus = max(0, (self.max_ticks - self.tick) / 20)  # Up to +50 for quick wins
                 hp_diff = fighter_hp_pct - opponent_hp_pct  # 0.0 to 1.0 (100% margin)
                 hp_bonus = hp_diff * 100  # Up to +100 for perfect win (100% HP vs 0%)
-                reward = 200.0 + time_bonus + hp_bonus
+
+                # Stamina efficiency bonus (up to +25 for stamina-efficient wins)
+                stamina_efficiency = 0
+                if self.stamina_used > 0:
+                    damage_per_stamina = self.episode_damage_dealt / max(self.stamina_used, 1)
+                    stamina_efficiency = min(25, damage_per_stamina * 5)
+
+                reward = 200.0 + time_bonus + hp_bonus + stamina_efficiency
             elif fighter_hp_pct == opponent_hp_pct:
                 # TIE: Both died simultaneously - PENALTY
                 # Strongly discourages mutual destruction, encourages survival
@@ -200,43 +234,103 @@ class AtomCombatEnv(gym.Env):
         elif truncated:
             # Timeout - compare HP percentage
             hp_pct_diff = fighter_hp_pct - opponent_hp_pct
-            if hp_pct_diff > 0:
-                # Winning on HP but timed out - very small reward
-                # Keep this much lower than KO rewards (200-350) to encourage finishing
-                reward = 25.0
+            if hp_pct_diff > 0.1:
+                # Clear win on HP (>10% margin) - significant reward
+                # Increased from 25 to 100 to properly reward dominance
+                reward = 100.0 + (hp_pct_diff * 50)  # Up to 150 for large HP margin
+            elif hp_pct_diff > 0:
+                # Slight win on HP - moderate reward
+                reward = 50.0
+            elif hp_pct_diff < -0.1:
+                # Clear loss on HP
+                reward = -100.0 + (hp_pct_diff * 50)  # Down to -150 for bad loss
             elif hp_pct_diff < 0:
-                # Losing on HP - penalty
-                reward = -100.0
+                # Slight loss on HP
+                reward = -50.0
             else:
                 # Exact tie - small penalty (encourage decisive action)
                 reward = -25.0
             self.episode_terminal_reward = reward
         else:
-            # Mid-episode: Pure damage differential
-            # Positive reward for dealing more damage than taking
+            # Mid-episode rewards: Shaped to encourage good fighting behavior
+            reward = 0
+
+            # 1. Damage differential (core reward)
             damage_reward = (damage_dealt - damage_taken) * 2.0
-            reward = damage_reward
+            reward += damage_reward
             self.episode_damage_reward += damage_reward
 
-            # Small proximity bonus - encourages engagement but doesn't dominate
-            # This helps training discover that getting close leads to damage opportunities
+            # 2. Stamina-aware rewards
+            stamina_pct = self.fighter.stamina / self.fighter.max_stamina
+            opp_stamina_pct = self.opponent.stamina / self.opponent.max_stamina
+
+            # Reward for maintaining stamina advantage
+            if stamina_pct > opp_stamina_pct + 0.2:
+                stamina_bonus = 0.1  # Small constant bonus for stamina advantage
+                reward += stamina_bonus
+                self.episode_stamina_reward += stamina_bonus
+
+            # Penalize fighting at very low stamina (< 20%)
+            if stamina_pct < 0.2 and stance != "defending":
+                stamina_penalty = -0.2
+                reward += stamina_penalty
+                self.episode_stamina_reward += stamina_penalty
+
+            # 3. Smart proximity rewards (distance-aware)
             distance = abs(self.fighter.position - self.opponent.position)
             arena_width = self.config.arena_width  # ~12.5 meters
 
-            # Reward for being close (within 30% of arena = ~3.75 meters)
-            # Capped at +0.15 per tick to avoid overwhelming damage rewards
-            proximity_bonus = 0
-            if distance < arena_width * 0.3:
-                proximity_bonus = 0.15 * (1.0 - distance / (arena_width * 0.3))
-                reward += proximity_bonus
-                self.episode_proximity_reward += proximity_bonus
+            # Track closing/opening distance
+            if self.last_distance is not None:
+                distance_delta = self.last_distance - distance  # Positive = closing
 
-            # Penalty for being too passive (no damage dealt or taken)
-            # Increased from -0.2 to -0.5 to prevent combat avoidance
-            # At -0.5/tick, 1000 ticks of inaction = -500 (worse than fighting and losing)
-            inaction_penalty = 0
+                # Reward closing distance when opponent is low HP or stamina
+                if opponent_hp_pct < 0.3 or opp_stamina_pct < 0.2:
+                    if distance_delta > 0.1:  # Closing in
+                        proximity_bonus = 0.2
+                        reward += proximity_bonus
+                        self.episode_proximity_reward += proximity_bonus
+
+                # Reward backing off when low on stamina
+                elif stamina_pct < 0.2:
+                    if distance_delta < -0.1:  # Backing away
+                        proximity_bonus = 0.1
+                        reward += proximity_bonus
+                        self.episode_proximity_reward += proximity_bonus
+
+                # Normal engagement distance reward (moderate, not overwhelming)
+                elif distance < arena_width * 0.25:  # Within ~3 meters
+                    proximity_bonus = 0.1 * (1.0 - distance / (arena_width * 0.25))
+                    reward += proximity_bonus
+                    self.episode_proximity_reward += proximity_bonus
+
+            self.last_distance = distance
+
+            # 4. Stance-appropriate rewards
+            stance_bonus = 0
+
+            # Reward aggressive stance when opponent is hurt
+            if stance == "extended" and opponent_hp_pct < 0.5:
+                stance_bonus = 0.05
+            # Reward defensive stance when recovering stamina
+            elif stance == "defending" and stamina_pct < 0.3:
+                stance_bonus = 0.05
+            # Reward retracted stance when countering
+            elif stance == "retracted" and damage_dealt > 0:
+                stance_bonus = 0.15
+
+            reward += stance_bonus
+            self.episode_stance_reward += stance_bonus
+
+            # 5. Inaction penalty (distance-aware)
+            # More severe penalty for inaction when close, less when far
             if damage_dealt == 0 and damage_taken == 0:
-                inaction_penalty = -0.5
+                if distance < arena_width * 0.2:  # Very close
+                    inaction_penalty = -0.8  # Severe penalty for not fighting when close
+                elif distance < arena_width * 0.4:  # Medium range
+                    inaction_penalty = -0.4
+                else:  # Far away
+                    inaction_penalty = -0.2  # Light penalty, positioning might be strategic
                 reward += inaction_penalty
                 self.episode_inaction_penalty += inaction_penalty
 
@@ -249,14 +343,22 @@ class AtomCombatEnv(gym.Env):
             "episode_damage_taken": self.episode_damage_taken,
             "fighter_hp": self.fighter.hp,
             "opponent_hp": self.opponent.hp,
+            "fighter_stamina": self.fighter.stamina,
+            "opponent_stamina": self.opponent.stamina,
+            "hits_landed": self.hits_landed,
+            "hits_taken": self.hits_taken,
+            "stamina_used": self.stamina_used,
             "won": fighter_hp_pct > opponent_hp_pct if (terminated or truncated) else None,
             # Reward breakdown (only available at episode end)
             "reward_breakdown": {
                 "proximity": self.episode_proximity_reward,
                 "damage": self.episode_damage_reward,
+                "stamina": self.episode_stamina_reward,
+                "stance": self.episode_stance_reward,
                 "inaction": self.episode_inaction_penalty,
                 "terminal": self.episode_terminal_reward,
                 "total": self.episode_proximity_reward + self.episode_damage_reward +
+                        self.episode_stamina_reward + self.episode_stance_reward +
                         self.episode_inaction_penalty + self.episode_terminal_reward
             } if (terminated or truncated) else None
         }
