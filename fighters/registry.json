@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated": "2025-11-05T15:00:43.440955",
+  "generated": "2025-11-05T15:10:35.786323",
   "fighters": {
     "stamina_manager": {
       "id": "stamina_manager",
@@ -16,7 +16,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.436306",
+      "created_date": "2025-11-05T15:10:35.783502",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "5e719d7ff7e7fa5970deeb234c00a23594c48943f4b478be67f5199a8c53a184"
@@ -36,7 +36,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.436489",
+      "created_date": "2025-11-05T15:10:35.783659",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "fbee55181347ebab4b6c43fa7b7fa15f45badc0c1bb115d999bb0b0873ef1fde"
@@ -54,7 +54,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.436645",
+      "created_date": "2025-11-05T15:10:35.783765",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "f58472aa6cf05e280cfdc39e3307cfc995e8f24ba30f5357adb821c120e7ab11"
@@ -74,7 +74,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.436798",
+      "created_date": "2025-11-05T15:10:35.783867",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "d18f75405bdc8905733628a0b4f1e3a38f2d94cf1a02d74c73f22109851d4ac0"
@@ -93,7 +93,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.436952",
+      "created_date": "2025-11-05T15:10:35.783959",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "e78c46885d61104d3b2b81d8fb3ec465a9d111b6503b2eb1ff88aa2cfd6c491a"
@@ -113,7 +113,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.437094",
+      "created_date": "2025-11-05T15:10:35.784073",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "1b792f31a5604a5dca4c2e5bfcead6bf60e9afba1faf274d829087df6de5c99a"
@@ -131,7 +131,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.437232",
+      "created_date": "2025-11-05T15:10:35.784168",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "3899d31a03b09ef5071e96627ff76996e8cfb4f0cb6194b26ecd286b35d45ed2"
@@ -149,7 +149,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.437368",
+      "created_date": "2025-11-05T15:10:35.784264",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "3ae8b3dd4fdf8d66b7c4a8c8e334f5161a0a588f8f8cca03f896be5cc24b9a9d"
@@ -170,7 +170,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.437504",
+      "created_date": "2025-11-05T15:10:35.784354",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "f16fedf6fa4060f50d47a4fdb9d421df20bde8c68f2ad1125d6c250058804190"
@@ -189,7 +189,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.437642",
+      "created_date": "2025-11-05T15:10:35.784452",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "dd34a12055b1df1b9580e4c0774a77cca860167813f2588961bdc02a6a141aea"
@@ -209,7 +209,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.438351",
+      "created_date": "2025-11-05T15:10:35.784737",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "eec7dceb09f2574d0363f25931fce6c1cc6e314f419f2daa63b08cd9c76edcee"
@@ -225,7 +225,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.439600",
+      "created_date": "2025-11-05T15:10:35.785791",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "816e88b30302150afe1faa0720c41c86d7659642b67a3ac4815c15ab40537db8"
@@ -241,7 +241,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.439897",
+      "created_date": "2025-11-05T15:10:35.785930",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "2b9251ce3c51beb0f724c90c0b234a6c8d597094b5c0b64bb8c269ebfc1718da"
@@ -257,7 +257,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.440176",
+      "created_date": "2025-11-05T15:10:35.786041",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "c510878d15e13b02919e034a3da823dc16f6d1e3bd4bc03c5fcc0f77783e6ecc"
@@ -273,7 +273,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.440452",
+      "created_date": "2025-11-05T15:10:35.786139",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "4df4d6e83f95d967f20c74c9418da66da4a2107d687bd11068daebb38addd574"
@@ -291,7 +291,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:00:43.440876",
+      "created_date": "2025-11-05T15:10:35.786243",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "c8ea2e27418ab6e0ab777922ab4ada9d0a0f839bcb3e142666242a0407a109ac"

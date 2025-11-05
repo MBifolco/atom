@@ -35,6 +35,9 @@ outputs/
 # Exported AI fighters (can be large)
 fighters/AIs/
 
+# Web application generated replays
+outputs/replays/
+
 # IDE
 .vscode/
 .idea/

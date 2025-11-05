@@ -269,23 +269,40 @@ async def run_match(request: MatchRequest):
         )
 
 
-@app.post("/api/export-replay")
-async def export_replay(request: ExportReplayRequest):
+@app.get("/api/replay-html/{match_id}")
+async def get_replay_html(match_id: str):
     """
-    Export a replay as standalone HTML file.
+    Get the full replay HTML for embedding.
+    For now, generates on-the-fly from stored match data.
+    In production, you might cache these.
+    """
+    # This is a placeholder - in production you'd store match results
+    # For now, we'll generate it on-demand from the POST data
+    raise HTTPException(status_code=501, detail="Use POST /api/generate-replay-html instead")
 
-    Args:
-        request: Replay data and configuration
 
-    Returns:
-        File download of standalone HTML
+@app.post("/api/generate-replay-html")
+async def generate_replay_html_inline(request: ExportReplayRequest):
+    """
+    Generate full replay HTML for inline display (not download).
+
+    Returns the HTML content as a string for embedding in iframe.
     """
     try:
         # Create renderer
         renderer = HtmlRenderer()
 
-        # Create a temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as tmp_file:
+        # Create replays directory if it doesn't exist
+        replays_dir = project_root / "outputs" / "replays"
+        replays_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a temporary file in replays directory
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.html',
+            dir=str(replays_dir),
+            delete=False
+        ) as tmp_file:
             tmp_path = Path(tmp_file.name)
 
         # Generate HTML
@@ -313,11 +330,83 @@ async def export_replay(request: ExportReplayRequest):
             spectacle_score=spectacle_score
         )
 
-        # Return as file download
+        # Read the HTML content
+        with open(output_path, 'r') as f:
+            html_content = f.read()
+
+        # Clean up temp file
+        try:
+            output_path.unlink()
+        except:
+            pass
+
+        # Return as plain text (will be loaded into iframe)
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=html_content, media_type="text/html")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating replay HTML: {str(e)}")
+
+
+@app.post("/api/export-replay")
+async def export_replay(request: ExportReplayRequest):
+    """
+    Export a replay as standalone HTML file.
+
+    Args:
+        request: Replay data and configuration
+
+    Returns:
+        File download of standalone HTML
+    """
+    try:
+        # Create renderer
+        renderer = HtmlRenderer()
+
+        # Create replays directory if it doesn't exist
+        replays_dir = project_root / "outputs" / "replays"
+        replays_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a temporary file in replays directory
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.html',
+            dir=str(replays_dir),
+            delete=False
+        ) as tmp_file:
+            tmp_path = Path(tmp_file.name)
+
+        # Generate HTML
+        from src.orchestrator import MatchResult
+        match_result = MatchResult(
+            winner=request.result["winner"],
+            total_ticks=request.result["total_ticks"],
+            final_hp_a=request.result["final_hp_a"],
+            final_hp_b=request.result["final_hp_b"],
+            telemetry=request.telemetry,
+            events=request.telemetry.get("events", [])
+        )
+
+        # Create spectacle score if provided
+        spectacle_score = None
+        if request.spectacle_score:
+            from src.evaluator import SpectacleScore
+            spectacle_score = SpectacleScore(**request.spectacle_score)
+
+        # Generate the HTML
+        output_path = renderer.generate_replay_html(
+            request.telemetry,
+            match_result,
+            str(tmp_path),
+            spectacle_score=spectacle_score
+        )
+
+        # Return as file download (file will be deleted after response)
         return FileResponse(
             path=str(output_path),
             filename=request.filename,
-            media_type="text/html"
+            media_type="text/html",
+            background=None  # Delete file after sending
         )
 
     except Exception as e:

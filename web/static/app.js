@@ -243,73 +243,47 @@ class AtomCombatApp {
         }
     }
 
-    displayReplay(matchData) {
-        // Generate standalone HTML replay content
-        const replayHTML = this.generateReplayHTML(matchData);
+    async displayReplay(matchData) {
+        // Show loading message while generating replay HTML
+        document.getElementById('loading-message').textContent = 'Generating replay...';
 
-        // Display in iframe
-        const iframe = document.getElementById('replay-frame');
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(replayHTML);
-        iframeDoc.close();
+        try {
+            // Request full replay HTML from server
+            const response = await fetch('/api/generate-replay-html', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    telemetry: matchData.telemetry,
+                    result: matchData.result,
+                    spectacle_score: matchData.spectacle_score,
+                    filename: 'replay.html'
+                })
+            });
 
-        // Show replay view
-        this.showView('replay-view');
-    }
+            if (!response.ok) {
+                throw new Error('Failed to generate replay HTML');
+            }
 
-    generateReplayHTML(matchData) {
-        // This generates a minimal inline HTML for the iframe
-        // In production, you might want to fetch the actual HtmlRenderer template
-        const telemetry = matchData.telemetry;
-        const result = matchData.result;
-        const spectacleScore = matchData.spectacle_score;
+            // Get the full HTML content
+            const replayHTML = await response.text();
 
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Atom Combat Replay</title>
-    <style>
-        body { margin: 0; padding: 20px; background: #1a1a2e; color: #e9ecef; font-family: monospace; }
-        .summary { text-align: center; padding: 20px; }
-        .winner { font-size: 2em; color: #27ae60; margin: 20px 0; }
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto; }
-        .stat { background: #16213e; padding: 15px; border-radius: 8px; }
-        .stat-label { color: #adb5bd; font-size: 0.9em; }
-        .stat-value { font-size: 1.5em; color: #4a90e2; }
-    </style>
-</head>
-<body>
-    <div class="summary">
-        <h1>Match Complete!</h1>
-        <div class="winner">🏆 Winner: ${result.winner}</div>
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-label">${telemetry.fighter_a_name}</div>
-                <div class="stat-value">${result.final_hp_a.toFixed(1)} HP</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">${telemetry.fighter_b_name}</div>
-                <div class="stat-value">${result.final_hp_b.toFixed(1)} HP</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Duration</div>
-                <div class="stat-value">${result.total_ticks} ticks</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Spectacle Score</div>
-                <div class="stat-value">${(spectacleScore.overall * 100).toFixed(1)}%</div>
-            </div>
-        </div>
-        <p style="margin-top: 30px; color: #adb5bd;">
-            Click "Export Replay" to save a full animated replay with playback controls.
-        </p>
-    </div>
-</body>
-</html>
-        `;
+            // Display in iframe
+            const iframe = document.getElementById('replay-frame');
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(replayHTML);
+            iframeDoc.close();
+
+            // Show replay view
+            this.showView('replay-view');
+
+        } catch (error) {
+            console.error('Error displaying replay:', error);
+            alert(`Failed to display replay: ${error.message}`);
+            this.showView('selection-view');
+        }
     }
 
     async exportReplay() {
