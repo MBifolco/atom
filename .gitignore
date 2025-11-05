@@ -32,6 +32,9 @@ coverage.xml
 training/outputs/
 outputs/
 
+# Exported AI fighters (can be large)
+fighters/AIs/
+
 # IDE
 .vscode/
 .idea/

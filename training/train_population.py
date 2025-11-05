@@ -114,6 +114,12 @@ Examples:
         help="Output directory for models and logs (default: outputs/population)"
     )
     parser.add_argument(
+        "--export-threshold",
+        type=float,
+        default=0.5,
+        help="Minimum win rate to export fighters to fighters/AIs/ (default: 0.5)"
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress progress output"
@@ -156,7 +162,8 @@ Examples:
         n_envs_per_fighter=args.envs_per_fighter,
         max_ticks=args.max_ticks,
         mass_range=tuple(args.mass_range),
-        verbose=not args.quiet
+        verbose=not args.quiet,
+        export_threshold=args.export_threshold
     )
 
     # Run training
@@ -174,7 +181,7 @@ Examples:
     except KeyboardInterrupt:
         print("\n\n⚠️  Training interrupted by user")
         print("Saving current generation...")
-        trainer.save_population()
+        trainer.save_population(min_win_rate=args.export_threshold)
         print(f"Models saved to: {args.output}/models/")
 
     except Exception as e:
