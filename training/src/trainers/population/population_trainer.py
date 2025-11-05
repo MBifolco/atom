@@ -83,7 +83,8 @@ class PopulationTrainer:
                  n_envs_per_fighter: int = 2,
                  max_ticks: int = 1000,
                  mass_range: Tuple[float, float] = (60.0, 85.0),
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 export_threshold: float = 0.5):
         """
         Initialize the population trainer.
 
@@ -96,6 +97,7 @@ class PopulationTrainer:
             max_ticks: Maximum ticks per episode
             mass_range: Range of masses for fighter variety
             verbose: Whether to print progress
+            export_threshold: Minimum win rate to export fighters to AIs directory
         """
         self.population_size = population_size
         self.config = config or WorldConfig()
@@ -105,6 +107,7 @@ class PopulationTrainer:
         self.max_ticks = max_ticks
         self.mass_range = mass_range
         self.verbose = verbose
+        self.export_threshold = export_threshold
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -522,8 +525,17 @@ class PopulationTrainer:
 
         self.logger.info(f"Evolved to generation {self.generation}")
 
-    def save_population(self) -> None:
-        """Save all fighters in the population."""
+    def save_population(self, min_win_rate: float = None) -> None:
+        """
+        Save all fighters in the population.
+
+        Also exports qualifying fighters to fighters/AIs/ directory in atom_fight.py format.
+
+        Args:
+            min_win_rate: Minimum win rate to export to AIs directory (default: use export_threshold)
+        """
+        if min_win_rate is None:
+            min_win_rate = self.export_threshold
         generation_dir = self.models_dir / f"generation_{self.generation}"
         generation_dir.mkdir(exist_ok=True)
 
@@ -541,8 +553,280 @@ class PopulationTrainer:
                 f.write(f"{i}. {stats.name}: ELO={stats.elo:.0f}, "
                        f"Record={stats.wins}-{stats.losses}-{stats.draws}\n")
 
+        # Export qualifying fighters to AIs directory
+        self._export_qualifying_fighters(min_win_rate)
+
         if self.verbose:
             print(f"\nSaved generation {self.generation} to {generation_dir}")
+
+    def _export_qualifying_fighters(self, min_win_rate: float = 0.5) -> None:
+        """
+        Export fighters that meet win rate threshold to fighters/AIs/ directory.
+
+        Each fighter gets its own folder with:
+        - {fighter_name}.onnx - ONNX model for inference
+        - {fighter_name}.py - Python wrapper with decide() function
+        - README.md - Fighter stats and metadata
+
+        Args:
+            min_win_rate: Minimum win rate to qualify for export
+        """
+        # Calculate win rates for all fighters
+        rankings = self.elo_tracker.get_rankings()
+
+        # Determine project root (where atom_fight.py is)
+        project_root = Path(__file__).parent.parent.parent.parent.parent
+        ais_dir = project_root / "fighters" / "AIs"
+        ais_dir.mkdir(parents=True, exist_ok=True)
+
+        exported_count = 0
+
+        for fighter in self.population:
+            # Get fighter stats
+            stats = next((s for s in rankings if s.name == fighter.name), None)
+            if not stats:
+                continue
+
+            # Calculate win rate
+            total_matches = stats.wins + stats.losses + stats.draws
+            if total_matches == 0:
+                win_rate = 0.0
+            else:
+                win_rate = (stats.wins + 0.5 * stats.draws) / total_matches
+
+            # Check if fighter qualifies
+            if win_rate >= min_win_rate:
+                try:
+                    self._export_fighter_to_ais(fighter, stats, win_rate, ais_dir)
+                    exported_count += 1
+                except Exception as e:
+                    self.logger.error(f"Failed to export {fighter.name}: {e}")
+                    if self.verbose:
+                        print(f"  ⚠️  Failed to export {fighter.name}: {e}")
+
+        if self.verbose and exported_count > 0:
+            print(f"\n✅ Exported {exported_count} qualifying fighters to {ais_dir}")
+
+    def _export_fighter_to_ais(self,
+                                fighter: PopulationFighter,
+                                stats,
+                                win_rate: float,
+                                ais_dir: Path) -> None:
+        """
+        Export a single fighter to the AIs directory.
+
+        Creates a folder with ONNX model, Python wrapper, and README.
+        """
+        # Create fighter directory
+        fighter_dir = ais_dir / fighter.name
+        fighter_dir.mkdir(parents=True, exist_ok=True)
+
+        # Export model to ONNX
+        onnx_path = fighter_dir / f"{fighter.name}.onnx"
+        self._export_model_to_onnx(fighter.model, onnx_path)
+
+        # Create Python wrapper
+        py_path = fighter_dir / f"{fighter.name}.py"
+        self._create_fighter_wrapper(fighter, py_path, onnx_path.name)
+
+        # Create README
+        readme_path = fighter_dir / "README.md"
+        self._create_fighter_readme(fighter, stats, win_rate, readme_path)
+
+        if self.verbose:
+            print(f"  📦 Exported {fighter.name} (WR: {win_rate:.1%}, ELO: {stats.elo:.0f}) to {fighter_dir}")
+
+    def _export_model_to_onnx(self, model, output_path: Path) -> None:
+        """Export a Stable-Baselines3 model to ONNX format."""
+        import torch
+
+        # Get the policy network
+        policy = model.policy
+
+        # Create dummy input (observation space)
+        dummy_input = torch.zeros(1, 9, dtype=torch.float32)
+
+        # Export to ONNX
+        torch.onnx.export(
+            policy,
+            dummy_input,
+            str(output_path),
+            input_names=["observation"],
+            output_names=["action"],
+            dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
+            opset_version=12
+        )
+
+    def _create_fighter_wrapper(self, fighter: PopulationFighter, output_path: Path, onnx_filename: str) -> None:
+        """Create a Python wrapper file with decide() function for atom_fight.py."""
+        template = f'''"""
+{fighter.name} - Trained AI Fighter
+
+Generation: {fighter.generation}
+Lineage: {fighter.lineage}
+Mass: {fighter.mass:.1f}kg
+Training Episodes: {fighter.training_episodes}
+
+Auto-generated wrapper for trained ONNX model.
+Compatible with atom_fight.py
+"""
+
+import numpy as np
+import onnxruntime as ort
+from pathlib import Path
+
+# ONNX model path (relative to this file)
+ONNX_MODEL = "{onnx_filename}"
+
+# Global session (loaded once)
+_session = None
+_stance_names = ["neutral", "extended", "retracted", "defending"]
+
+
+def _load_session():
+    """Load ONNX session (lazy loading)."""
+    global _session
+    if _session is None:
+        model_path = Path(__file__).parent / ONNX_MODEL
+        _session = ort.InferenceSession(str(model_path))
+    return _session
+
+
+def decide(snapshot):
+    """
+    Decision function for trained fighter.
+
+    Args:
+        snapshot: Combat snapshot from the arena
+            - you: dict with position, velocity, hp, max_hp, stamina, max_stamina
+            - opponent: dict with distance, velocity, hp, max_hp, stamina, max_stamina
+            - arena: dict with width
+
+    Returns:
+        dict with:
+            - acceleration: float (-4.5 to +4.5)
+            - stance: str ("neutral", "extended", "retracted", "defending")
+    """
+    session = _load_session()
+
+    # Convert snapshot to observation
+    you = snapshot["you"]
+    opponent = snapshot["opponent"]
+    arena = snapshot["arena"]
+
+    you_hp_norm = you["hp"] / you["max_hp"]
+    you_stamina_norm = you["stamina"] / you["max_stamina"]
+    opp_hp_norm = opponent["hp"] / opponent["max_hp"]
+    opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
+
+    obs = np.array([
+        you["position"],
+        you["velocity"],
+        you_hp_norm,
+        you_stamina_norm,
+        opponent["distance"],
+        opponent["velocity"],
+        opp_hp_norm,
+        opp_stamina_norm,
+        arena["width"]
+    ], dtype=np.float32).reshape(1, -1)
+
+    # Run inference
+    input_name = session.get_inputs()[0].name
+    output_names = [output.name for output in session.get_outputs()]
+    outputs = session.run(output_names, {{input_name: obs}})
+
+    # Parse action
+    # Action space is Box: [acceleration_normalized, stance_selector]
+    action = outputs[0][0]
+    acceleration_normalized = np.clip(action[0], -1.0, 1.0)
+    stance_idx = int(np.clip(action[1], 0, 3))
+
+    # Scale acceleration (max_acceleration = 4.5)
+    acceleration = float(acceleration_normalized * 4.5)
+    stance = _stance_names[stance_idx]
+
+    return {{"acceleration": acceleration, "stance": stance}}
+'''
+
+        with open(output_path, 'w') as f:
+            f.write(template)
+
+    def _create_fighter_readme(self,
+                               fighter: PopulationFighter,
+                               stats,
+                               win_rate: float,
+                               output_path: Path) -> None:
+        """Create a README.md file with fighter stats and usage info."""
+        total_matches = stats.wins + stats.losses + stats.draws
+
+        readme = f'''# {fighter.name}
+
+Trained AI Fighter from Population-Based Training
+
+## Stats
+
+- **Generation**: {fighter.generation}
+- **Lineage**: {fighter.lineage}
+- **Mass**: {fighter.mass:.1f}kg
+- **Training Episodes**: {fighter.training_episodes}
+
+### Performance Metrics
+
+- **ELO Rating**: {stats.elo:.0f}
+- **Win Rate**: {win_rate:.1%}
+- **Record**: {stats.wins}W - {stats.losses}L - {stats.draws}D
+- **Total Matches**: {total_matches}
+
+## Usage
+
+This fighter is compatible with `atom_fight.py`:
+
+```bash
+# Fight against another AI
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py
+
+# Watch the fight in terminal
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/tank.py --watch
+
+# Generate HTML replay
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/balanced.py --html replay.html
+
+# Custom mass (if different from trained mass)
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py --mass-a {fighter.mass:.0f}
+```
+
+## Files
+
+- `{fighter.name}.py` - Python wrapper with decide() function
+- `{fighter.name}.onnx` - ONNX model (neural network weights)
+- `README.md` - This file
+
+## Requirements
+
+```bash
+pip install onnxruntime numpy
+```
+
+## Strategy
+
+This fighter learned its strategy through population-based training, competing against
+other evolving AI fighters. Its behavior emerged from reinforcement learning rather than
+being hand-coded.
+
+**Training Algorithm**: {self.algorithm.upper()}
+**Population Size**: {self.population_size}
+**Generation**: {self.generation}
+
+## Notes
+
+- The fighter was trained at {fighter.mass:.1f}kg mass. Performance may vary with different masses.
+- Win rate of {win_rate:.1%} was achieved against the training population.
+- The ONNX model requires `onnxruntime` to run inference.
+'''
+
+        with open(output_path, 'w') as f:
+            f.write(readme)
 
     def train(self,
              generations: int = 10,
