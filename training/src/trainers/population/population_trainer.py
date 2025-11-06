@@ -22,8 +22,15 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
-from ...gym_env import AtomCombatEnv
+import sys
+from pathlib import Path
+# Add absolute path to atom root for imports
+atom_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+sys.path.insert(0, str(atom_root))
+
+# Import from src - requires atom root in path
 from src.arena import WorldConfig
+from ...gym_env import AtomCombatEnv
 from .elo_tracker import EloTracker
 
 
@@ -166,10 +173,19 @@ class PopulationTrainer:
             return f"{base_name}_G{generation}"
         return base_name
 
-    def initialize_population(self):
-        """Initialize the population with new fighters."""
+    def initialize_population(self, base_model_path: Optional[str] = None, variation_factor: float = 0.1):
+        """
+        Initialize the population with new fighters.
+
+        Args:
+            base_model_path: Optional path to a pre-trained model to use as base
+            variation_factor: How much to vary models if using base model (0-1)
+        """
         if self.verbose:
             print(f"\nInitializing population of {self.population_size} fighters...")
+            if base_model_path:
+                print(f"  Using base model: {base_model_path}")
+                print(f"  Variation factor: {variation_factor}")
 
         for i in range(self.population_size):
             name = self._create_fighter_name(i, self.generation)
@@ -184,33 +200,46 @@ class PopulationTrainer:
                 opponent_mass=70.0
             ))])
 
-            # Create model
-            if self.algorithm == "ppo":
-                model = PPO(
-                    "MlpPolicy",
-                    env,
-                    verbose=0,
-                    learning_rate=1e-4,
-                    n_steps=2048 // self.n_envs_per_fighter,
-                    batch_size=64,
-                    n_epochs=10,
-                    gamma=0.99,
-                    gae_lambda=0.95,
-                    clip_range=0.2,
-                    ent_coef=0.01  # Encourage exploration
-                )
-            else:  # SAC
-                model = SAC(
-                    "MlpPolicy",
-                    env,
-                    verbose=0,
-                    learning_rate=3e-4,
-                    buffer_size=50000,
-                    learning_starts=100,
-                    batch_size=256,
-                    tau=0.005,
-                    gamma=0.99
-                )
+            # Create or load model
+            if base_model_path and Path(base_model_path).exists():
+                # Load from base model
+                if self.algorithm == "ppo":
+                    model = PPO.load(base_model_path, env=env)
+                else:  # SAC
+                    model = SAC.load(base_model_path, env=env)
+
+                # Add variation for diversity (except first fighter)
+                if i > 0 and variation_factor > 0:
+                    self._add_variation_to_model(model, variation_factor)
+
+            else:
+                # Create new model from scratch
+                if self.algorithm == "ppo":
+                    model = PPO(
+                        "MlpPolicy",
+                        env,
+                        verbose=0,
+                        learning_rate=1e-4,
+                        n_steps=2048 // self.n_envs_per_fighter,
+                        batch_size=64,
+                        n_epochs=10,
+                        gamma=0.99,
+                        gae_lambda=0.95,
+                        clip_range=0.2,
+                        ent_coef=0.01  # Encourage exploration
+                    )
+                else:  # SAC
+                    model = SAC(
+                        "MlpPolicy",
+                        env,
+                        verbose=0,
+                        learning_rate=3e-4,
+                        buffer_size=50000,
+                        learning_starts=100,
+                        batch_size=256,
+                        tau=0.005,
+                        gamma=0.99
+                    )
 
             fighter = PopulationFighter(
                 name=name,
@@ -226,6 +255,29 @@ class PopulationTrainer:
                 print(f"  Created {name} (mass: {mass:.1f}kg)")
 
         self.logger.info(f"Initialized {len(self.population)} fighters")
+
+    def _add_variation_to_model(self, model, variation_factor: float):
+        """
+        Add random variation to model parameters to increase diversity.
+
+        Args:
+            model: The model to vary
+            variation_factor: How much variation to add (0-1)
+        """
+        import torch
+
+        # Get policy parameters
+        policy_params = model.policy.state_dict()
+
+        # Add noise to weights and biases
+        for key, value in policy_params.items():
+            if 'weight' in key or 'bias' in key:
+                # Add gaussian noise proportional to parameter magnitude
+                noise = torch.randn_like(value) * variation_factor * 0.1
+                value.data += value.data * noise
+
+        # Update the model with varied parameters
+        model.policy.load_state_dict(policy_params)
 
     def _get_fighter_decision_func(self, fighter: PopulationFighter) -> Callable:
         """Create a decision function for a trained fighter."""
@@ -831,7 +883,9 @@ being hand-coded.
     def train(self,
              generations: int = 10,
              episodes_per_generation: int = 500,
-             evolution_frequency: int = 2) -> None:
+             evolution_frequency: int = 2,
+             base_model_path: Optional[str] = None,
+             keep_top: float = 0.5) -> None:
         """
         Run the full population training loop.
 
@@ -839,6 +893,8 @@ being hand-coded.
             generations: Number of generations to evolve
             episodes_per_generation: Training episodes per generation
             evolution_frequency: Evolve every N generations
+            base_model_path: Optional path to pre-trained model for initialization
+            keep_top: Fraction of population to keep during evolution
         """
         if self.verbose:
             print("\n" + "="*80)
@@ -848,11 +904,13 @@ being hand-coded.
             print(f"Generations: {generations}")
             print(f"Episodes per Generation: {episodes_per_generation}")
             print(f"Evolution Frequency: Every {evolution_frequency} generations")
+            if base_model_path:
+                print(f"Base Model: {base_model_path}")
             print("="*80)
 
         # Initialize population if empty
         if not self.population:
-            self.initialize_population()
+            self.initialize_population(base_model_path=base_model_path)
 
         # Training loop
         for gen in range(generations):
@@ -902,7 +960,7 @@ being hand-coded.
 
             # Evolution
             if (gen + 1) % evolution_frequency == 0 and gen < generations - 1:
-                self.evolve_population()
+                self.evolve_population(keep_top=keep_top)
 
             # Save checkpoint
             self.save_population()

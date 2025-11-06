@@ -7,6 +7,14 @@ Available trainers:
 - population: Population-based training for diverse strategies
 """
 
+import sys
+from pathlib import Path
+
+# Setup paths for imports when this package is loaded
+project_root = Path(__file__).parent.parent.parent.parent  # /home/biff/eng/atom
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 # Lazy imports to avoid circular dependencies
 __all__ = [
     'train_fighter_ppo',
