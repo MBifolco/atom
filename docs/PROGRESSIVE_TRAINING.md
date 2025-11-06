@@ -28,21 +28,14 @@ Progressive Training Pipeline
 
 ```bash
 # Navigate to project root
-cd /home/biff/eng/atom
+cd /path/to/atom
 
-# Use the launch script (recommended)
-./train_progressive.sh --mode complete
+# Run complete progressive training pipeline
+python train_progressive.py --mode complete
 
-# Or set PYTHONPATH manually
-PYTHONPATH=/home/biff/eng/atom python training/train_progressive.py --mode complete
-
-# Quick test run (minimal settings)
-./train_progressive.sh --mode quick
+# Quick test run (minimal settings, ~5 minutes)
+python train_progressive.py --mode quick
 ```
-
-**Note**: Due to a naming conflict between `training/src` and the project's `src` directory, you must either:
-1. Use the `train_progressive.sh` launch script (recommended)
-2. Set `PYTHONPATH=/home/biff/eng/atom` when running directly
 
 ### Advanced Options
 

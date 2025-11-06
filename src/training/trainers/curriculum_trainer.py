@@ -309,7 +309,7 @@ class CurriculumTrainer:
 
             env_fn = lambda opp_path=opponent_path: Monitor(
                 self.create_env(opp_path),
-                self.logs_dir / f"env_{i}"
+                str(self.logs_dir / f"env_{i}")  # Convert Path to string for Monitor
             )
             env_fns.append(env_fn)
 
