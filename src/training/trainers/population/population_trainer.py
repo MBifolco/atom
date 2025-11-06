@@ -354,7 +354,7 @@ class PopulationTrainer:
             opponent = opponents[i % len(opponents)]
             opponent_names.append(opponent.name)
 
-            env_fn = lambda opp=opponent, fighter_mass=fighter.mass, opp_mass=opp.mass: Monitor(
+            env_fn = lambda opp=opponent, fighter_mass=fighter.mass, opp_mass=opponent.mass: Monitor(
                 AtomCombatEnv(
                     opponent_decision_func=self._get_fighter_decision_func(opp),
                     config=self.config,
