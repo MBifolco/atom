@@ -43,7 +43,8 @@ class ProgressiveTrainer:
     def __init__(self,
                  algorithm: str = "ppo",
                  output_dir: str = "outputs/progressive",
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 n_parallel_fighters: int = None):
         """
         Initialize the progressive trainer.
 
@@ -51,10 +52,12 @@ class ProgressiveTrainer:
             algorithm: RL algorithm to use ("ppo" or "sac")
             output_dir: Directory for all outputs
             verbose: Whether to print progress
+            n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.verbose = verbose
+        self.n_parallel_fighters = n_parallel_fighters
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -138,7 +141,8 @@ class ProgressiveTrainer:
             population_size=population_size,
             algorithm=self.algorithm,
             output_dir=str(self.population_dir),
-            verbose=self.verbose
+            verbose=self.verbose,
+            n_parallel_fighters=self.n_parallel_fighters
         )
 
         # Initialize population with the curriculum model as base
@@ -180,7 +184,8 @@ class ProgressiveTrainer:
                 population_size=population_size,
                 algorithm=self.algorithm,
                 output_dir=str(self.population_dir),
-                verbose=self.verbose
+                verbose=self.verbose,
+                n_parallel_fighters=self.n_parallel_fighters
             )
 
         # Check if we have a base model from curriculum training
@@ -314,6 +319,12 @@ Examples:
         default=None,
         help="Output directory (default: outputs/progressive_TIMESTAMP)"
     )
+    parser.add_argument(
+        "--cores",
+        type=int,
+        default=None,
+        help="Number of CPU cores to use for parallel fighter training (default: cpu_count - 1)"
+    )
 
     args = parser.parse_args()
 
@@ -328,7 +339,8 @@ Examples:
     trainer = ProgressiveTrainer(
         algorithm=args.algorithm,
         output_dir=output_dir,
-        verbose=True
+        verbose=True,
+        n_parallel_fighters=args.cores
     )
 
     # Run based on mode
