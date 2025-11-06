@@ -368,8 +368,25 @@ class PopulationTrainer:
         # Create vectorized environment
         vec_env = SubprocVecEnv(env_fns) if self.n_envs_per_fighter > 1 else DummyVecEnv(env_fns)
 
-        # Update the model's environment
-        fighter.model.set_env(vec_env)
+        # If the model has a different number of envs, we need to reload it with the new env
+        # (set_env requires matching number of environments)
+        if vec_env.num_envs != fighter.model.n_envs:
+            # Save current model temporarily
+            temp_path = self.models_dir / f"temp_{fighter.name}.zip"
+            temp_path.parent.mkdir(exist_ok=True)
+            fighter.model.save(temp_path)
+
+            # Reload with new environment
+            if self.algorithm == "ppo":
+                fighter.model = PPO.load(temp_path, env=vec_env)
+            else:
+                fighter.model = SAC.load(temp_path, env=vec_env)
+
+            # Clean up temp file
+            temp_path.unlink()
+        else:
+            # Same number of envs, can use set_env
+            fighter.model.set_env(vec_env)
 
         # Create callback
         callback = PopulationCallback(fighter.name, self.elo_tracker)

@@ -217,6 +217,11 @@ class ProgressiveTrainer:
             print("\n" + "🚀"*40)
             print("STARTING PROGRESSIVE TRAINING PIPELINE")
             print("🚀"*40)
+            print(f"\nOutput directory: {self.output_dir}")
+            print(f"Logs will be saved to:")
+            print(f"  - {self.curriculum_dir / 'logs'}")
+            print(f"  - {self.population_dir / 'logs'}")
+            print()
 
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
@@ -244,6 +249,15 @@ class ProgressiveTrainer:
             print("PROGRESSIVE TRAINING COMPLETE!")
             print("🏆"*40)
             print(f"\nResults saved to: {self.output_dir}")
+            print("\nLog Files:")
+            print(f"  Curriculum: {self.curriculum_dir / 'logs'}")
+            print(f"  Population: {self.population_dir / 'logs'}")
+            print("\nTrained Models:")
+            print(f"  Curriculum graduate: {self.curriculum_dir / 'models' / 'curriculum_graduate.zip'}")
+            print(f"  Population models: {self.population_dir / 'models'}")
+            print("\nTo review training progress:")
+            print(f"  tail -f {self.curriculum_dir / 'logs'}/*.log")
+            print(f"  tail -f {self.population_dir / 'logs'}/*.log")
 
 
 def main():
