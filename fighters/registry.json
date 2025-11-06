@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated": "2025-11-05T15:18:09.037748",
+  "generated": "2025-11-05T16:30:00.000000",
   "fighters": {
     "stamina_manager": {
       "id": "stamina_manager",
@@ -24,22 +24,22 @@
     "dodger": {
       "id": "dodger",
       "name": "Dodger",
-      "description": "Strategy: - Constantly moves to avoid opponent - Kites away and counter-attacks - Teaches learning fighter how to pursue and predict movement - Uses stamina efficiently for mobility",
+      "description": "Master of dodge and counter who punishes aggressive opponents. Strategy: - Dodges incoming attacks then immediately counters - Creates openings through superior movement - Punishes overextension and exhaustion - Not just evasion - MUST counter-attack to win - Uses all stances tactically during counters - Forces contact through calculated strikes",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/dodger.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "aggressive",
-        "stamina-aware",
-        "counter-puncher"
+        "evasive",
+        "counter-puncher",
+        "stamina-aware"
       ],
       "performance_stats": null,
-      "version": "1.0",
+      "version": "2.0",
       "created_date": "2025-11-05T15:18:08.934184",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "fbee55181347ebab4b6c43fa7b7fa15f45badc0c1bb115d999bb0b0873ef1fde"
+      "code_hash": "cc67a74bf8a16633def216f42e2e4a3c6ad266a293a8c19766d87c9117414459"
     },
     "hit_and_run": {
       "id": "hit_and_run",
@@ -62,118 +62,80 @@
     "berserker": {
       "id": "berserker",
       "name": "Berserker",
-      "description": "Strategy: - Attacks aggressively at all times - Never backs down or defends - Teaches learning fighter to develop absolute defense - Forces learner to survive onslaught and counter-attack",
+      "description": "Unstoppable force of pure aggression and fury. Strategy: - NEVER stops attacking - ignores stamina completely - Maximum aggression at all times - Extended stance ALWAYS for maximum damage - Never retreats, never defends, never hesitates - Highest collision count of all fighters - Forces opponents to deal with relentless pressure",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/berserker.py",
       "mass_default": 70.0,
       "strategy_tags": [
         "aggressive",
-        "defensive",
-        "counter-puncher"
+        "relentless"
       ],
       "performance_stats": null,
-      "version": "1.0",
+      "version": "2.0",
       "created_date": "2025-11-05T15:18:08.934388",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "d18f75405bdc8905733628a0b4f1e3a38f2d94cf1a02d74c73f22109851d4ac0"
+      "code_hash": "135e49e85943adf42ff6a1cbf2793644ec7df39f2a4d211b5d6f786855457617"
     },
     "zoner": {
       "id": "zoner",
       "name": "Zoner",
-      "description": "Strategy: - Maintains maximum distance and pokes opponent - Uses light attacks to damage from range - Teaches learning fighter range management - Forces learner to close distance effectively",
+      "description": "Master of distance control who wins through calculated pokes. Strategy: - Controls optimal range (3-4m) and pokes consistently - Uses extended stance to maximize reach - Retreats only when opponent is too close (<2m) - Advances when opponent is too far (>4m) - Creates contact through positioning, not just running away - Punishes aggressive approaches",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/zoner.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "aggressive",
-        "range-control"
+        "range-control",
+        "tactical"
       ],
       "performance_stats": null,
-      "version": "1.0",
+      "version": "2.0",
       "created_date": "2025-11-05T15:18:08.934497",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "e78c46885d61104d3b2b81d8fb3ec465a9d111b6503b2eb1ff88aa2cfd6c491a"
+      "code_hash": "bb1617ae8f87e2bf39e36105f38df36cb909b8277d98584a4c4e192fa99b1901"
     },
     "balanced": {
       "id": "balanced",
       "name": "Balanced",
-      "description": "Strategy: - Aggressive when winning - Defensive when losing - Adapts based on HP advantage - Smart stamina management",
+      "description": "True balanced fighter that adapts stance and strategy based on situation. Strategy: - Switches between all stances tactically - Aggressive (extended) when winning - Defensive (defending) when losing - Neutral for repositioning and stamina recovery - Adapts distance based on stamina and HP - Never gives up - fights to the end",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/balanced.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "aggressive",
         "balanced",
+        "adaptive",
         "stamina-aware"
       ],
       "performance_stats": null,
-      "version": "1.0",
+      "version": "2.0",
       "created_date": "2025-11-05T15:18:08.934604",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "1b792f31a5604a5dca4c2e5bfcead6bf60e9afba1faf274d829087df6de5c99a"
-    },
-    "rusher": {
-      "id": "rusher",
-      "name": "Rusher",
-      "description": "Strategy: - Rushes forward constantly - Extends when close to opponent - Backs away from walls - Retreats when HP is critical",
-      "creator": "system",
-      "type": "rule-based",
-      "file_path": "fighters/examples/rusher.py",
-      "mass_default": 70.0,
-      "strategy_tags": [
-        "aggressive"
-      ],
-      "performance_stats": null,
-      "version": "1.0",
-      "created_date": "2025-11-05T15:18:08.934706",
-      "protocol_version": "v1.0",
-      "world_spec_version": "v1.0",
-      "code_hash": "3899d31a03b09ef5071e96627ff76996e8cfb4f0cb6194b26ecd286b35d45ed2"
+      "code_hash": "e09cb77de833fbf6bdc097793d16ec19515aa0c35839df4038164f253326a0c1"
     },
     "grappler": {
       "id": "grappler",
       "name": "Grappler",
-      "description": "Strategy: - Forces close-range combat - Extended stance at close range constantly - Teaches learning fighter close-quarters fighting - Teaches defensive stance usage",
+      "description": "Master of in-fighting who dominates at point-blank range. Strategy: - Forces close-range combat relentlessly - Extended stance constantly at close range for maximum damage - Sticks to opponent like glue - Chases down runners with determination - Never gives opponent breathing room - High collision count through constant contact",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/grappler.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "range-control"
+        "aggressive",
+        "close-combat",
+        "pursuit"
       ],
       "performance_stats": null,
-      "version": "1.0",
+      "version": "2.0",
       "created_date": "2025-11-05T15:18:08.934811",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "3ae8b3dd4fdf8d66b7c4a8c8e334f5161a0a588f8f8cca03f896be5cc24b9a9d"
-    },
-    "tank": {
-      "id": "tank",
-      "name": "Tank",
-      "description": "Strategy: - Maintains optimal distance (2-4m) - Defends when opponent charges - Counter-attacks when close - Avoids walls strategically",
-      "creator": "system",
-      "type": "rule-based",
-      "file_path": "fighters/examples/tank.py",
-      "mass_default": 70.0,
-      "strategy_tags": [
-        "aggressive",
-        "defensive",
-        "counter-puncher",
-        "range-control"
-      ],
-      "performance_stats": null,
-      "version": "1.0",
-      "created_date": "2025-11-05T15:18:08.934914",
-      "protocol_version": "v1.0",
-      "world_spec_version": "v1.0",
-      "code_hash": "f16fedf6fa4060f50d47a4fdb9d421df20bde8c68f2ad1125d6c250058804190"
+      "code_hash": "adb6d795477899308b9eb8bc3c2a00f3d7a2e72cbbef18a847cbd02020986c72"
     },
     "counter_puncher": {
       "id": "counter_puncher",
@@ -311,6 +273,44 @@
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "35465d8dcc6abac6e69e70c7f8ca7762b3d30b794c82cfec50dcc33ae1b20720"
+    },
+    "tank": {
+      "id": "tank",
+      "name": "Tank",
+      "description": "A true defensive tank that stands its ground and outlasts opponents. Strategy: - Primary stance is \"defending\" for maximum damage reduction - Never retreats - stands ground and absorbs hits - Counter-attacks when opponent is close and vulnerable - Uses superior defense multiplier to win through attrition - Controls the center of the arena",
+      "creator": "system",
+      "type": "hardcoded",
+      "file_path": "fighters/examples/tank.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive",
+        "defensive",
+        "counter-puncher"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:41:33.122278",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "ad7de97283fb63e5e916caa4dac4bf1efe55f8fa31dd71fb8e93e2f408af55ca"
+    },
+    "rusher": {
+      "id": "rusher",
+      "name": "Rusher",
+      "description": "Relentless forward pressure with constant attacking stance. Strategy: - ALWAYS rushes forward with maximum aggression - Uses extended stance while advancing for reach advantage - Only stops to avoid wall damage - Never retreats - commits fully to offense - Overwhelms opponents with constant pressure",
+      "creator": "system",
+      "type": "hardcoded",
+      "file_path": "fighters/examples/rusher.py",
+      "mass_default": 70.0,
+      "strategy_tags": [
+        "aggressive"
+      ],
+      "performance_stats": null,
+      "version": "1.0",
+      "created_date": "2025-11-05T15:41:33.122458",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "dda4d05e25f9a61bc93a0e371697987f1e0334859b79d03e0d99d1d9a8518b09"
     }
   }
 }

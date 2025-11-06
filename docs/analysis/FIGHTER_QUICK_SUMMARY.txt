@@ -1,0 +1,90 @@
+================================================================================
+                     FIGHTER TEST SUITE - QUICK SUMMARY
+================================================================================
+
+TEST CONDITIONS
+---------------
+- Seed: 42 (all tests)
+- Total Tests: 18 matches
+- Baseline for "healthy" collisions: 30+
+
+PERFORMANCE OVERVIEW
+--------------------
+
+EXCELLENT PERFORMERS ✓
+----------------------
+Fighter          | Wins | Avg Cols | Avg Spec | Status
+-----------------|------|----------|----------|-----------------------------------
+Counter Puncher  | 4/4  |   37.5   |  0.500   | Perfect archetype implementation
+Hit and Run      | 2/2  |   45.5   |  0.509   | Great hit-retreat cycles
+Stamina Manager  | 2/2  |   47.0   |  0.525   | Best overall performance
+
+
+CRITICAL FAILURES ✗
+-------------------
+Fighter          | Wins | Avg Cols | Avg Spec | Primary Issue
+-----------------|------|----------|----------|-----------------------------------
+Zoner            | 0/4  |    3.2   |  0.289   | Runs away, never pokes (0 cols in 3/4 matches!)
+Berserker        | 0/4  |   16.8   |  0.417   | Too passive for "berserker" (should be most aggressive)
+Dodger           | 0/2  |    0.0   |  0.222   | Pure evasion, zero offense (0 collisions!)
+
+
+ARCHETYPE FIDELITY ANALYSIS
+----------------------------
+
+MATCHES INTENDED BEHAVIOR:
+- Counter Puncher: Waits, defends, punishes mistakes ✓
+- Hit and Run: Hits then retreats in cycles ✓  
+- Stamina Manager: Balances resource management with pressure ✓
+
+DOES NOT MATCH INTENDED BEHAVIOR:
+- Berserker: Should be relentlessly aggressive → Actually passive ✗
+- Zoner: Should poke from range → Just retreats ✗
+- Dodger: Should dodge and counter → Only dodges ✗
+
+
+IMPROVEMENT PRIORITIES
+----------------------
+
+PRIORITY 1: ZONER
+  Problem: 3.2 avg collisions, 0% wins, pure retreat behavior
+  Fix: Add actual poking, reduce retreat frequency, apply forward pressure
+
+PRIORITY 2: BERSERKER  
+  Problem: 16.8 avg collisions, 0% wins, passive when should be aggressive
+  Fix: 2-3x acceleration values, remove stamina hesitation, always attack
+
+PRIORITY 3: DODGER
+  Problem: 0 collisions, 0% wins, zero offensive capability
+  Fix: Add counter-attack opportunities, increase counter-attack power
+
+
+KEY INSIGHT
+-----------
+Successful fighters mix aggression with tactics. Failed fighters are purely
+defensive/evasive with no offensive commitment. This creates boring fights
+with zero engagement (timeouts/draws) instead of teaching combat strategies.
+
+The irony: "Berserker" is the LEAST aggressive fighter tested.
+
+
+COLLISION RATE COMPARISON
+--------------------------
+  47.0 |████████████████████████ Stamina Manager
+  45.5 |███████████████████████  Hit and Run
+  37.5 |███████████████████      Counter Puncher
+  ---- |----------------------- HEALTH THRESHOLD (30)
+  16.8 |█████████               Berserker ⚠️
+   3.2 |██                      Zoner ⚠️
+   0.0 |                        Dodger ⚠️
+
+
+NEXT STEPS
+----------
+1. Fix Zoner combat logic (add poke-and-pressure pattern)
+2. Fix Berserker aggression (remove all hesitation)
+3. Fix Dodger offense (add multiple counter-attack triggers)
+4. Re-test all three fighters
+5. Verify collision rates improve to 30+
+
+================================================================================
