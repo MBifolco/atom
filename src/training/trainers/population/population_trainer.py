@@ -5,18 +5,10 @@ Trains a population of fighters simultaneously, allowing them to learn
 from each other and evolve diverse strategies.
 """
 
-# Fix imports FIRST before any other imports
 import sys
-from pathlib import Path
 import os
-
-# Add atom root to path - required due to naming conflict with training/src
-atom_root = Path(__file__).absolute().parent.parent.parent.parent.parent
-# Only add if we can verify it's the right directory
-if (atom_root / 'src' / 'arena').exists() and (atom_root / 'training').exists():
-    sys.path.insert(0, str(atom_root))
-
 import numpy as np
+from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple
 import logging
 from datetime import datetime
@@ -30,26 +22,10 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
-# Import from src - requires atom root in path
-from src.arena import WorldConfig
-
-# Import elo_tracker - handle both relative and absolute imports
-try:
-    from .elo_tracker import EloTracker
-except (ImportError, ValueError):
-    # Fallback to absolute import
-    sys.path.insert(0, str(Path(__file__).absolute().parent))
-    from elo_tracker import EloTracker
-
-# Import gym_env - handle both relative and absolute imports
-try:
-    from ...gym_env import AtomCombatEnv
-except (ImportError, ValueError):
-    # Fallback to absolute import
-    training_src = Path(__file__).absolute().parent.parent.parent
-    if str(training_src) not in sys.path:
-        sys.path.insert(0, str(training_src))
-    from gym_env import AtomCombatEnv
+# Clean relative imports within src package structure
+from ....arena import WorldConfig
+from ...gym_env import AtomCombatEnv
+from .elo_tracker import EloTracker
 
 
 @dataclass

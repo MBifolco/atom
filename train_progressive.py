@@ -2,28 +2,32 @@
 """
 Progressive Training System for Atom Combat
 
-Combines curriculum learning with population-based training for optimal results.
-Fighters first learn through test dummies, then compete in population training.
+Run this from the project root directory.
+Combines curriculum learning with population-based training.
+
+Usage:
+    python train_progressive.py --mode quick
+    python train_progressive.py --mode complete --timesteps 1000000
 """
 
 import sys
 from pathlib import Path
 
-# Add paths for imports
-project_root = Path(__file__).parent.parent.absolute()
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(Path(__file__).parent))
+# Ensure we're running from project root
+project_root = Path(__file__).parent.absolute()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Now we can import cleanly from src
+from src.training.trainers.curriculum_trainer import CurriculumTrainer
+from src.training.trainers.population.population_trainer import PopulationTrainer
+from src.arena import WorldConfig
+from stable_baselines3 import PPO, SAC
 
 import argparse
 import json
 from datetime import datetime
 import shutil
-from stable_baselines3 import PPO, SAC
-
-# Now import project modules
-from src.trainers.curriculum_trainer import CurriculumTrainer
-from src.trainers.population.population_trainer import PopulationTrainer
-from src.arena import WorldConfig
 
 
 class ProgressiveTrainer:
@@ -146,7 +150,6 @@ class ProgressiveTrainer:
         if self.verbose:
             print(f"\n✅ Population initialized with {population_size} fighters!")
 
-
     def run_population_training(self,
                               generations: int = 10,
                               episodes_per_generation: int = 500,
@@ -198,146 +201,6 @@ class ProgressiveTrainer:
         if self.verbose:
             print("\n✅ Population training complete!")
 
-    def export_best_fighters(self, top_n: int = 3):
-        """
-        Export the best fighters from population training.
-
-        Args:
-            top_n: Number of top fighters to export
-        """
-        if self.verbose:
-            print("\n" + "="*80)
-            print("EXPORTING BEST FIGHTERS")
-            print("="*80)
-
-        # Find the best models from population training
-        models_dir = self.population_dir / "models"
-        if not models_dir.exists():
-            print("No models found to export.")
-            return
-
-        # Get all model files
-        model_files = list(models_dir.glob("*.zip"))
-
-        # Sort by generation number (assuming format: fighter_XX_gen_YY.zip)
-        def get_generation(path):
-            try:
-                parts = path.stem.split("_")
-                if len(parts) >= 4 and parts[2] == "gen":
-                    return int(parts[3])
-            except:
-                pass
-            return 0
-
-        model_files.sort(key=get_generation, reverse=True)
-
-        # Export top models
-        export_dir = self.output_dir / "champions"
-        export_dir.mkdir(exist_ok=True)
-
-        exported = 0
-        for model_path in model_files[:top_n]:
-            if exported >= top_n:
-                break
-
-            # Copy to export directory
-            export_name = f"champion_{exported+1}_{self.timestamp}.zip"
-            export_path = export_dir / export_name
-            shutil.copy2(model_path, export_path)
-
-            if self.verbose:
-                print(f"Exported: {export_name}")
-
-            # Also create a Python wrapper for the champion
-            self._create_champion_wrapper(export_path, exported + 1)
-
-            exported += 1
-
-        if self.verbose:
-            print(f"\n✅ Exported {exported} champion fighters!")
-            print(f"Champions saved to: {export_dir}")
-
-    def _create_champion_wrapper(self, model_path: Path, rank: int):
-        """Create a Python wrapper for using the champion fighter."""
-        wrapper_code = f'''"""
-Champion Fighter #{rank}
-Trained using progressive curriculum + population training
-Generated: {datetime.now().isoformat()}
-"""
-
-from stable_baselines3 import {self.algorithm.upper()}
-import numpy as np
-from pathlib import Path
-
-# Load the trained model
-model_path = Path(__file__).parent / "{model_path.name}"
-model = {self.algorithm.upper()}.load(model_path)
-
-def decide(snapshot):
-    """
-    Decision function for the champion fighter.
-
-    Args:
-        snapshot: Game state snapshot
-
-    Returns:
-        dict: Decision with acceleration and stance
-    """
-    # Extract observation from snapshot
-    obs = np.array([
-        snapshot["you"]["position"],
-        snapshot["you"]["velocity"],
-        snapshot["opponent"]["position"] - snapshot["you"]["position"],  # relative position
-        snapshot["opponent"]["velocity"],
-        snapshot["you"]["hp"] / 100.0,
-        snapshot["you"]["stamina"] / 100.0,
-        snapshot["opponent"]["hp"] / 100.0,
-        snapshot["opponent"]["stamina"] / 100.0,
-    ])
-
-    # Get action from model
-    action, _ = model.predict(obs, deterministic=True)
-
-    # Convert action to game format
-    # Assuming action[0] is acceleration, action[1] is stance
-    stances = ["neutral", "extended", "defending", "retracted"]
-
-    return {{
-        "acceleration": float(np.clip(action[0] * 5.0, -5.0, 5.0)),
-        "stance": stances[int(np.clip(action[1], 0, 3))]
-    }}
-'''
-        wrapper_path = model_path.parent / f"champion_{rank}.py"
-        with open(wrapper_path, 'w') as f:
-            f.write(wrapper_code)
-
-    def save_training_report(self):
-        """Save a comprehensive training report."""
-        report = {
-            "training_type": "progressive",
-            "algorithm": self.algorithm,
-            "timestamp": self.timestamp,
-            "phases": {
-                "curriculum": {
-                    "completed": self.curriculum_trainer is not None,
-                    "levels_graduated": self.curriculum_trainer.progress.graduated_levels if self.curriculum_trainer else []
-                },
-                "population": {
-                    "completed": self.population_trainer is not None,
-                    "generations": self.population_trainer.generation if self.population_trainer else 0,
-                    "population_size": self.population_trainer.population_size if self.population_trainer else 0
-                }
-            },
-            "output_dir": str(self.output_dir)
-        }
-
-        report_path = self.output_dir / f"training_report_{self.timestamp}.json"
-        with open(report_path, 'w') as f:
-            json.dump(report, f, indent=2)
-
-        if self.verbose:
-            print(f"\nTraining report saved to: {report_path}")
-
     def run_complete_pipeline(self,
                              curriculum_timesteps: int = 500_000,
                              population_generations: int = 10,
@@ -376,12 +239,6 @@ def decide(snapshot):
             keep_top=0.5
         )
 
-        # Export Best Fighters
-        self.export_best_fighters(top_n=3)
-
-        # Save Training Report
-        self.save_training_report()
-
         if self.verbose:
             print("\n" + "🏆"*40)
             print("PROGRESSIVE TRAINING COMPLETE!")
@@ -401,9 +258,6 @@ Examples:
 
   # Full curriculum only
   python train_progressive.py --mode curriculum --timesteps 1000000
-
-  # Population only (requires existing curriculum graduate)
-  python train_progressive.py --mode population --population 16 --generations 20
 
   # Complete pipeline
   python train_progressive.py --mode complete --timesteps 2000000 --population 8 --generations 10
@@ -475,10 +329,8 @@ Examples:
         # Curriculum only
         trainer.run_curriculum_training(timesteps=args.timesteps)
     elif args.mode == "population":
-        # Population only (assumes curriculum model exists)
-        print("Note: This mode requires an existing curriculum graduate model.")
-        print("Please ensure you have run curriculum training first.")
-        # You would need to specify the model path here
+        # Population only
+        print("Note: Population mode requires an existing curriculum graduate model.")
         trainer.run_population_training(
             generations=args.generations,
             episodes_per_generation=500,
