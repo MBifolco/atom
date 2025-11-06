@@ -41,13 +41,13 @@ python train_progressive.py --mode quick
 
 ```bash
 # Curriculum learning only
-python training/train_progressive.py --mode curriculum --timesteps 1000000
+python train_progressive.py --mode curriculum --timesteps 1000000
 
 # Population training only (requires existing curriculum graduate)
-python training/train_progressive.py --mode population --population 16 --generations 20
+python train_progressive.py --mode population --population 16 --generations 20
 
 # Full pipeline with custom settings
-python training/train_progressive.py \
+python train_progressive.py \
     --mode complete \
     --algorithm ppo \
     --timesteps 2000000 \
@@ -95,7 +95,7 @@ The curriculum uses 23+ specialized test dummies organized in three categories:
 ### Implementation
 
 ```python
-from src.trainers.curriculum_trainer import CurriculumTrainer
+from src.training.trainers.curriculum_trainer import CurriculumTrainer
 
 trainer = CurriculumTrainer(
     algorithm="ppo",
@@ -138,7 +138,7 @@ Generation Loop:
 ### Implementation
 
 ```python
-from src.trainers.population.population_trainer import PopulationTrainer
+from src.training.trainers.population.population_trainer import PopulationTrainer
 
 trainer = PopulationTrainer(
     population_size=8,
@@ -257,16 +257,53 @@ python atom_fight.py \
     fighters/examples/tank.py
 ```
 
+## Output Structure
+
+After training completes, you'll find:
+
+```
+outputs/progressive_TIMESTAMP/
+├── curriculum/
+│   ├── models/
+│   │   └── curriculum_graduate.zip     # Trained curriculum model
+│   └── logs/
+│       ├── curriculum_training_*.log   # Training progress
+│       └── tensorboard/                # TensorBoard logs
+│
+├── population/
+│   ├── models/
+│   │   ├── generation_0/               # Initial population
+│   │   ├── generation_1/               # Evolved fighters
+│   │   └── generation_N/
+│   └── logs/
+│       └── population_training_*.log   # Evolution logs
+│
+└── training_report_*.json              # Summary statistics
+```
+
+**Exported Champions:**
+- Automatically exported to `fighters/AIs/`
+- Each fighter has: `.zip` model, `.py` wrapper, `README.md`
+- Ready to use with `atom_fight.py`
+
+**Monitoring Progress:**
+```bash
+# Watch training in real-time
+tail -f outputs/progressive_*/curriculum/logs/*.log
+tail -f outputs/progressive_*/population/logs/*.log
+
+# View TensorBoard metrics
+tensorboard --logdir outputs/progressive_*/curriculum/logs/tensorboard
+```
+
 ## Troubleshooting
 
 ### Import Errors
 
-If you encounter module import errors:
+All imports are now properly structured in `src/training/`. Simply run from project root:
 
 ```bash
-# Run from project root
-cd /home/biff/eng/atom
-python training/train_progressive.py
+python train_progressive.py --mode quick
 ```
 
 ### Memory Issues
@@ -296,7 +333,7 @@ If fighters stop improving:
 ### Custom Curriculum Levels
 
 ```python
-from src.trainers.curriculum_trainer import CurriculumLevel
+from src.training.trainers.curriculum_trainer import CurriculumLevel
 
 custom_level = CurriculumLevel(
     name="Custom Challenge",

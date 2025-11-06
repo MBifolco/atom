@@ -72,24 +72,30 @@ python atom_fight.py my_fighter.py fighters/examples/tank.py --html my_first_fig
 
 ## 🤖 Train AI Fighters
 
-Want to create AI fighters that learn through reinforcement learning? Check out the `training/` directory!
+Create AI fighters using our **Progressive Training System** that combines curriculum learning with population-based evolution!
 
-**📖 [How Training Works](docs/HOW_TRAINING_WORKS.md)** - Learn about AI training with simple explanations and diagrams
+**📖 [Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
 
 ```bash
-cd training
-pip install -r requirements.txt
-python train_fighter.py --opponent ../fighters/examples/tank.py --output my_ai --episodes 5000 --create-wrapper
+# Quick test run (~5 minutes)
+python train_progressive.py --mode quick
+
+# Full training pipeline
+python train_progressive.py --mode complete
 ```
 
 **What you get:**
-- PPO-based reinforcement learning
-- Multi-core parallel training
-- Auto-stopping when performance plateaus
-- ONNX export for portability
-- Standalone wrapper files
+- **Curriculum Learning**: 5 progressive difficulty levels with test dummies
+- **Population Training**: Self-play evolution for diverse strategies
+- **PPO/SAC algorithms**: Industry-standard reinforcement learning
+- **Automatic export**: Fighters ready to use with `atom_fight.py`
+- **Complete logs**: Track training progress in real-time
 
-**See [training/README.md](training/README.md) for setup and commands.**
+**Key Features:**
+- ✅ Systematic skill progression (fundamentals → expert)
+- ✅ 23+ specialized test dummies for curriculum
+- ✅ Population diversity through evolution
+- ✅ Battle-ready champions exported automatically
 
 ---
 
