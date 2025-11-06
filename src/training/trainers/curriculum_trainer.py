@@ -508,6 +508,11 @@ class CurriculumTrainer:
 
         self.logger.info("Training complete!")
 
+        # Always save the model at the end, even if curriculum not fully completed
+        final_model_path = self.models_dir / "curriculum_graduate.zip"
+        self.model.save(final_model_path)
+        self.logger.info(f"Model saved to: {final_model_path}")
+
     def save_checkpoint(self, name: str = None):
         """Save a model checkpoint."""
         if not self.model:

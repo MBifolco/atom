@@ -366,7 +366,9 @@ class PopulationTrainer:
             env_fns.append(env_fn)
 
         # Create vectorized environment
-        vec_env = SubprocVecEnv(env_fns) if self.n_envs_per_fighter > 1 else DummyVecEnv(env_fns)
+        # Note: Using DummyVecEnv to avoid pickle issues with SubprocVecEnv
+        # The fighter models contain weakrefs that can't be pickled for multiprocessing
+        vec_env = DummyVecEnv(env_fns)
 
         # If the model has a different number of envs, we need to reload it with the new env
         # (set_env requires matching number of environments)
