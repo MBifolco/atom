@@ -95,6 +95,11 @@ class CurriculumCallback(BaseCallback):
                 if self.curriculum_trainer.should_graduate():
                     self.curriculum_trainer.advance_level()
 
+                    # Stop training if curriculum is complete
+                    if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
+                        self.curriculum_trainer.logger.info("Curriculum complete - stopping training early")
+                        return False
+
         return True
 
 
