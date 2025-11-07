@@ -407,7 +407,7 @@ class PopulationTrainer:
                         "MlpPolicy",
                         env,
                         verbose=0,
-                        learning_rate=3e-4,
+                        learning_rate=1e-4,  # Lower for fine-tuning and stability
                         buffer_size=50000,
                         learning_starts=100,
                         batch_size=256,
