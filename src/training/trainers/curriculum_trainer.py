@@ -314,9 +314,16 @@ class CurriculumTrainer:
             opponent_idx = i % len(level.opponents)
             opponent_path = level.opponents[opponent_idx]
 
-            # Don't use Monitor wrapper - it causes file handle issues when switching levels
-            # We have our own comprehensive logging via the callback
-            env_fn = lambda opp_path=opponent_path, idx=i: self.create_env(opp_path, idx)
+            # Use Monitor with unique level-based filenames to avoid file handle conflicts
+            # The allow_early_resets=True is important for level transitions
+            level_name = level.name.replace(" ", "_").lower()
+            monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
+
+            env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
+                self.create_env(opp_path),
+                mfile,
+                allow_early_resets=True
+            )
             env_fns.append(env_fn)
 
         # ALWAYS use DummyVecEnv for curriculum training

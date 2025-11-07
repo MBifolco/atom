@@ -325,7 +325,7 @@ class CurriculumTrainer:
             self.model = PPO(
                 "MlpPolicy",
                 self.envs,
-                learning_rate=3e-4,
+                learning_rate=1e-4,
                 n_steps=2048,
                 batch_size=64,
                 n_epochs=10,
@@ -339,7 +339,7 @@ class CurriculumTrainer:
             self.model = SAC(
                 "MlpPolicy",
                 self.envs,
-                learning_rate=3e-4,
+                learning_rate=1e-4,
                 buffer_size=100000,
                 learning_starts=1000,
                 batch_size=256,

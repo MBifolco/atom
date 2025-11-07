@@ -305,6 +305,7 @@ Examples:
     )
     parser.add_argument(
         "--population",
+        
         type=int,
         default=8,
         help="Population size"
