@@ -508,7 +508,40 @@ class CurriculumTrainer:
 
         self.logger.info("Training complete!")
 
-        # Always save the model at the end, even if curriculum not fully completed
+        # Check if we graduated at least the first level
+        if len(self.progress.graduated_levels) == 0:
+            # Didn't graduate even Level 1
+            level = self.curriculum[0]
+
+            # Calculate current performance
+            if len(self.progress.recent_episodes) > 0:
+                current_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
+            else:
+                current_win_rate = 0.0
+
+            overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+
+            self.logger.error("="*80)
+            self.logger.error("CURRICULUM TRAINING FAILED")
+            self.logger.error("="*80)
+            self.logger.error(f"Failed to graduate Level 1: {level.name}")
+            self.logger.error(f"Episodes completed: {self.progress.episodes_at_level}")
+            self.logger.error(f"Overall win rate: {overall_win_rate:.1%}")
+            self.logger.error(f"Recent win rate: {current_win_rate:.1%} (need {level.graduation_win_rate:.1%})")
+            self.logger.error(f"Required: {level.graduation_win_rate:.1%} win rate over {level.graduation_episodes} episodes")
+            self.logger.error("")
+            self.logger.error("Suggestions:")
+            self.logger.error(f"  - Increase timesteps (current: {total_timesteps:,})")
+            self.logger.error(f"  - Try 3-5x more timesteps for Level 1 graduation")
+            self.logger.error("="*80)
+
+            raise RuntimeError(
+                f"Curriculum training failed to graduate Level 1 after {total_timesteps:,} timesteps. "
+                f"Win rate: {overall_win_rate:.1%} (need {level.graduation_win_rate:.1%}). "
+                f"Increase --timesteps parameter."
+            )
+
+        # Save the model only if graduated
         final_model_path = self.models_dir / "curriculum_graduate.zip"
         self.model.save(final_model_path)
         self.logger.info(f"Model saved to: {final_model_path}")
