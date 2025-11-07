@@ -77,8 +77,8 @@ class CurriculumCallback(BaseCallback):
                 reward = info["episode"]["r"]
                 self.episode_rewards.append(reward)
 
-                # Check if won (assuming positive reward means win)
-                won = reward > 0
+                # Check if won (use the "won" key from environment)
+                won = info.get("won", False)
                 self.episode_wins.append(won)
 
                 # Update curriculum progress
