@@ -293,7 +293,7 @@ class CurriculumTrainer:
             # Return a dummy opponent that does nothing
             return lambda s: {"acceleration": 0, "stance": "neutral"}
 
-    def create_env(self, opponent_path: str) -> Any:
+    def create_env(self, opponent_path: str, env_id: int = 0) -> Any:
         """Create a single environment with the specified opponent."""
         from ..gym_env import AtomCombatEnv
 
@@ -314,10 +314,9 @@ class CurriculumTrainer:
             opponent_idx = i % len(level.opponents)
             opponent_path = level.opponents[opponent_idx]
 
-            env_fn = lambda opp_path=opponent_path: Monitor(
-                self.create_env(opp_path),
-                str(self.logs_dir / f"env_{i}")  # Convert Path to string for Monitor
-            )
+            # Don't use Monitor wrapper - it causes file handle issues when switching levels
+            # We have our own comprehensive logging via the callback
+            env_fn = lambda opp_path=opponent_path, idx=i: self.create_env(opp_path, idx)
             env_fns.append(env_fn)
 
         # ALWAYS use DummyVecEnv for curriculum training
@@ -493,21 +492,9 @@ class CurriculumTrainer:
             if self.envs:
                 self.envs.close()
 
-            # IMPORTANT: Cannot use SubprocVecEnv mid-training due to pickle issues
-            # Must recreate with DummyVecEnv when advancing levels
-            env_fns = []
-            for i in range(self.n_envs):
-                opponent_idx = i % len(new_level.opponents)
-                opponent_path = new_level.opponents[opponent_idx]
-
-                env_fn = lambda opp_path=opponent_path: Monitor(
-                    self.create_env(opp_path),
-                    str(self.logs_dir / f"env_{i}")
-                )
-                env_fns.append(env_fn)
-
-            # Always use DummyVecEnv when switching levels mid-training
-            self.envs = DummyVecEnv(env_fns)
+            # Create new environments using the standard method
+            # (which now avoids Monitor wrapper to prevent file handle issues)
+            self.envs = self.create_envs_for_level(new_level)
             self.model.set_env(self.envs)
 
     def on_curriculum_complete(self):
