@@ -17,12 +17,12 @@ def decide(snapshot):
     Perfect stamina management with calculated aggression windows.
     """
     my_position = snapshot["you"]["position"]
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
-    my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["hp_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
+    my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
 
     opponent_distance = snapshot["opponent"]["distance"]
-    opponent_stamina_pct = snapshot["opponent"]["stamina"] / snapshot["opponent"]["stamina_max"]
-    opponent_hp_pct = snapshot["opponent"]["hp"] / snapshot["opponent"]["hp_max"]
+    opponent_stamina_pct = snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"]
+    opponent_hp_pct = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
 
     distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]

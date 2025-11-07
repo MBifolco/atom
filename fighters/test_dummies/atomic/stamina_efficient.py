@@ -17,7 +17,7 @@ def decide(snapshot):
     Conserves stamina by using neutral stance mostly,
     only attacking when stamina is very high.
     """
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
 
     # Conservative stamina management
     if my_stamina_pct > 0.8:

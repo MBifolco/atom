@@ -18,7 +18,7 @@ def decide(snapshot):
     """
     my_position = snapshot["you"]["position"]
     my_velocity = snapshot["you"]["velocity"]
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
 
     opponent_distance = snapshot["opponent"]["distance"]
     opponent_velocity = snapshot["opponent"]["velocity"]

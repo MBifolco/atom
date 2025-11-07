@@ -16,7 +16,7 @@ def decide(snapshot):
     Forces opponents to walls and exploits their limited movement.
     """
     my_position = snapshot["you"]["position"]
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
 
     opponent_distance = snapshot["opponent"]["distance"]
     distance = opponent_distance  # Use provided distance

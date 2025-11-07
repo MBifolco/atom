@@ -17,7 +17,7 @@ def decide(snapshot):
     Cycles between conservation and explosive attack phases.
     """
     my_position = snapshot["you"]["position"]
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
 
     opponent_distance = snapshot["opponent"]["distance"]
     distance = opponent_distance  # Use provided distance

@@ -17,7 +17,7 @@ def decide(snapshot):
     Cycles between aggressive (extended) and recovery (retracted) phases
     based on stamina thresholds.
     """
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
+    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
 
     # Use tick to track current phase
     tick = snapshot["tick"]
