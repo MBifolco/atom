@@ -69,6 +69,7 @@ class CurriculumCallback(BaseCallback):
         self.curriculum_trainer = curriculum_trainer
         self.episode_rewards = []
         self.episode_wins = []
+        self.recent_reward_components = []
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -81,8 +82,14 @@ class CurriculumCallback(BaseCallback):
                 won = info.get("won", False)
                 self.episode_wins.append(won)
 
-                # Update curriculum progress
-                self.curriculum_trainer.update_progress(won)
+                # Track reward breakdown if available
+                if "reward_breakdown" in info:
+                    self.recent_reward_components.append(info["reward_breakdown"])
+                    if len(self.recent_reward_components) > 100:
+                        self.recent_reward_components.pop(0)
+
+                # Update curriculum progress with additional info
+                self.curriculum_trainer.update_progress(won, reward, info)
 
                 # Check for level graduation
                 if self.curriculum_trainer.should_graduate():
@@ -351,7 +358,7 @@ class CurriculumTrainer:
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
 
-    def update_progress(self, won: bool):
+    def update_progress(self, won: bool, reward: float = 0, info: dict = None):
         """Update training progress for the current episode."""
         self.progress.episodes_at_level += 1
         self.progress.total_episodes += 1
@@ -365,6 +372,21 @@ class CurriculumTrainer:
         if len(self.progress.recent_episodes) > self.get_current_level().graduation_episodes:
             self.progress.recent_episodes.pop(0)
 
+        # Track recent rewards for analysis
+        if not hasattr(self.progress, 'recent_rewards'):
+            self.progress.recent_rewards = []
+            self.progress.recent_reward_breakdowns = []
+
+        self.progress.recent_rewards.append(reward)
+        if len(self.progress.recent_rewards) > 100:
+            self.progress.recent_rewards.pop(0)
+
+        # Track reward breakdown if available
+        if info and "reward_breakdown" in info:
+            self.progress.recent_reward_breakdowns.append(info["reward_breakdown"])
+            if len(self.progress.recent_reward_breakdowns) > 20:
+                self.progress.recent_reward_breakdowns.pop(0)
+
         # Log progress every 100 episodes
         if self.progress.episodes_at_level % 100 == 0:
             level = self.get_current_level()
@@ -373,11 +395,43 @@ class CurriculumTrainer:
             # Recent win rate (if we have enough data)
             if len(self.progress.recent_episodes) >= level.graduation_episodes:
                 recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
+                mean_reward = np.mean(self.progress.recent_rewards) if self.progress.recent_rewards else 0
+
                 self.logger.info(
                     f"Progress: Episode {self.progress.episodes_at_level} | "
                     f"Overall WR: {overall_win_rate:.1%} | "
                     f"Recent WR: {recent_win_rate:.1%} "
-                    f"(need {level.graduation_win_rate:.1%} to graduate)"
+                    f"(need {level.graduation_win_rate:.1%}) | "
+                    f"Mean Reward: {mean_reward:.1f}"
+                )
+
+                # Log detailed reward breakdown every 100 episodes
+                if self.progress.recent_reward_breakdowns:
+                    # Average the components
+                    avg_breakdown = {}
+                    for breakdown in self.progress.recent_reward_breakdowns:
+                        for key, value in breakdown.items():
+                            if key not in avg_breakdown:
+                                avg_breakdown[key] = []
+                            avg_breakdown[key].append(value)
+
+                    # Calculate averages
+                    reward_summary = []
+                    for key, values in avg_breakdown.items():
+                        if key != "total":
+                            avg_val = np.mean(values)
+                            if abs(avg_val) > 0.1:  # Only show significant components
+                                reward_summary.append(f"{key}={avg_val:+.1f}")
+
+                    if reward_summary:
+                        self.logger.info(f"  Reward Components: {', '.join(reward_summary)}")
+
+                # Log win/loss/draw counts
+                recent_wins = sum(self.progress.recent_episodes)
+                recent_losses = len(self.progress.recent_episodes) - recent_wins
+                self.logger.info(
+                    f"  Last {len(self.progress.recent_episodes)} episodes: "
+                    f"{recent_wins} wins, {recent_losses} losses"
                 )
             else:
                 self.logger.info(
