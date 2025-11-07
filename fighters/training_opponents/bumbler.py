@@ -21,17 +21,29 @@ def decide(snapshot):
     - Only backs off when completely exhausted
     - No strategic timing or defensive play
     """
-    distance = snapshot["opponent"]["distance"]
+    # Calculate distance properly
+    my_position = snapshot["you"]["position"]
+    opponent_position = snapshot["opponent"]["position"]
+    distance = abs(opponent_position - my_position)
+
     my_stamina = snapshot["you"]["stamina"]
-    max_stamina = snapshot["you"]["max_stamina"]
-    stamina_pct = my_stamina / max_stamina
+    max_stamina = snapshot["you"]["stamina_max"]  # Correct field name
+    stamina_pct = my_stamina / max_stamina if max_stamina > 0 else 0
 
     # Always tries to move forward (no retreat logic)
     # Doesn't stop properly, will collide clumsily
     if distance > 0.5:
-        acceleration = 3.5  # Move toward opponent aggressively
+        # Move toward opponent aggressively
+        if opponent_position > my_position:
+            acceleration = 3.5  # Move right toward opponent
+        else:
+            acceleration = -3.5  # Move left toward opponent
     else:
-        acceleration = 1.0  # Keep pushing even when close (clumsy!)
+        # Keep pushing even when close (clumsy!)
+        if opponent_position > my_position:
+            acceleration = 1.0  # Push right
+        else:
+            acceleration = -1.0  # Push left
 
     # Uses extended stance too aggressively (poor stamina management)
     # Knows can't attack at 0 stamina, but waits too long to back off

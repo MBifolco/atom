@@ -1,83 +1,73 @@
 """
 Berserker - Relentless All-Out Attack Specialist
 
+Unstoppable force of pure aggression and fury.
+
 Strategy:
-- Attacks aggressively at all times
-- Never backs down or defends
-- Teaches learning fighter to develop absolute defense
-- Forces learner to survive onslaught and counter-attack
+- NEVER stops attacking - ignores stamina completely
+- Maximum aggression at all times
+- Extended stance ALWAYS for maximum damage
+- Never retreats, never defends, never hesitates
+- Highest collision count of all fighters
+- Forces opponents to deal with relentless pressure
 """
 
 
 def decide(snapshot):
     """
-    Relentless berserker that teaches defense against sustained pressure.
-    
-    Attacks constantly with extended stance and aggressive acceleration.
-    Has minimal HP management. Forces learner to develop blocking/defense
-    skills and teaches how to survive and counter against relentless offense.
+    True berserker - pure relentless aggression without restraint.
+
+    Ignores stamina, ignores HP, just attacks constantly with maximum force.
+    Uses extended stance 100% of the time. Never backs down. Never stops.
+    The most aggressive fighter possible.
     """
+    # Extract minimal information - berserker doesn't need much
     distance = snapshot["opponent"]["distance"]
-    my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
-    opp_hp_pct = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
     my_position = snapshot["you"]["position"]
+    opp_velocity = snapshot["opponent"]["velocity"]
     arena_width = snapshot["arena"]["width"]
 
-    # Check if near wall
-    near_left_wall = my_position < 1.0
-    near_right_wall = my_position > arena_width - 1.0
+    # NO STAMINA CHECKS - Berserker ignores exhaustion
+    # NO HP CHECKS - Berserker fights to the death
 
-    # Only retreat if CRITICAL HP (desperate)
-    if my_hp_pct < 0.15:
-        if near_left_wall:
-            return {"acceleration": 2.5, "stance": "extended"}
-        elif near_right_wall:
-            return {"acceleration": -2.5, "stance": "extended"}
-        else:
-            # Even at critical HP, keep attacking but back away slightly
-            return {"acceleration": -1.0, "stance": "extended"}
+    # Check if near wall - detect early to avoid getting stuck
+    near_left_wall = my_position < 2.0  # Early detection
+    near_right_wall = my_position > arena_width - 2.0  # Early detection
 
-    # Even at low stamina, keep attacking but reduce power
-    if my_stamina_pct < 0.2:
-        if distance < 1.5:
-            # Already in range - light attack
-            return {"acceleration": 0.0, "stance": "extended"}
-        else:
-            # Out of range - slow advance
-            return {"acceleration": 1.0, "stance": "neutral"}
-
-    # Avoid wall but keep attacking
+    # CRITICAL: Avoid wall damage - use neutral stance for better movement
     if near_left_wall:
-        return {"acceleration": 1.5, "stance": "extended"}
-    elif near_right_wall:
-        return {"acceleration": -1.5, "stance": "extended"}
+        return {"acceleration": 5.0, "stance": "neutral"}  # Maximum escape velocity
+    if near_right_wall:
+        return {"acceleration": -5.0, "stance": "neutral"}  # Maximum escape velocity
 
-    # BERSERKER COMBAT PATTERNS
+    # BERSERKER RAGE PATTERNS - ALL MAXIMUM AGGRESSION
 
-    # Close range - maximum aggression
-    if distance < 1.0:
-        if my_stamina_pct > 0.3:
-            return {"acceleration": 0.5, "stance": "extended"}
+    # CLOSE RANGE (<1.5m) - OVERWHELMING FORCE
+    if distance < 1.5:
+        # Perfect killing range - maximum pressure
+        # Check if opponent trying to escape
+        if abs(opp_velocity) > 2.0:
+            # They're running - CHASE WITH FURY
+            if opp_velocity > 0:
+                return {"acceleration": 3.5, "stance": "extended"}
+            else:
+                return {"acceleration": -3.5, "stance": "extended"}
         else:
-            return {"acceleration": 0.0, "stance": "extended"}
+            # They're fighting - OVERWHELM THEM
+            return {"acceleration": 2.5, "stance": "extended"}
 
-    # Mid range - aggressive advance
+    # STRIKING RANGE (1.5-2.5m) - BRUTAL RUSH
     elif distance < 2.5:
-        if my_stamina_pct > 0.4:
-            return {"acceleration": 3.0, "stance": "extended"}
-        elif my_stamina_pct > 0.2:
-            return {"acceleration": 1.5, "stance": "extended"}
-        else:
-            return {"acceleration": 0.0, "stance": "extended"}
+        # Rush in with maximum force
+        return {"acceleration": 5.0, "stance": "extended"}
 
-    # Long range - relentless pursuit
+    # MEDIUM RANGE (2.5-4m) - RELENTLESS CHARGE
+    elif distance < 4.0:
+        # Full speed charge with attack ready
+        return {"acceleration": 5.0, "stance": "extended"}
+
+    # FAR RANGE (4m+) - MAXIMUM PURSUIT
     else:
-        if my_stamina_pct > 0.5:
-            return {"acceleration": 4.0, "stance": "extended"}
-        elif my_stamina_pct > 0.3:
-            return {"acceleration": 3.0, "stance": "extended"}
-        elif my_stamina_pct > 0.15:
-            return {"acceleration": 1.5, "stance": "extended"}
-        else:
-            return {"acceleration": 0.5, "stance": "extended"}
+        # Sprint at them with killing intent
+        # NO STAMINA CHECK - always maximum speed
+        return {"acceleration": 5.0, "stance": "extended"}

@@ -10,10 +10,10 @@ from gymnasium import spaces
 
 import sys
 from pathlib import Path
-# Add parent directory if not already in path
-parent_dir = str(Path(__file__).parent.parent.parent)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+# Add project root to path for src imports
+project_root = str(Path(__file__).parent.parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from src.arena import WorldConfig, FighterState, Arena1D
 from src.protocol.combat_protocol import generate_snapshot
