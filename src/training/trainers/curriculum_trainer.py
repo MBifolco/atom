@@ -494,7 +494,22 @@ class CurriculumTrainer:
             # Create new environments for the new level
             if self.envs:
                 self.envs.close()
-            self.envs = self.create_envs_for_level(new_level)
+
+            # IMPORTANT: Cannot use SubprocVecEnv mid-training due to pickle issues
+            # Must recreate with DummyVecEnv when advancing levels
+            env_fns = []
+            for i in range(self.n_envs):
+                opponent_idx = i % len(new_level.opponents)
+                opponent_path = new_level.opponents[opponent_idx]
+
+                env_fn = lambda opp_path=opponent_path: Monitor(
+                    self.create_env(opp_path),
+                    str(self.logs_dir / f"env_{i}")
+                )
+                env_fns.append(env_fn)
+
+            # Always use DummyVecEnv when switching levels mid-training
+            self.envs = DummyVecEnv(env_fns)
             self.model.set_env(self.envs)
 
     def on_curriculum_complete(self):
