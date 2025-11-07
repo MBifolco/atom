@@ -495,14 +495,15 @@ class CurriculumTrainer:
             self.logger.info(f"Opponents: {len(new_level.opponents)} different types")
             self.logger.info(f"Graduation Requirements: {new_level.graduation_win_rate:.0%} win rate over {new_level.graduation_episodes} episodes")
 
-            # Create new environments for the new level
-            if self.envs:
-                self.envs.close()
+            # Switch opponents in existing environments (avoids closing/recreating VecEnv)
+            # This prevents Monitor file handle issues during level transitions
+            for env_idx in range(self.n_envs):
+                opponent_idx = env_idx % len(new_level.opponents)
+                opponent_path = new_level.opponents[opponent_idx]
+                opponent_func = self.load_opponent(opponent_path)
 
-            # Create new environments using the standard method
-            # (which now avoids Monitor wrapper to prevent file handle issues)
-            self.envs = self.create_envs_for_level(new_level)
-            self.model.set_env(self.envs)
+                # Use env_method to call set_opponent() on each environment
+                self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""

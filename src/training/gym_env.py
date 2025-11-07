@@ -403,6 +403,18 @@ class AtomCombatEnv(gym.Env):
         """Rendering not implemented for training."""
         pass
 
+    def set_opponent(self, opponent_decision_func):
+        """
+        Change the opponent decision function mid-training.
+
+        This allows curriculum learning without recreating the environment,
+        avoiding Monitor file handle issues during level transitions.
+
+        Args:
+            opponent_decision_func: New decision function for opponent
+        """
+        self.opponent_decide = opponent_decision_func
+
     def close(self):
         """Clean up resources."""
         pass
