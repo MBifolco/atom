@@ -20,9 +20,9 @@ def decide(snapshot):
     my_velocity = snapshot["you"]["velocity"]
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
+    opponent_distance = snapshot["opponent"]["distance"]
     opponent_velocity = snapshot["opponent"]["velocity"]
-    distance = abs(opponent_position - my_position)
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
 
     # Wall detection - critical for kiting
@@ -41,7 +41,7 @@ def decide(snapshot):
 
     if distance < optimal_min:
         # Too close: Retreat quickly
-        if opponent_position > my_position:
+        if (my_position < arena_width * 0.4):
             acceleration = -4.0
         else:
             acceleration = 4.0
@@ -54,7 +54,7 @@ def decide(snapshot):
 
     elif distance > optimal_max:
         # Too far: Approach carefully
-        if opponent_position > my_position:
+        if (my_position < arena_width * 0.4):
             acceleration = 2.0
         else:
             acceleration = -2.0
@@ -66,13 +66,13 @@ def decide(snapshot):
         # Match opponent's movement to maintain distance
         if opponent_velocity > 0.5:
             # Opponent moving right
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 1.0  # Move with them slowly
             else:
                 acceleration = 3.0  # Move away faster
         elif opponent_velocity < -0.5:
             # Opponent moving left
-            if opponent_position < my_position:
+            if (my_position > arena_width * 0.6):
                 acceleration = -1.0  # Move with them slowly
             else:
                 acceleration = -3.0  # Move away faster

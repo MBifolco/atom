@@ -20,13 +20,13 @@ def decide(snapshot):
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
     my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["hp_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
+    opponent_distance = snapshot["opponent"]["distance"]
     opponent_velocity = snapshot["opponent"]["velocity"]
     opponent_stamina_pct = snapshot["opponent"]["stamina"] / snapshot["opponent"]["stamina_max"]
     opponent_hp_pct = snapshot["opponent"]["hp"] / snapshot["opponent"]["hp_max"]
     opponent_stance = snapshot["opponent"]["stance"]
 
-    distance = abs(opponent_position - my_position)
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
     tick = snapshot["tick"]
 
@@ -51,13 +51,13 @@ def decide(snapshot):
         # Exploit exhausted opponent
         if distance > 2.0:
             # Rush them
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 4.0
             else:
                 acceleration = -4.0
         else:
             # Pressure them
-            acceleration = 1.0 if opponent_position > my_position else -1.0
+            acceleration = 1.0 if (my_position < arena_width * 0.4) else -1.0
 
         stance = "extended" if my_stamina_pct > 0.2 else "neutral"
 
@@ -65,7 +65,7 @@ def decide(snapshot):
         # Counter aggression with defense and spacing
         if distance < 2.0:
             # Back away
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = -3.0
             else:
                 acceleration = 3.0
@@ -79,19 +79,19 @@ def decide(snapshot):
         # Break through defense with calculated pressure
         if distance > 2.5:
             # Approach
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 2.5
             else:
                 acceleration = -2.5
             stance = "neutral"
         else:
             # Pressure carefully
-            acceleration = 0.5 if opponent_position > my_position else -0.5
+            acceleration = 0.5 if (my_position < arena_width * 0.4) else -0.5
             stance = "extended" if my_stamina_pct > 0.5 else "neutral"
 
     elif is_fleeing:
         # Pursue fleeing opponent
-        if opponent_position > my_position:
+        if (my_position < arena_width * 0.4):
             acceleration = 5.0
         else:
             acceleration = -5.0
@@ -103,13 +103,13 @@ def decide(snapshot):
             # Close range tactics
             if my_stamina_pct > opponent_stamina_pct:
                 stance = "extended"
-                acceleration = 0.3 if opponent_position > my_position else -0.3
+                acceleration = 0.3 if (my_position < arena_width * 0.4) else -0.3
             else:
                 stance = "defending"
-                acceleration = -1.0 if opponent_position > my_position else 1.0
+                acceleration = -1.0 if (my_position < arena_width * 0.4) else 1.0
         else:
             # Approach cautiously
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 1.5
             else:
                 acceleration = -1.5

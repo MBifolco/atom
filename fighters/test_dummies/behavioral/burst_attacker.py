@@ -19,8 +19,8 @@ def decide(snapshot):
     my_position = snapshot["you"]["position"]
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
-    distance = abs(opponent_position - my_position)
+    opponent_distance = snapshot["opponent"]["distance"]
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
 
     # Wall detection
@@ -38,13 +38,13 @@ def decide(snapshot):
         # BURST MODE ACTIVATED!
         # Aggressive approach with extended stance
         if distance > 1.5:
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 5.0
             else:
                 acceleration = -5.0
         else:
             # In range: Maximum aggression
-            acceleration = 1.0 if opponent_position > my_position else -1.0
+            acceleration = 1.0 if (my_position < arena_width * 0.4) else -1.0
 
         stance = "extended"
 
@@ -52,7 +52,7 @@ def decide(snapshot):
         # Mid-burst: Continue if already close
         if distance < 2.0:
             # Continue attacking
-            acceleration = 0.5 if opponent_position > my_position else -0.5
+            acceleration = 0.5 if (my_position < arena_width * 0.4) else -0.5
             stance = "extended"
         else:
             # Too far, conserve
@@ -63,7 +63,7 @@ def decide(snapshot):
         # Recovery phase: Full defensive retreat
         if distance < 3.0:
             # Back away
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = -2.0
             else:
                 acceleration = 2.0

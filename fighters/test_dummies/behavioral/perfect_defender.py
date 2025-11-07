@@ -21,10 +21,10 @@ def decide(snapshot):
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
     my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["hp_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
+    opponent_distance = snapshot["opponent"]["distance"]
     opponent_stamina_pct = snapshot["opponent"]["stamina"] / snapshot["opponent"]["stamina_max"]
 
-    distance = abs(opponent_position - my_position)
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
 
     # Wall detection
@@ -40,7 +40,7 @@ def decide(snapshot):
     # Distance-based defensive strategy
     if distance < 1.5:
         # Too close: Back away while defending
-        if opponent_position > my_position:
+        if (my_position < arena_width * 0.4):
             acceleration = -3.0
         else:
             acceleration = 3.0

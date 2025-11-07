@@ -20,11 +20,11 @@ def decide(snapshot):
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
     my_hp_pct = snapshot["you"]["hp"] / snapshot["you"]["hp_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
+    opponent_distance = snapshot["opponent"]["distance"]
     opponent_stamina_pct = snapshot["opponent"]["stamina"] / snapshot["opponent"]["stamina_max"]
     opponent_hp_pct = snapshot["opponent"]["hp"] / snapshot["opponent"]["hp_max"]
 
-    distance = abs(opponent_position - my_position)
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
     tick = snapshot["tick"]
 
@@ -46,14 +46,14 @@ def decide(snapshot):
             if opponent_stamina_pct < 0.3:
                 # Opponent exhausted: Capitalize
                 stance = "extended"
-                acceleration = 0.5 if opponent_position > my_position else -0.5
+                acceleration = 0.5 if (my_position < arena_width * 0.4) else -0.5
             else:
                 # Both have stamina: Calculated trades
                 stance = "neutral"  # Balanced approach
                 acceleration = 0.0
         else:
             # Mid-long range: Approach efficiently
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 2.0
             else:
                 acceleration = -2.0
@@ -64,7 +64,7 @@ def decide(snapshot):
         if distance < 1.5 and opponent_stamina_pct < 0.2:
             # Exploit exhausted opponent
             stance = "extended"
-            acceleration = 0.3 if opponent_position > my_position else -0.3
+            acceleration = 0.3 if (my_position < arena_width * 0.4) else -0.3
         else:
             # Maintain neutral, recover slowly
             stance = "neutral"
@@ -74,7 +74,7 @@ def decide(snapshot):
         # Low stamina: Defensive preservation
         if distance < 2.0:
             # Too close: Create space
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = -2.0
             else:
                 acceleration = 2.0
@@ -88,7 +88,7 @@ def decide(snapshot):
         # Critical stamina: Full recovery mode
         if distance < 3.0:
             # Retreat
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = -3.0
             else:
                 acceleration = 3.0

@@ -16,24 +16,27 @@ def decide(snapshot):
     Maintains 3 meter distance from opponent using controlled movement.
     """
     my_position = snapshot["you"]["position"]
-    opponent_position = snapshot["opponent"]["position"]
-    distance = abs(opponent_position - my_position)
+    my_velocity = snapshot["you"]["velocity"]
+    distance = snapshot["opponent"]["distance"]
+    arena_width = snapshot["arena"]["width"]
 
     target_distance = 3.0
     tolerance = 0.3
 
+    # Determine opponent direction using position heuristics
+    if my_position < arena_width * 0.3:
+        opponent_to_right = True
+    elif my_position > arena_width * 0.7:
+        opponent_to_right = False
+    else:
+        opponent_to_right = my_velocity >= 0
+
     if distance > target_distance + tolerance:
         # Too far: Approach
-        if opponent_position > my_position:
-            acceleration = 2.5  # Move right
-        else:
-            acceleration = -2.5  # Move left
+        acceleration = 2.5 if opponent_to_right else -2.5
     elif distance < target_distance - tolerance:
         # Too close: Back away
-        if opponent_position > my_position:
-            acceleration = -2.5  # Move left
-        else:
-            acceleration = 2.5  # Move right
+        acceleration = -2.5 if opponent_to_right else 2.5
     else:
         # Perfect distance: Maintain
         acceleration = 0.0

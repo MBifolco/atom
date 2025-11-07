@@ -16,12 +16,13 @@ def decide(snapshot):
     Stationary until opponent < 4m, then charges with extended stance.
     """
     my_position = snapshot["you"]["position"]
-    opponent_position = snapshot["opponent"]["position"]
-    distance = abs(opponent_position - my_position)
+    arena_width = snapshot["arena"]["width"]
+    opponent_distance = snapshot["opponent"]["distance"]
+    distance = opponent_distance  # Use provided distance
 
     if distance < 4.0:
         # Opponent close: CHARGE!
-        if opponent_position > my_position:
+        if (my_position < arena_width * 0.4):
             acceleration = 5.0  # Charge right
         else:
             acceleration = -5.0  # Charge left

@@ -18,8 +18,8 @@ def decide(snapshot):
     my_position = snapshot["you"]["position"]
     my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["stamina_max"]
 
-    opponent_position = snapshot["opponent"]["position"]
-    distance = abs(opponent_position - my_position)
+    opponent_distance = snapshot["opponent"]["distance"]
+    distance = opponent_distance  # Use provided distance
     arena_width = snapshot["arena"]["width"]
 
     # Check opponent's wall proximity
@@ -41,7 +41,7 @@ def decide(snapshot):
         # Opponent trapped! Press advantage
         if distance > 2.0:
             # Close in for the kill
-            if opponent_position > my_position:
+            if (my_position < arena_width * 0.4):
                 acceleration = 4.0
             else:
                 acceleration = -4.0
@@ -51,7 +51,7 @@ def decide(snapshot):
             if my_stamina_pct > 0.3:
                 stance = "extended"
                 # Small movements to maintain pressure
-                if opponent_position > my_position:
+                if (my_position < arena_width * 0.4):
                     acceleration = 1.0
                 else:
                     acceleration = -1.0
