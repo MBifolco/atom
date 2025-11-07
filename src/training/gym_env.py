@@ -249,24 +249,24 @@ class AtomCombatEnv(gym.Env):
             # Mid-episode rewards: Shaped to encourage good fighting behavior
             reward = 0
 
-            # 1. Damage differential (core reward)
-            damage_reward = (damage_dealt - damage_taken) * 2.0
+            # 1. Damage differential (core reward) - INCREASED
+            damage_reward = (damage_dealt - damage_taken) * 10.0  # Was 2.0, now 10.0
             reward += damage_reward
             self.episode_damage_reward += damage_reward
 
-            # 2. Stamina-aware rewards
+            # 2. Stamina-aware rewards - REDUCED (not core to basic combat)
             stamina_pct = self.fighter.stamina / self.fighter.max_stamina
             opp_stamina_pct = self.opponent.stamina / self.opponent.max_stamina
 
-            # Reward for maintaining stamina advantage
+            # Small reward for maintaining stamina advantage
             if stamina_pct > opp_stamina_pct + 0.2:
-                stamina_bonus = 0.1  # Small constant bonus for stamina advantage
+                stamina_bonus = 0.02  # Was 0.1, now 0.02 (5x reduction)
                 reward += stamina_bonus
                 self.episode_stamina_reward += stamina_bonus
 
-            # Penalize fighting at very low stamina (< 20%)
+            # Small penalty for fighting at very low stamina (< 20%)
             if stamina_pct < 0.2 and stance != "defending":
-                stamina_penalty = -0.2
+                stamina_penalty = -0.05  # Was -0.2, now -0.05 (4x reduction)
                 reward += stamina_penalty
                 self.episode_stamina_reward += stamina_penalty
 
@@ -316,15 +316,15 @@ class AtomCombatEnv(gym.Env):
             reward += stance_bonus
             self.episode_stance_reward += stance_bonus
 
-            # 5. Inaction penalty (distance-aware)
-            # More severe penalty for inaction when close, less when far
+            # 5. Inaction penalty (distance-aware) - DRASTICALLY REDUCED
+            # Small penalty for complete inaction to encourage engagement
             if damage_dealt == 0 and damage_taken == 0:
                 if distance < arena_width * 0.2:  # Very close
-                    inaction_penalty = -0.8  # Severe penalty for not fighting when close
+                    inaction_penalty = -0.05  # Was -0.8, now -0.05 (16x reduction!)
                 elif distance < arena_width * 0.4:  # Medium range
-                    inaction_penalty = -0.4
+                    inaction_penalty = -0.02  # Was -0.4, now -0.02
                 else:  # Far away
-                    inaction_penalty = -0.2  # Light penalty, positioning might be strategic
+                    inaction_penalty = -0.01  # Was -0.2, now -0.01
                 reward += inaction_penalty
                 self.episode_inaction_penalty += inaction_penalty
 
