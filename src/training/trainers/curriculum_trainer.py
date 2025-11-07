@@ -320,11 +320,9 @@ class CurriculumTrainer:
             )
             env_fns.append(env_fn)
 
-        # Use SubprocVecEnv for true parallelism
-        if self.n_envs > 1:
-            return SubprocVecEnv(env_fns)
-        else:
-            return DummyVecEnv(env_fns)
+        # ALWAYS use DummyVecEnv for curriculum training
+        # SubprocVecEnv has too many pickle/process issues during curriculum progression
+        return DummyVecEnv(env_fns)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
