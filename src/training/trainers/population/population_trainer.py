@@ -834,8 +834,6 @@ class PopulationTrainer:
             print(f"  Replacing {len(to_replace)} fighters")
 
         # Replace weak fighters with mutations of strong ones
-        self.generation += 1
-
         for i, old_fighter in enumerate(to_replace):
             # Select a parent from survivors (weighted by ELO)
             parent = random.choice(survivors)
