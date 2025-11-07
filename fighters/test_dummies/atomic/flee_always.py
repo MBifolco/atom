@@ -16,16 +16,31 @@ def decide(snapshot):
     Always moves away from opponent at speed 3.0.
     """
     my_position = snapshot["you"]["position"]
-    opp_position = snapshot["opponent"]["position"]
+    my_velocity = snapshot["you"]["velocity"]
+    opponent_distance = snapshot["opponent"]["distance"]
     arena_width = snapshot["arena"]["width"]
 
-    # Always move away from opponent
-    if my_position < opp_position:
-        acceleration = -3.0  # Move left away from opponent
-    elif my_position > opp_position:
-        acceleration = 3.0  # Move right away from opponent
+    # Determine opponent direction and flee opposite
+    # If we're close to left wall, opponent is probably to the right - flee left
+    # If we're close to right wall, opponent is probably to the left - flee right
+    # Otherwise, use velocity hints
+
+    if my_position < arena_width * 0.3:
+        # We're on left side, opponent likely to the right - flee left
+        acceleration = -3.0
+    elif my_position > arena_width * 0.7:
+        # We're on right side, opponent likely to the left - flee right
+        acceleration = 3.0
     else:
-        acceleration = 3.0  # Emergency escape
+        # In middle - flee opposite to current velocity direction
+        # (reverses direction to get away)
+        if my_velocity > 0:
+            acceleration = -3.0  # Was moving right, flee left
+        elif my_velocity < 0:
+            acceleration = 3.0  # Was moving left, flee right
+        else:
+            # Stopped - default to fleeing right
+            acceleration = 3.0
 
     # Don't flee into walls
     if my_position < 2.0 and acceleration < 0:
