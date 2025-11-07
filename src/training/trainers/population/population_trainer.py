@@ -66,6 +66,17 @@ def _train_single_fighter_parallel(
     Returns:
         Dictionary with training statistics
     """
+    # IMPORTANT: Set thread limits BEFORE importing TensorFlow/PyTorch
+    # This prevents each process from using all CPU cores for BLAS/MKL operations
+    import os
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+    os.environ['NUMEXPR_NUM_THREADS'] = '1'
+    os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
+    os.environ['TF_NUM_INTEROP_THREADS'] = '1'
+
     import numpy as np
     from pathlib import Path
     from stable_baselines3 import PPO, SAC
