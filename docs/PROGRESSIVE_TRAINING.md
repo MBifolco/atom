@@ -41,18 +41,20 @@ python train_progressive.py --mode quick
 
 ```bash
 # Curriculum learning only
-python train_progressive.py --mode curriculum --timesteps 1000000
+python train_progressive.py --mode curriculum --timesteps 4000000
 
 # Population training only (requires existing curriculum graduate)
-python train_progressive.py --mode population --population 16 --generations 20
+python train_progressive.py --mode population --population 16 --generations 20 --episodes-per-gen 4000
 
-# Full pipeline with custom settings
+# Full pipeline with custom settings and multicore support
 python train_progressive.py \
     --mode complete \
     --algorithm ppo \
-    --timesteps 2000000 \
+    --timesteps 4000000 \
     --population 8 \
-    --generations 10 \
+    --generations 20 \
+    --episodes-per-gen 4000 \
+    --cores 8 \
     --output-dir outputs/my_run
 ```
 
@@ -64,33 +66,39 @@ Fighters progress through 5 levels of increasing difficulty, each with specific 
 
 ### Curriculum Levels
 
-| Level | Name | Opponents | Learning Objectives | Graduation Requirement |
-|-------|------|-----------|---------------------|----------------------|
-| 1 | Fundamentals | Stationary targets | Basic combat, stances, damage | 90% win rate over 10 episodes |
-| 2 | Basic Skills | Simple movers | Movement, positioning | 85% win rate over 20 episodes |
-| 3 | Intermediate | Distance keepers | Stamina, spacing, timing | 80% win rate over 30 episodes |
-| 4 | Advanced | Behavioral fighters | Strategy, adaptation | 75% win rate over 40 episodes |
-| 5 | Expert | Hardcoded experts | Mastery, consistency | 70% win rate over 50 episodes |
+| Level | Name | Opponents | Min Episodes | Learning Objectives | Graduation Requirement |
+|-------|------|-----------|--------------|---------------------|----------------------|
+| 1 | Fundamentals | 4 stationary | 100 | Basic attacking, stance usage | 90% win rate over 10 episodes |
+| 2 | Basic Skills | 6 simple movers | 200 | Pursuit, evasion, predictive movement | 80% win rate over 20 episodes |
+| 3 | Intermediate | 9 distance/stamina | 300 | Spacing, resource management, walls | 75% win rate over 30 episodes |
+| 4 | Advanced | 6 behavioral | 400 | Complex strategies, counter-strategies | 60% win rate over 40 episodes |
+| 5 | Expert | 7 hardcoded | 500 | Mastery against expert opponents | 50% win rate over 50 episodes |
 
 ### Test Dummies
 
-The curriculum uses 23+ specialized test dummies organized in three categories:
+The curriculum uses **32 specialized test dummies** organized in two categories:
 
-#### Atomic Dummies
-- **Stationary**: neutral, extended, defending, retracted stances
-- **Movement**: approach, flee, shuttle, circle, wall_hugger
-- **Distance**: maintain 1m, 3m, 5m spacing
-- **Stamina**: waster, cycler, efficient patterns
-- **Reactive**: mirror, counter, charge_on_approach
+#### Atomic Dummies (23 fighters)
+Simple, single-behavior opponents in `fighters/test_dummies/atomic/`:
+- **Stationary** (4): neutral, extended, defending, retracted stances
+- **Movement** (8): approach (slow/fast), flee, shuttle (slow/medium/fast), circle (left/right)
+- **Distance** (3): maintain 1m, 3m, 5m spacing
+- **Stamina** (3): waster, cycler, efficient patterns
+- **Walls** (2): wall hugger (left/right)
+- **Reactive** (3): mirror, counter, charge on approach
 
-#### Behavioral Fighters
-- Tank, Rusher, Dodger, Sniper
-- Bumbler (random actions)
-- Defender (pure defense)
+#### Behavioral Fighters (6 fighters)
+Complex, strategic opponents in `fighters/test_dummies/behavioral/`:
+- **perfect_defender**: Pure defensive strategy
+- **burst_attacker**: Aggressive stamina burst attacks
+- **perfect_kiter**: Maintains distance while attacking
+- **stamina_optimizer**: Efficient stamina management
+- **wall_fighter**: Uses arena walls tactically
+- **adaptive_fighter**: Adapts strategy to opponent
 
-#### Scenario Dummies
-- Cornered fighter, exhausted fighter
-- Combo sequences, bait patterns
+#### Hardcoded Experts (7 fighters)
+Expert opponents in `fighters/examples/`:
+- tank, rusher, balanced, grappler, zoner, dodger, berserker
 
 ### Implementation
 
@@ -224,13 +232,14 @@ outputs/progressive_TIMESTAMP/
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| curriculum_timesteps | 500,000 | Total steps for curriculum |
-| population_size | 8 | Number of fighters |
-| generations | 10 | Evolution iterations |
-| episodes_per_generation | 500 | Training episodes per gen |
-| keep_top | 0.5 | Selection pressure |
-| mass_range | (60, 85) | Fighter mass variation |
-| variation_factor | 0.1 | Initial population diversity |
+| curriculum_timesteps | 4,000,000 | Total steps for curriculum (recommended for full training) |
+| population_size | 8 | Number of fighters in population |
+| generations | 20 | Evolution iterations |
+| episodes_per_generation | 4000 | Training episodes per generation |
+| cores | 1 | CPU cores for parallel training (set to 8+ for speed) |
+| keep_top | 0.5 | Selection pressure (keep top 50%) |
+| mass_range | (60, 85) | Fighter mass variation in kg |
+| variation_factor | 0.1 | Initial population diversity (±10% parameter noise) |
 
 ## Performance Tracking
 
@@ -372,6 +381,51 @@ After complete training:
 - Diverse strategies emerge (aggressive, defensive, balanced)
 - Consistent performance across different opponent types
 
+## Troubleshooting
+
+### Common Issues
+
+#### Monitor File Handle Crash
+**Error**: `ValueError: I/O operation on closed file`
+
+**Cause**: Previous versions attempted to close and recreate VecEnv during level transitions, which closed Monitor file handlers mid-episode.
+
+**Fix (Nov 2024)**: The system now uses `set_opponent()` to dynamically change opponents without recreating environments, keeping Monitor file handlers open throughout training.
+
+#### Test Dummy Snapshot Format Errors
+**Error**: `KeyError: 'position'` or `KeyError: 'stamina_max'`
+
+**Cause**: Test dummies using incorrect snapshot field names. The protocol provides:
+- `snapshot["opponent"]["distance"]` (not `"position"`)
+- `snapshot["you"]["max_stamina"]` (not `"stamina_max"`)
+- `snapshot["you"]["max_hp"]` (not `"hp_max"`)
+
+**Fix (Nov 2024)**: All 32 test dummies updated to use correct snapshot format with position-based heuristics for determining opponent direction.
+
+#### Infinite Expert Graduation Loop
+**Error**: Training completes all 5 levels but keeps graduating from Expert repeatedly
+
+**Cause**: `should_graduate()` didn't check if curriculum was already complete, allowing infinite re-graduation from the final level.
+
+**Fix (Nov 2024)**: Added early return in `should_graduate()` when `current_level >= len(curriculum)`.
+
+#### Low Win Rates
+**Issue**: Fighter not graduating after many timesteps
+
+**Solutions**:
+- Increase `--timesteps` (recommended: 4M for full curriculum)
+- Check reward breakdown in logs - should see positive damage rewards
+- Ensure test dummies are using correct snapshot format
+- Verify Monitor is reporting rollout stats correctly
+
+#### Training Slowdown
+**Issue**: Training taking too long
+
+**Solutions**:
+- Use `--cores 8` or higher for multicore parallel training
+- Increase `--episodes-per-gen` (recommended: 4000) for population training
+- Consider using `--mode curriculum` only if you don't need population diversity
+
 ## Future Enhancements
 
 Planned improvements:
@@ -380,6 +434,7 @@ Planned improvements:
 - [ ] Adversarial training against specific opponents
 - [ ] Neural architecture search
 - [ ] Distributed training support
+- [ ] GPU acceleration for model training
 
 ## Conclusion
 

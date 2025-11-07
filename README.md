@@ -70,6 +70,78 @@ python atom_fight.py my_fighter.py fighters/examples/tank.py --html my_first_fig
 
 ---
 
+## 🎯 Complete Workflow: From Zero to Fighting
+
+### Step 1: Train Your Fighter
+
+Train an AI fighter using the progressive training system:
+
+```bash
+# Full training pipeline (curriculum + population evolution)
+python train_progressive.py --mode complete --cores 8
+
+# This takes 6-12 hours and produces:
+# - Curriculum graduate (skilled in fundamentals through expert level)
+# - Population of evolved fighters with diverse strategies
+# - Auto-exported fighters in fighters/AIs/
+```
+
+### Step 2: Build Fighter Registry
+
+Create a registry of all available fighters:
+
+```bash
+# Scan all fighters and create registry.json
+python build_registry.py
+
+# This indexes:
+# - Example fighters (fighters/examples/)
+# - Test dummies (fighters/test_dummies/)
+# - Your trained AIs (fighters/AIs/)
+```
+
+### Step 3: Test Your Fighter (CLI)
+
+Quick command-line testing:
+
+```bash
+# Fight your AI against an example fighter
+python atom_fight.py \
+    fighters/AIs/your_fighter_name/fighter.py \
+    fighters/examples/tank.py \
+    --html my_fight.html
+
+# Open my_fight.html in browser to watch replay
+```
+
+### Step 4: Use the Web App
+
+Launch the web interface for easier fighter selection and match visualization:
+
+```bash
+# Install web dependencies (one-time)
+cd web
+pip install -r requirements.txt
+cd ..
+
+# Start the web server
+uvicorn web.app:app --reload
+
+# Open http://localhost:8000 in your browser
+```
+
+In the web app you can:
+- Browse all fighters with stats and descriptions
+- Select any two fighters to battle
+- Configure match parameters (mass, seed, etc.)
+- Watch live animated replays
+- Export standalone HTML replays
+- View spectacle scores and match statistics
+
+**See [web/README.md](web/README.md) for complete web app documentation.**
+
+---
+
 ## 🤖 Train AI Fighters
 
 Create AI fighters using our **Progressive Training System** that combines curriculum learning with population-based evolution!
@@ -93,9 +165,11 @@ python train_progressive.py --mode complete
 
 **Key Features:**
 - ✅ Systematic skill progression (fundamentals → expert)
-- ✅ 23+ specialized test dummies for curriculum
+- ✅ 32 specialized test dummies across 5 curriculum levels
 - ✅ Population diversity through evolution
 - ✅ Battle-ready champions exported automatically
+- ✅ Multicore parallel training support
+- ✅ Detailed progress logging and reward tracking
 
 ---
 
@@ -155,31 +229,19 @@ See **[fighters/README.md](fighters/README.md)** for complete fighter guide and 
 
 ```
 atom/
-├── atom_fight.py              # CLI fight runner (START HERE!)
+├── atom_fight.py               # CLI fight runner (START HERE!)
+├── train_progressive.py        # Progressive training pipeline (curriculum + population)
 ├── fighters/                   # Fighter collection
-│   ├── examples/              # Well-crafted example fighters
+│   ├── examples/              # Hardcoded example fighters
 │   │   ├── rusher.py         # Aggressive pressure fighter
 │   │   ├── tank.py           # Defensive counter-puncher
-│   │   └── balanced.py       # Adaptive tactician
-│   ├── training_opponents/    # Curriculum for training AI
-│   │   ├── training_dummy.py # Level 1: Stationary target
-│   │   ├── wanderer.py       # Level 2: Random movement
-│   │   ├── bumbler.py        # Level 3: Poor execution
-│   │   └── novice.py         # Level 4: Basic competence
+│   │   ├── balanced.py       # Adaptive tactician
+│   │   └── ...               # 7 total example fighters
+│   ├── test_dummies/          # Training curriculum opponents
+│   │   ├── atomic/           # 23 simple behavior test dummies
+│   │   └── behavioral/       # 6 complex strategy test dummies
+│   ├── AIs/                   # Trained AI fighters (auto-exported)
 │   └── README.md             # Fighter guide
-├── training/                   # AI fighter training (RL)
-│   ├── train_fighter.py       # Training CLI
-│   ├── requirements.txt       # Training dependencies
-│   ├── README.md              # Training guide
-│   └── src/                   # Training infrastructure
-│       ├── gym_env.py         # Gymnasium wrapper
-│       ├── trainer.py         # PPO trainer
-│       └── onnx_fighter.py    # ONNX export/inference
-├── docs/                       # Documentation
-│   ├── original_vision/       # Design philosophy & specs
-│   ├── HOW_TRAINING_WORKS.md # AI training guide (simple!)
-│   ├── VISION_GAP_ANALYSIS.md # Built vs planned features
-│   └── IMPROVEMENTS.md        # Stamina & AI improvements
 ├── src/                        # Core components
 │   ├── arena/                 # Physics engine
 │   ├── protocol/              # Combat contract
@@ -187,8 +249,18 @@ atom/
 │   ├── telemetry/             # Replay storage
 │   ├── evaluator/             # Spectacle scoring
 │   ├── renderer/              # ASCII + HTML5 visualization
-│   └── ai/                    # Tactical AI examples
-├── poc/                        # Original proof-of-concept
+│   └── training/              # Training infrastructure
+│       ├── gym_env.py         # Gymnasium environment wrapper
+│       ├── trainers/          # Training algorithms
+│       │   ├── curriculum_trainer.py  # Curriculum learning
+│       │   └── population/    # Population-based training
+│       └── onnx_fighter.py    # ONNX export/inference
+├── docs/                       # Documentation
+│   ├── PROGRESSIVE_TRAINING.md  # Training system guide
+│   ├── REWARD_STRUCTURE.md      # Reward system details
+│   ├── original_vision/         # Design philosophy & specs
+│   └── VISION_GAP_ANALYSIS.md   # Built vs planned features
+├── outputs/                    # Training outputs (logs, models, fighters)
 └── tests/                      # Component tests
 ```
 
@@ -262,12 +334,12 @@ python poc/param_search.py
 
 ## 📚 Documentation
 
+- **[Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
+- **[Reward Structure](docs/REWARD_STRUCTURE.md)** - Reward system and balancing details
 - **[Fighter Guide](fighters/README.md)** - Fighter collection & testing commands
-- **[Training Guide](training/README.md)** - Train AI fighters with reinforcement learning
-- **[How Training Works](docs/HOW_TRAINING_WORKS.md)** - AI training explained simply with diagrams
+- **[Test Dummies](fighters/test_dummies/README.md)** - Training curriculum opponents
 - **[Vision Documents](docs/original_vision/)** - Original design philosophy
 - **[Vision Gap Analysis](docs/VISION_GAP_ANALYSIS.md)** - What's built vs planned
-- **[Improvements](docs/IMPROVEMENTS.md)** - Stamina & AI improvements
 
 ---
 
