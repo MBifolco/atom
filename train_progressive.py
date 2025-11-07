@@ -209,7 +209,8 @@ class ProgressiveTrainer:
     def run_complete_pipeline(self,
                              curriculum_timesteps: int = 500_000,
                              population_generations: int = 10,
-                             population_size: int = 8):
+                             population_size: int = 8,
+                             episodes_per_generation: int = 2000):
         """
         Run the complete progressive training pipeline.
 
@@ -217,6 +218,7 @@ class ProgressiveTrainer:
             curriculum_timesteps: Timesteps for curriculum training
             population_generations: Generations for population training
             population_size: Size of the population
+            episodes_per_generation: Training episodes per generation
         """
         if self.verbose:
             print("\n" + "🚀"*40)
@@ -244,7 +246,7 @@ class ProgressiveTrainer:
         # Phase 3: Population Training
         self.run_population_training(
             generations=population_generations,
-            episodes_per_generation=500,
+            episodes_per_generation=episodes_per_generation,
             population_size=population_size,
             keep_top=0.5
         )
@@ -325,6 +327,12 @@ Examples:
         default=None,
         help="Number of CPU cores to use for parallel fighter training (default: cpu_count - 1)"
     )
+    parser.add_argument(
+        "--episodes-per-gen",
+        type=int,
+        default=2000,
+        help="Training episodes per generation for population training (default: 2000)"
+    )
 
     args = parser.parse_args()
 
@@ -349,7 +357,8 @@ Examples:
         trainer.run_complete_pipeline(
             curriculum_timesteps=10_000,
             population_generations=2,
-            population_size=4
+            population_size=4,
+            episodes_per_generation=500  # Keep low for quick mode
         )
     elif args.mode == "curriculum":
         # Curriculum only
@@ -359,7 +368,7 @@ Examples:
         print("Note: Population mode requires an existing curriculum graduate model.")
         trainer.run_population_training(
             generations=args.generations,
-            episodes_per_generation=500,
+            episodes_per_generation=args.episodes_per_gen,
             population_size=args.population
         )
     else:  # complete
@@ -367,7 +376,8 @@ Examples:
         trainer.run_complete_pipeline(
             curriculum_timesteps=args.timesteps,
             population_generations=args.generations,
-            population_size=args.population
+            population_size=args.population,
+            episodes_per_generation=args.episodes_per_gen
         )
 
 
