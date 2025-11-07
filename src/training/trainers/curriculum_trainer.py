@@ -451,6 +451,10 @@ class CurriculumTrainer:
 
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
+        # Don't graduate if already completed all curriculum levels
+        if self.progress.current_level >= len(self.curriculum):
+            return False
+
         level = self.get_current_level()
 
         # Check minimum episodes
