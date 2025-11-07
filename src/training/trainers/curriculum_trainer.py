@@ -365,6 +365,26 @@ class CurriculumTrainer:
         if len(self.progress.recent_episodes) > self.get_current_level().graduation_episodes:
             self.progress.recent_episodes.pop(0)
 
+        # Log progress every 100 episodes
+        if self.progress.episodes_at_level % 100 == 0:
+            level = self.get_current_level()
+            overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+
+            # Recent win rate (if we have enough data)
+            if len(self.progress.recent_episodes) >= level.graduation_episodes:
+                recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
+                self.logger.info(
+                    f"Progress: Episode {self.progress.episodes_at_level} | "
+                    f"Overall WR: {overall_win_rate:.1%} | "
+                    f"Recent WR: {recent_win_rate:.1%} "
+                    f"(need {level.graduation_win_rate:.1%} to graduate)"
+                )
+            else:
+                self.logger.info(
+                    f"Progress: Episode {self.progress.episodes_at_level} | "
+                    f"Overall WR: {overall_win_rate:.1%}"
+                )
+
     def get_current_level(self) -> CurriculumLevel:
         """Get the current curriculum level."""
         if self.progress.current_level >= len(self.curriculum):
