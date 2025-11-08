@@ -253,7 +253,7 @@ class PopulationTrainer:
                  algorithm: str = "ppo",
                  output_dir: str = "outputs/population",
                  n_envs_per_fighter: int = 2,
-                 max_ticks: int = 1000,
+                 max_ticks: int = 400,
                  mass_range: Tuple[float, float] = (60.0, 85.0),
                  verbose: bool = True,
                  export_threshold: float = 0.5,

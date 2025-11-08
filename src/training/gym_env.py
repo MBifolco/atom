@@ -39,7 +39,7 @@ class AtomCombatEnv(gym.Env):
         self,
         opponent_decision_func,
         config: WorldConfig = None,
-        max_ticks: int = 1000,
+        max_ticks: int = 400,
         fighter_mass: float = 70.0,
         opponent_mass: float = 75.0,
         seed: int = None
@@ -230,11 +230,10 @@ class AtomCombatEnv(gym.Env):
             hp_pct_diff = fighter_hp_pct - opponent_hp_pct
             if hp_pct_diff > 0.1:
                 # Clear win on HP (>10% margin) - significant reward
-                # Increased from 25 to 100 to properly reward dominance
                 reward = 100.0 + (hp_pct_diff * 50)  # Up to 150 for large HP margin
             elif hp_pct_diff > 0:
-                # Slight win on HP - moderate reward
-                reward = 50.0
+                # Slight win on HP - neutral (didn't finish fight decisively)
+                reward = 0.0
             elif hp_pct_diff < -0.1:
                 # Clear loss on HP
                 reward = -100.0 + (hp_pct_diff * 50)  # Down to -150 for bad loss
@@ -242,8 +241,8 @@ class AtomCombatEnv(gym.Env):
                 # Slight loss on HP
                 reward = -50.0
             else:
-                # Exact tie - small penalty (encourage decisive action)
-                reward = -25.0
+                # Exact tie - strong penalty (strongly discourage indecisive fights)
+                reward = -100.0
             self.episode_terminal_reward = reward
         else:
             # Mid-episode rewards: Shaped to encourage good fighting behavior
@@ -253,6 +252,15 @@ class AtomCombatEnv(gym.Env):
             damage_reward = (damage_dealt - damage_taken) * 10.0  # Was 2.0, now 10.0
             reward += damage_reward
             self.episode_damage_reward += damage_reward
+
+            # 1b. Close-range engagement bonus - reward aggressive fighting
+            # Distance is calculated below, so we need to get it here
+            distance = abs(self.fighter.position - self.opponent.position)
+            arena_width = self.config.arena_width
+            if damage_dealt > 0 and distance < arena_width * 0.3:
+                close_range_bonus = damage_dealt * 2.0  # Double damage reward for close hits
+                reward += close_range_bonus
+                self.episode_damage_reward += close_range_bonus
 
             # 2. Stamina-aware rewards - REDUCED (not core to basic combat)
             stamina_pct = self.fighter.stamina / self.fighter.max_stamina
@@ -271,8 +279,7 @@ class AtomCombatEnv(gym.Env):
                 self.episode_stamina_reward += stamina_penalty
 
             # 3. Smart proximity rewards (distance-aware)
-            distance = abs(self.fighter.position - self.opponent.position)
-            arena_width = self.config.arena_width  # ~12.5 meters
+            # (distance and arena_width already calculated above for close-range bonus)
 
             # Track closing/opening distance
             if self.last_distance is not None:
@@ -316,15 +323,15 @@ class AtomCombatEnv(gym.Env):
             reward += stance_bonus
             self.episode_stance_reward += stance_bonus
 
-            # 5. Inaction penalty (distance-aware) - DRASTICALLY REDUCED
-            # Small penalty for complete inaction to encourage engagement
+            # 5. Inaction penalty (distance-aware) - STRONG ANTI-AVOIDANCE
+            # Heavy penalty for complete inaction to prevent passive/avoidance strategies
             if damage_dealt == 0 and damage_taken == 0:
                 if distance < arena_width * 0.2:  # Very close
-                    inaction_penalty = -0.05  # Was -0.8, now -0.05 (16x reduction!)
+                    inaction_penalty = -0.5  # Strong penalty for not engaging at close range
                 elif distance < arena_width * 0.4:  # Medium range
-                    inaction_penalty = -0.02  # Was -0.4, now -0.02
+                    inaction_penalty = -0.3  # Moderate penalty
                 else:  # Far away
-                    inaction_penalty = -0.01  # Was -0.2, now -0.01
+                    inaction_penalty = -0.1  # Light penalty for keeping distance
                 reward += inaction_penalty
                 self.episode_inaction_penalty += inaction_penalty
 

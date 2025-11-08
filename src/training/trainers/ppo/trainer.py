@@ -300,7 +300,7 @@ def train_fighter(
     n_envs: int = 10,
     fighter_mass: float = 70.0,
     opponent_mass: float = 75.0,
-    max_ticks: int = 1000,
+    max_ticks: int = 400,
     checkpoint_freq: int = 10000,
     patience: int = 5,
     verbose: bool = True,
@@ -526,7 +526,7 @@ def train_curriculum(
     n_envs: int = 10,
     fighter_mass: float = 70.0,
     opponent_mass: float = 70.0,  # Changed to same mass by default
-    max_ticks: int = 1000,
+    max_ticks: int = 400,
     graduation_tests: int = 20,
     verbose: bool = True,
     create_wrappers: bool = False

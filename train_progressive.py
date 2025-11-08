@@ -44,7 +44,8 @@ class ProgressiveTrainer:
                  algorithm: str = "ppo",
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
-                 n_parallel_fighters: int = None):
+                 n_parallel_fighters: int = None,
+                 max_ticks: int = 400):
         """
         Initialize the progressive trainer.
 
@@ -53,11 +54,13 @@ class ProgressiveTrainer:
             output_dir: Directory for all outputs
             verbose: Whether to print progress
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
+            max_ticks: Maximum ticks per episode (default: 400)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.n_parallel_fighters = n_parallel_fighters
+        self.max_ticks = max_ticks
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -101,6 +104,7 @@ class ProgressiveTrainer:
             algorithm=self.algorithm,
             output_dir=str(self.curriculum_dir),
             n_envs=n_envs,
+            max_ticks=self.max_ticks,
             verbose=self.verbose
         )
 
@@ -141,6 +145,7 @@ class ProgressiveTrainer:
             population_size=population_size,
             algorithm=self.algorithm,
             output_dir=str(self.population_dir),
+            max_ticks=self.max_ticks,
             verbose=self.verbose,
             n_parallel_fighters=self.n_parallel_fighters
         )
@@ -184,6 +189,7 @@ class ProgressiveTrainer:
                 population_size=population_size,
                 algorithm=self.algorithm,
                 output_dir=str(self.population_dir),
+                max_ticks=self.max_ticks,
                 verbose=self.verbose,
                 n_parallel_fighters=self.n_parallel_fighters
             )
@@ -334,6 +340,12 @@ Examples:
         default=2000,
         help="Training episodes per generation for population training (default: 2000)"
     )
+    parser.add_argument(
+        "--max-ticks",
+        type=int,
+        default=400,
+        help="Maximum ticks per episode (default: 400, ~34 seconds)"
+    )
 
     args = parser.parse_args()
 
@@ -349,7 +361,8 @@ Examples:
         algorithm=args.algorithm,
         output_dir=output_dir,
         verbose=True,
-        n_parallel_fighters=args.cores
+        n_parallel_fighters=args.cores,
+        max_ticks=args.max_ticks
     )
 
     # Run based on mode
