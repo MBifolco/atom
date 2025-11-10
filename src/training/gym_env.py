@@ -39,7 +39,7 @@ class AtomCombatEnv(gym.Env):
         self,
         opponent_decision_func,
         config: WorldConfig = None,
-        max_ticks: int = 400,
+        max_ticks: int = 250,
         fighter_mass: float = 70.0,
         opponent_mass: float = 75.0,
         seed: int = None
@@ -241,8 +241,8 @@ class AtomCombatEnv(gym.Env):
                 # Slight loss on HP
                 reward = -50.0
             else:
-                # Exact tie - strong penalty (strongly discourage indecisive fights)
-                reward = -100.0
+                # Exact tie - very strong penalty (strongly discourage indecisive fights)
+                reward = -200.0
             self.episode_terminal_reward = reward
         else:
             # Mid-episode rewards: Shaped to encourage good fighting behavior

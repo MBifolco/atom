@@ -45,7 +45,7 @@ class ProgressiveTrainer:
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
-                 max_ticks: int = 400):
+                 max_ticks: int = 250):
         """
         Initialize the progressive trainer.
 
@@ -54,7 +54,7 @@ class ProgressiveTrainer:
             output_dir: Directory for all outputs
             verbose: Whether to print progress
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
-            max_ticks: Maximum ticks per episode (default: 400)
+            max_ticks: Maximum ticks per episode (default: 250)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -343,8 +343,8 @@ Examples:
     parser.add_argument(
         "--max-ticks",
         type=int,
-        default=400,
-        help="Maximum ticks per episode (default: 400, ~34 seconds)"
+        default=250,
+        help="Maximum ticks per episode (default: 250, ~21 seconds)"
     )
 
     args = parser.parse_args()

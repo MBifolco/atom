@@ -120,7 +120,7 @@ class CurriculumTrainer:
                  algorithm: str = "ppo",
                  output_dir: str = "outputs/curriculum",
                  n_envs: int = 4,
-                 max_ticks: int = 400,
+                 max_ticks: int = 250,
                  verbose: bool = True):
         """
         Initialize the curriculum trainer.

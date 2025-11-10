@@ -301,7 +301,7 @@ def train_fighter(
     n_envs: int = 1,  # SAC uses single environment (ignored if > 1)
     fighter_mass: float = 70.0,
     opponent_mass: float = 75.0,
-    max_ticks: int = 400,
+    max_ticks: int = 250,
     checkpoint_freq: int = 10000,
     patience: int = 5,
     verbose: bool = True,
@@ -522,7 +522,7 @@ def train_curriculum(
     episodes_per_level: int = 2000,
     fighter_mass: float = 70.0,
     opponent_mass: float = 70.0,
-    max_ticks: int = 400,
+    max_ticks: int = 250,
     graduation_tests: int = 20,
     verbose: bool = True,
     create_wrappers: bool = False
