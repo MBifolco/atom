@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated": "2025-11-05T16:30:00.000000",
+  "generated": "2025-11-09T10:49:45.985047",
   "fighters": {
     "stamina_manager": {
       "id": "stamina_manager",
@@ -16,7 +16,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:08.934025",
+      "created_date": "2025-11-09T10:49:45.629784",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "5e719d7ff7e7fa5970deeb234c00a23594c48943f4b478be67f5199a8c53a184"
@@ -30,16 +30,16 @@
       "file_path": "fighters/examples/dodger.py",
       "mass_default": 70.0,
       "strategy_tags": [
+        "aggressive",
         "evasive",
-        "counter-puncher",
-        "stamina-aware"
+        "counter-puncher"
       ],
       "performance_stats": null,
-      "version": "2.0",
-      "created_date": "2025-11-05T15:18:08.934184",
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.629928",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "cc67a74bf8a16633def216f42e2e4a3c6ad266a293a8c19766d87c9117414459"
+      "code_hash": "d39c2d07a21c03b497c9a8ac803b6e96379cb48c269fdb1e54d467e6a2901d34"
     },
     "hit_and_run": {
       "id": "hit_and_run",
@@ -54,7 +54,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:08.934290",
+      "created_date": "2025-11-09T10:49:45.630070",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "f58472aa6cf05e280cfdc39e3307cfc995e8f24ba30f5357adb821c120e7ab11"
@@ -69,14 +69,15 @@
       "mass_default": 70.0,
       "strategy_tags": [
         "aggressive",
-        "relentless"
+        "defensive",
+        "stamina-aware"
       ],
       "performance_stats": null,
-      "version": "2.0",
-      "created_date": "2025-11-05T15:18:08.934388",
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.630188",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "135e49e85943adf42ff6a1cbf2793644ec7df39f2a4d211b5d6f786855457617"
+      "code_hash": "f6e93e57622fad32f41f81efc7ec1c232cdd3c52cf2ba7faad6652f85de16d34"
     },
     "zoner": {
       "id": "zoner",
@@ -87,15 +88,16 @@
       "file_path": "fighters/examples/zoner.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "range-control",
-        "tactical"
+        "aggressive",
+        "counter-puncher",
+        "range-control"
       ],
       "performance_stats": null,
-      "version": "2.0",
-      "created_date": "2025-11-05T15:18:08.934497",
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.630307",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "bb1617ae8f87e2bf39e36105f38df36cb909b8277d98584a4c4e192fa99b1901"
+      "code_hash": "9ad393572b02116240518072696b0191f45b1549e9c49260026a0c08ac2c60fc"
     },
     "balanced": {
       "id": "balanced",
@@ -106,36 +108,36 @@
       "file_path": "fighters/examples/balanced.py",
       "mass_default": 70.0,
       "strategy_tags": [
+        "aggressive",
+        "defensive",
         "balanced",
-        "adaptive",
-        "stamina-aware"
+        "stamina-aware",
+        "range-control"
       ],
       "performance_stats": null,
-      "version": "2.0",
-      "created_date": "2025-11-05T15:18:08.934604",
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.630428",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "e09cb77de833fbf6bdc097793d16ec19515aa0c35839df4038164f253326a0c1"
+      "code_hash": "3adb14c7105019c29f25b059c7c61a43b2e138200e5b06db14f2efd10fcd9f10"
     },
     "grappler": {
       "id": "grappler",
       "name": "Grappler",
-      "description": "Master of in-fighting who dominates at point-blank range. Strategy: - Forces close-range combat relentlessly - Extended stance constantly at close range for maximum damage - Sticks to opponent like glue - Chases down runners with determination - Never gives opponent breathing room - High collision count through constant contact",
+      "description": "Master of in-fighting who dominates at point-blank range. Strategy: - Forces close-range combat relentlessly - Extended stance constantly at close range for maximum damage - \"Sticks\" to opponent like glue - Chases down runners with determination - Never gives opponent breathing room - High collision count through constant contact",
       "creator": "system",
       "type": "rule-based",
       "file_path": "fighters/examples/grappler.py",
       "mass_default": 70.0,
       "strategy_tags": [
-        "aggressive",
-        "close-combat",
-        "pursuit"
+        "range-control"
       ],
       "performance_stats": null,
-      "version": "2.0",
-      "created_date": "2025-11-05T15:18:08.934811",
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.630720",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "adb6d795477899308b9eb8bc3c2a00f3d7a2e72cbbef18a847cbd02020986c72"
+      "code_hash": "2aa8c29d8bd3c9855f7fdd1bd4bd198f5f5999077c34118011c00ceb53f1b370"
     },
     "counter_puncher": {
       "id": "counter_puncher",
@@ -151,7 +153,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:08.935030",
+      "created_date": "2025-11-09T10:49:45.630956",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "dd34a12055b1df1b9580e4c0774a77cca860167813f2588961bdc02a6a141aea"
@@ -171,7 +173,7 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.036334",
+      "created_date": "2025-11-09T10:49:45.968776",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "eec7dceb09f2574d0363f25931fce6c1cc6e314f419f2daa63b08cd9c76edcee"
@@ -187,7 +189,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.037281",
+      "created_date": "2025-11-09T10:49:45.969640",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "816e88b30302150afe1faa0720c41c86d7659642b67a3ac4815c15ab40537db8"
@@ -203,7 +205,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.037401",
+      "created_date": "2025-11-09T10:49:45.969774",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "2b9251ce3c51beb0f724c90c0b234a6c8d597094b5c0b64bb8c269ebfc1718da"
@@ -219,7 +221,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.037495",
+      "created_date": "2025-11-09T10:49:45.969887",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "c510878d15e13b02919e034a3da823dc16f6d1e3bd4bc03c5fcc0f77783e6ecc"
@@ -235,7 +237,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.037587",
+      "created_date": "2025-11-09T10:49:45.977146",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "4df4d6e83f95d967f20c74c9418da66da4a2107d687bd11068daebb38addd574"
@@ -253,10 +255,10 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.037684",
+      "created_date": "2025-11-09T10:49:45.977293",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "c8ea2e27418ab6e0ab777922ab4ada9d0a0f839bcb3e142666242a0407a109ac"
+      "code_hash": "10c91ee3ef7a202f50e024edcf5494d38663a9ae7176714226812b8a19d4a612"
     },
     "champion": {
       "id": "champion",
@@ -269,7 +271,7 @@
       "strategy_tags": [],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:18:09.035951",
+      "created_date": "2025-11-08T17:49:02.771188",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
       "code_hash": "35465d8dcc6abac6e69e70c7f8ca7762b3d30b794c82cfec50dcc33ae1b20720"
@@ -279,7 +281,7 @@
       "name": "Tank",
       "description": "A true defensive tank that stands its ground and outlasts opponents. Strategy: - Primary stance is \"defending\" for maximum damage reduction - Never retreats - stands ground and absorbs hits - Counter-attacks when opponent is close and vulnerable - Uses superior defense multiplier to win through attrition - Controls the center of the arena",
       "creator": "system",
-      "type": "hardcoded",
+      "type": "rule-based",
       "file_path": "fighters/examples/tank.py",
       "mass_default": 70.0,
       "strategy_tags": [
@@ -289,17 +291,17 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:41:33.122278",
+      "created_date": "2025-11-09T10:49:45.630843",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "ad7de97283fb63e5e916caa4dac4bf1efe55f8fa31dd71fb8e93e2f408af55ca"
+      "code_hash": "a395643cd8f8701060fa403481401bd1d1b6a3d6dd2aa086f114b7607a0badd7"
     },
     "rusher": {
       "id": "rusher",
       "name": "Rusher",
       "description": "Relentless forward pressure with constant attacking stance. Strategy: - ALWAYS rushes forward with maximum aggression - Uses extended stance while advancing for reach advantage - Only stops to avoid wall damage - Never retreats - commits fully to offense - Overwhelms opponents with constant pressure",
       "creator": "system",
-      "type": "hardcoded",
+      "type": "rule-based",
       "file_path": "fighters/examples/rusher.py",
       "mass_default": 70.0,
       "strategy_tags": [
@@ -307,10 +309,1154 @@
       ],
       "performance_stats": null,
       "version": "1.0",
-      "created_date": "2025-11-05T15:41:33.122458",
+      "created_date": "2025-11-09T10:49:45.630541",
       "protocol_version": "v1.0",
       "world_spec_version": "v1.0",
-      "code_hash": "dda4d05e25f9a61bc93a0e371697987f1e0334859b79d03e0d99d1d9a8518b09"
+      "code_hash": "5e05b1093156d0f237b30389a6508ef180cec14c4c7f8e3606e2bdffa68b1f95"
+    },
+    "laughing_nightingale_g2": {
+      "id": "laughing_nightingale_g2",
+      "name": "laughing_nightingale_G2",
+      "description": "Generation: 2 Lineage: ecstatic_lamarr\u2192laughing_nightingale_G2 Mass: 81.8kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/laughing_nightingale_G2/laughing_nightingale_G2.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.758630",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "455f676005744c92d7be2c1cec41011b999bcb939f74e885e56104804d1ff29c"
+    },
+    "ecstatic_lamarr": {
+      "id": "ecstatic_lamarr",
+      "name": "ecstatic_lamarr",
+      "description": "Generation: 0 Lineage: founder Mass: 83.5kg Training Episodes: 4500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/ecstatic_lamarr/ecstatic_lamarr.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1585.0,
+        "win_rate": 0.5870000000000001,
+        "wins": 33,
+        "losses": 22,
+        "draws": 8
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.934293",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "6e31bc0cec1d6bc8b05dbf34adf59877d7477142fe6e58430ba73d50c563d53e"
+    },
+    "happy_liskov_g7": {
+      "id": "happy_liskov_g7",
+      "name": "happy_liskov_G7",
+      "description": "Generation: 7 Lineage: ecstatic_lamarr\u2192happy_liskov_G7 Mass: 85.0kg Training Episodes: 2500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/happy_liskov_G7/happy_liskov_G7.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1595.0,
+        "win_rate": 0.6,
+        "wins": 18,
+        "losses": 11,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.935562",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "9d64e54801470ef1ac53d8e9a38444bf32cf798e1249e56723d9a9936eb2fa38"
+    },
+    "friendly_lovelace_g9": {
+      "id": "friendly_lovelace_g9",
+      "name": "friendly_lovelace_G9",
+      "description": "Generation: 9 Lineage: focused_darwin_G5\u2192friendly_lovelace_G9 Mass: 80.9kg Training Episodes: 5000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/friendly_lovelace_G9/friendly_lovelace_G9.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1568.0,
+        "win_rate": 0.6,
+        "wins": 15,
+        "losses": 1,
+        "draws": 54
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.760792",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "b2b0450838e072539429faf8b4d71106b2fab349569d0bfdc1f2c68b3826bbd3"
+    },
+    "xenodochial_mendeleev_g13": {
+      "id": "xenodochial_mendeleev_g13",
+      "name": "xenodochial_mendeleev_G13",
+      "description": "Generation: 13 Lineage: stoic_torvalds_G11\u2192xenodochial_mendeleev_G13 Mass: 85.0kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/xenodochial_mendeleev_G13/xenodochial_mendeleev_G13.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1573.0,
+        "win_rate": 0.7859999999999999,
+        "wins": 4,
+        "losses": 0,
+        "draws": 3
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.761883",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "36793161424eb4e0277f48930b9af4a4798164711da49dc25dc57caeba7ed4f2"
+    },
+    "delta": {
+      "id": "delta",
+      "name": "Delta",
+      "description": "Generation: 0 Lineage: founder Mass: 61.0kg Training Episodes: 250 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/Delta/Delta.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.762659",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "07094b4746578211d3a9756cd8be3ac1529d44b880a355e401dbe7a183a64ac9"
+    },
+    "flamboyant_neumann": {
+      "id": "flamboyant_neumann",
+      "name": "flamboyant_neumann",
+      "description": "Generation: 0 Lineage: founder Mass: 67.9kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/flamboyant_neumann/flamboyant_neumann.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.763307",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "90dedf10d156ed131e082e165a4c4bea60ae50d4244bcba422009e84cb2711ef"
+    },
+    "quizzical_lewin_g8": {
+      "id": "quizzical_lewin_g8",
+      "name": "quizzical_lewin_G8",
+      "description": "Generation: 8 Lineage: youthful_lamport\u2192quizzical_lewin_G8 Mass: 60.1kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/quizzical_lewin_G8/quizzical_lewin_G8.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.764042",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "e6b4ba1037f59dfa55032bfb7d0e6af5548f0999db8243f3f121c7d19d0a2124"
+    },
+    "flamboyant_banach_g11": {
+      "id": "flamboyant_banach_g11",
+      "name": "flamboyant_banach_G11",
+      "description": "Generation: 11 Lineage: ecstatic_lamarr\u2192flamboyant_banach_G11 Mass: 85.0kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/flamboyant_banach_G11/flamboyant_banach_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1522.0,
+        "win_rate": 0.5,
+        "wins": 1,
+        "losses": 1,
+        "draws": 5
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.765544",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "444f8d15612d273a7dc07a7817244fd20d97c1f56a350bdaf4ef5543659c8d6f"
+    },
+    "compassionate_payne": {
+      "id": "compassionate_payne",
+      "name": "compassionate_payne",
+      "description": "Generation: 0 Lineage: founder Mass: 82.4kg Training Episodes: 9000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/compassionate_payne/compassionate_payne.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1720.0,
+        "win_rate": 0.7659999999999999,
+        "wins": 83,
+        "losses": 16,
+        "draws": 27
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.949316",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "57a1fdcafe7c7eb5fdd3a5a9ac2d32166f7c9dcb6f95a39d7876024a49b005cb"
+    },
+    "elastic_brattain_g17": {
+      "id": "elastic_brattain_g17",
+      "name": "elastic_brattain_G17",
+      "description": "Generation: 17 Lineage: dreamy_swartz_G14\u2192elastic_brattain_G17 Mass: 62.1kg Training Episodes: 372 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/elastic_brattain_G17/elastic_brattain_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1647.0,
+        "win_rate": 0.631,
+        "wins": 12,
+        "losses": 1,
+        "draws": 29
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.766843",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "45fc2f1ccd0e3d77cd993e5e78e87bc276338b6411110876731673c07f8e57cf"
+    },
+    "hopeful_northcutt_g8": {
+      "id": "hopeful_northcutt_g8",
+      "name": "hopeful_northcutt_G8",
+      "description": "Generation: 8 Lineage: compassionate_payne\u2192hopeful_northcutt_G8 Mass: 68.5kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/hopeful_northcutt_G8/hopeful_northcutt_G8.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.767432",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "09d01560459e103ee72f06704e9f237c63ef9075d62e69b67b8ef9a9abd740ac"
+    },
+    "hardcore_swirles_g1": {
+      "id": "hardcore_swirles_g1",
+      "name": "hardcore_swirles_G1",
+      "description": "Generation: 1 Lineage: ecstatic_lamarr\u2192hardcore_swirles_G1 Mass: 82.2kg Training Episodes: 1500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/hardcore_swirles_G1/hardcore_swirles_G1.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1519.0,
+        "win_rate": 0.5,
+        "wins": 7,
+        "losses": 7,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.768154",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "7e27c02131e5277da0d7e23fb00c8b2d3fffc2b7594647866ddfcb10af6d74ee"
+    },
+    "compassionate_yonath_g8": {
+      "id": "compassionate_yonath_g8",
+      "name": "compassionate_yonath_G8",
+      "description": "Generation: 8 Lineage: tender_wozniak\u2192compassionate_yonath_G8 Mass: 64.0kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/compassionate_yonath_G8/compassionate_yonath_G8.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.768763",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "8414e578787ec099418454478eb1eeabfc2882e397b36a936710142238b35586"
+    },
+    "dreamy_swartz_g14": {
+      "id": "dreamy_swartz_g14",
+      "name": "dreamy_swartz_G14",
+      "description": "Generation: 14 Lineage: compassionate_payne\u2192dreamy_swartz_G14 Mass: 63.7kg Training Episodes: 186 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/dreamy_swartz_G14/dreamy_swartz_G14.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1503.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 21
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.769432",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "f3b9eebf468d593c2048fb1a5df51f49aa98a4133f8cbb46646e4f8cb59c8a20"
+    },
+    "ecstatic_goodall": {
+      "id": "ecstatic_goodall",
+      "name": "ecstatic_goodall",
+      "description": "Generation: 0 Lineage: founder Mass: 73.8kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/ecstatic_goodall/ecstatic_goodall.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.770084",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "6c66e9c7e1f92c6b406d2dae17128ed0e6d76ac21986c1ba184baea2f189a6ed"
+    },
+    "eager_stonebraker_g11": {
+      "id": "eager_stonebraker_g11",
+      "name": "eager_stonebraker_G11",
+      "description": "Generation: 11 Lineage: focused_darwin_G5\u2192eager_stonebraker_G11 Mass: 83.0kg Training Episodes: 4000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/eager_stonebraker_G11/eager_stonebraker_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1750.0,
+        "win_rate": 0.741,
+        "wins": 33,
+        "losses": 6,
+        "draws": 17
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.770666",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "ae43c21c92c8061d66f48548ac83e7130530c13c67446045eeb643fdef6dc6d5"
+    },
+    "gamma": {
+      "id": "gamma",
+      "name": "Gamma",
+      "description": "Generation: 0 Lineage: founder Mass: 77.7kg Training Episodes: 250 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/Gamma/Gamma.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.771812",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "ae3585a19b53f6ee610acc6f17a59b36bda15fce95197968760c9ae44bb9a901"
+    },
+    "nostalgic_yonath": {
+      "id": "nostalgic_yonath",
+      "name": "nostalgic_yonath",
+      "description": "Generation: 0 Lineage: founder Mass: 64.7kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/nostalgic_yonath/nostalgic_yonath.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.772459",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "c532c044a5b83e2e34f2cc1375f273567f07239e5100e265b0e887516fb983c6"
+    },
+    "tender_wozniak": {
+      "id": "tender_wozniak",
+      "name": "tender_wozniak",
+      "description": "Generation: 0 Lineage: founder Mass: 75.2kg Training Episodes: 5500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/tender_wozniak/tender_wozniak.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1614.0,
+        "win_rate": 0.623,
+        "wins": 26,
+        "losses": 7,
+        "draws": 44
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.949913",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "6e8b49a42062a843b10278208206241bf3afd6c1f27057ddaa6f7f60d91660f5"
+    },
+    "elated_elbakyan_g17": {
+      "id": "elated_elbakyan_g17",
+      "name": "elated_elbakyan_G17",
+      "description": "Generation: 17 Lineage: ecstatic_lamarr\u2192elated_elbakyan_G17 Mass: 85.0kg Training Episodes: 1000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/elated_elbakyan_G17/elated_elbakyan_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1563.0,
+        "win_rate": 0.607,
+        "wins": 6,
+        "losses": 3,
+        "draws": 5
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.773764",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "569ab04e1ca1eeb579bad673ddd9c3f7ecdae6141b732292da5b819e65c75e4b"
+    },
+    "inspiring_hypatia_g8": {
+      "id": "inspiring_hypatia_g8",
+      "name": "inspiring_hypatia_G8",
+      "description": "Generation: 8 Lineage: ecstatic_lamarr\u2192inspiring_hypatia_G8 Mass: 78.8kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/inspiring_hypatia_G8/inspiring_hypatia_G8.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.774391",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "80c41a6c697734b463fa51800bcfc0247c4c319e21c95fa9f060f6f40561d1ed"
+    },
+    "youthful_lamport": {
+      "id": "youthful_lamport",
+      "name": "youthful_lamport",
+      "description": "Generation: 0 Lineage: founder Mass: 83.7kg Training Episodes: 9000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/youthful_lamport/youthful_lamport.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1694.0,
+        "win_rate": 0.71,
+        "wins": 83,
+        "losses": 30,
+        "draws": 13
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.950486",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "d4a9ffb765211f478066009b41bc1ac5e51390eba739d1cd93dc628b5d632083"
+    },
+    "suspicious_kepler_g23": {
+      "id": "suspicious_kepler_g23",
+      "name": "suspicious_kepler_G23",
+      "description": "Generation: 23 Lineage: sad_lumiere_G20\u2192suspicious_kepler_G23 Mass: 60.0kg Training Episodes: 124 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/suspicious_kepler_G23/suspicious_kepler_G23.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1546.0,
+        "win_rate": 0.607,
+        "wins": 8,
+        "losses": 5,
+        "draws": 1
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.776583",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "e88a45ea9c741c2337e62c966415e2f6e8468d70fa3453da3331893e910a3d51"
+    },
+    "mystifying_wilson_g7": {
+      "id": "mystifying_wilson_g7",
+      "name": "mystifying_wilson_G7",
+      "description": "Generation: 7 Lineage: focused_darwin_G5\u2192mystifying_wilson_G7 Mass: 79.3kg Training Episodes: 2500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/mystifying_wilson_G7/mystifying_wilson_G7.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1550.0,
+        "win_rate": 0.557,
+        "wins": 8,
+        "losses": 4,
+        "draws": 23
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.777168",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "211b008a15ddba09a46afcc71de40f100dd06e2738b120a6da93ddb07473635a"
+    },
+    "confident_williams_g5": {
+      "id": "confident_williams_g5",
+      "name": "confident_williams_G5",
+      "description": "Generation: 5 Lineage: compassionate_payne\u2192confident_williams_G5 Mass: 66.7kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/confident_williams_G5/confident_williams_G5.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.777882",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "8bb7f862c1c52721cad77fc7f009184ba41f733fe5fd4d9d015f0f595aa3ce8b"
+    },
+    "sleepy_boyd": {
+      "id": "sleepy_boyd",
+      "name": "sleepy_boyd",
+      "description": "Generation: 0 Lineage: founder Mass: 76.1kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/sleepy_boyd/sleepy_boyd.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.778527",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "77cd4fcd6774e8911146cd273f69e6cb71efa574ddd97b65af6d8d7114a8d3bc"
+    },
+    "alpha": {
+      "id": "alpha",
+      "name": "Alpha",
+      "description": "Generation: 0 Lineage: founder Mass: 60.9kg Training Episodes: 250 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/Alpha/Alpha.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.779146",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "98766f8c0a79d52e01634bdba9c0b01b7ce9db28b449ad556b76f7f2b72dea4f"
+    },
+    "cocky_stonebraker_g5": {
+      "id": "cocky_stonebraker_g5",
+      "name": "cocky_stonebraker_G5",
+      "description": "Generation: 5 Lineage: compassionate_payne\u2192cocky_stonebraker_G5 Mass: 84.8kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/cocky_stonebraker_G5/cocky_stonebraker_G5.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1522.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.779864",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "f94ecedca8a2a2c9a92b4ed5c56677519d61d784a44ff3d63e826c86959a3b0e"
+    },
+    "happy_edison_g17": {
+      "id": "happy_edison_g17",
+      "name": "happy_edison_G17",
+      "description": "Generation: 17 Lineage: dreamy_swartz_G14\u2192happy_edison_G17 Mass: 60.8kg Training Episodes: 372 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/happy_edison_G17/happy_edison_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1614.0,
+        "win_rate": 0.583,
+        "wins": 7,
+        "losses": 0,
+        "draws": 35
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.781227",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "c435198f98e9d4e0bcbf0cf8a32334c9cd2c801c0f5d63fe3d5d180a849c3626"
+    },
+    "beta": {
+      "id": "beta",
+      "name": "Beta",
+      "description": "Generation: 0 Lineage: founder Mass: 82.2kg Training Episodes: 250 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/Beta/Beta.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.781848",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "1a006e01ef366e7eb10f75e305fb8de40e62d848a2bb48359e03db94c8b1858f"
+    },
+    "distracted_clarke_g2": {
+      "id": "distracted_clarke_g2",
+      "name": "distracted_clarke_G2",
+      "description": "Generation: 2 Lineage: youthful_lamport\u2192distracted_clarke_G2 Mass: 60.8kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/distracted_clarke_G2/distracted_clarke_G2.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.782469",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "27356b110aa1b700e5e63e856079b678b866164c32b15b551faa9bc6d76b69c2"
+    },
+    "mystifying_brahmagupta_g11": {
+      "id": "mystifying_brahmagupta_g11",
+      "name": "mystifying_brahmagupta_G11",
+      "description": "Generation: 11 Lineage: compassionate_payne\u2192mystifying_brahmagupta_G11 Mass: 63.7kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/mystifying_brahmagupta_G11/mystifying_brahmagupta_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.783140",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "eb0210e669b5ebd2ff66c7a630b1b41596676efc7154aced5f37add29ebb7858"
+    },
+    "friendly_vaughan_g17": {
+      "id": "friendly_vaughan_g17",
+      "name": "friendly_vaughan_G17",
+      "description": "Generation: 17 Lineage: loving_bell_G15\u2192friendly_vaughan_G17 Mass: 84.9kg Training Episodes: 1000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/friendly_vaughan_G17/friendly_vaughan_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1547.0,
+        "win_rate": 0.536,
+        "wins": 3,
+        "losses": 2,
+        "draws": 9
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.783738",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "90b43009ea4cc984135df376bc7345b4cda3268ba7fc1df0e4fcf595ad4651fb"
+    },
+    "pedantic_archimedes_g11": {
+      "id": "pedantic_archimedes_g11",
+      "name": "pedantic_archimedes_G11",
+      "description": "Generation: 11 Lineage: ecstatic_lamarr\u2192pedantic_archimedes_G11 Mass: 81.4kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/pedantic_archimedes_G11/pedantic_archimedes_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.784337",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "674a8737dedaf6e4aa9b7186eb58b6c7150de826b02f57af603ce7e731b75f23"
+    },
+    "nostalgic_almeida_g17": {
+      "id": "nostalgic_almeida_g17",
+      "name": "nostalgic_almeida_G17",
+      "description": "Generation: 17 Lineage: dreamy_swartz_G14\u2192nostalgic_almeida_G17 Mass: 64.6kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/nostalgic_almeida_G17/nostalgic_almeida_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1503.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.784975",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "d5c18ebfd18561cdf4468695e71bcd6688e13f4eb18f9a5ddc43bcb954ccf6d1"
+    },
+    "mystifying_leakey_g2": {
+      "id": "mystifying_leakey_g2",
+      "name": "mystifying_leakey_G2",
+      "description": "Generation: 2 Lineage: ecstatic_lamarr\u2192mystifying_leakey_G2 Mass: 79.7kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/mystifying_leakey_G2/mystifying_leakey_G2.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.785612",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "d8e44faf2bf6af9cd75015e307615271d4170d588176295a49eecf596d9e812b"
+    },
+    "stoic_torvalds_g11": {
+      "id": "stoic_torvalds_g11",
+      "name": "stoic_torvalds_G11",
+      "description": "Generation: 11 Lineage: focused_darwin_G5\u2192stoic_torvalds_G11 Mass: 85.0kg Training Episodes: 1500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/stoic_torvalds_G11/stoic_torvalds_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1590.0,
+        "win_rate": 0.619,
+        "wins": 6,
+        "losses": 1,
+        "draws": 14
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.786203",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "9ac29d03bb1ab3bd35460c02e0b3c435b7f37680bc27d00fac53471a46fe62c7"
+    },
+    "focused_darwin_g5": {
+      "id": "focused_darwin_g5",
+      "name": "focused_darwin_G5",
+      "description": "Generation: 5 Lineage: ecstatic_lamarr\u2192focused_darwin_G5 Mass: 82.6kg Training Episodes: 3500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/focused_darwin_G5/focused_darwin_G5.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1609.0,
+        "win_rate": 0.612,
+        "wins": 18,
+        "losses": 7,
+        "draws": 24
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.786805",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "492802db1e533067fd767e4aa5f5c6372dc772b992bb2e4b5de2a9defd08217a"
+    },
+    "tender_lalande_g14": {
+      "id": "tender_lalande_g14",
+      "name": "tender_lalande_G14",
+      "description": "Generation: 14 Lineage: youthful_lamport\u2192tender_lalande_G14 Mass: 62.2kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/tender_lalande_G14/tender_lalande_G14.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.787436",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "9cb789fa67312f5768f12d6b19adc903efc98c83d5ab7950ab6b0e4fed1c79c8"
+    },
+    "hungry_mirzakhani_g2": {
+      "id": "hungry_mirzakhani_g2",
+      "name": "hungry_mirzakhani_G2",
+      "description": "Generation: 2 Lineage: compassionate_payne\u2192hungry_mirzakhani_G2 Mass: 68.7kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/hungry_mirzakhani_G2/hungry_mirzakhani_G2.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1500.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.788068",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "e38796b6264dc705ea2acdc5ef09e3174a4d160ce873af5049b6648036989135"
+    },
+    "blissful_lovelace_g15": {
+      "id": "blissful_lovelace_g15",
+      "name": "blissful_lovelace_G15",
+      "description": "Generation: 15 Lineage: agitated_leakey_G11\u2192blissful_lovelace_G15 Mass: 85.0kg Training Episodes: 1000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/blissful_lovelace_G15/blissful_lovelace_G15.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1617.0,
+        "win_rate": 0.7140000000000001,
+        "wins": 8,
+        "losses": 2,
+        "draws": 4
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.967341",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "9fecf4447b9d4123b7f89b9490f6892c1d73d9eb73d3ce01409a94bb24d45b8f"
+    },
+    "determined_mcclintock_g3": {
+      "id": "determined_mcclintock_g3",
+      "name": "determined_mcclintock_G3",
+      "description": "Generation: 3 Lineage: hardcore_swirles_G1\u2192determined_mcclintock_G3 Mass: 79.3kg Training Episodes: 1500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/determined_mcclintock_G3/determined_mcclintock_G3.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1529.0,
+        "win_rate": 0.524,
+        "wins": 5,
+        "losses": 4,
+        "draws": 12
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.789363",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "0e098b40e375642b27f33f81fda88334058bb990be66d288716706f65897ea5a"
+    },
+    "loving_bell_g15": {
+      "id": "loving_bell_g15",
+      "name": "loving_bell_G15",
+      "description": "Generation: 15 Lineage: eager_stonebraker_G11\u2192loving_bell_G15 Mass: 82.8kg Training Episodes: 2000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/loving_bell_G15/loving_bell_G15.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1618.0,
+        "win_rate": 0.6609999999999999,
+        "wins": 9,
+        "losses": 0,
+        "draws": 19
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.790834",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "ecf35414208aa2fd869e826b3dcbef72a19856f491a3bb2dad6f3a33505c02df"
+    },
+    "xenodochial_sammet_g17": {
+      "id": "xenodochial_sammet_g17",
+      "name": "xenodochial_sammet_G17",
+      "description": "Generation: 17 Lineage: dreamy_swartz_G14\u2192xenodochial_sammet_G17 Mass: 63.0kg Training Episodes: 62 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/xenodochial_sammet_G17/xenodochial_sammet_G17.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1503.0,
+        "win_rate": 0.5,
+        "wins": 0,
+        "losses": 0,
+        "draws": 7
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.791529",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "8d7e14505e1dcddeaa7b5a41ad46a5f250cd4dd4184267b886e78aeadbf69b7a"
+    },
+    "sad_lumiere_g20": {
+      "id": "sad_lumiere_g20",
+      "name": "sad_lumiere_G20",
+      "description": "Generation: 20 Lineage: youthful_lamport\u2192sad_lumiere_G20 Mass: 60.4kg Training Episodes: 124 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/sad_lumiere_G20/sad_lumiere_G20.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1507.0,
+        "win_rate": 0.5,
+        "wins": 2,
+        "losses": 2,
+        "draws": 10
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.792201",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "016e153dda8ce89d65df1d6ae65f901b9eb7732331c3e6e7422ba496a2fd66f5"
+    },
+    "dreamy_gates_g5": {
+      "id": "dreamy_gates_g5",
+      "name": "dreamy_gates_G5",
+      "description": "Generation: 5 Lineage: determined_mcclintock_G3\u2192dreamy_gates_G5 Mass: 81.7kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/dreamy_gates_G5/dreamy_gates_G5.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1523.0,
+        "win_rate": 0.5,
+        "wins": 2,
+        "losses": 2,
+        "draws": 3
+      },
+      "version": "1.0",
+      "created_date": "2025-11-08T17:49:02.792813",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "95697d5ede7750a31dea3afc647e85ff9f9d804f4791165686cc8641df183840"
+    },
+    "infallible_chaplygin_g9": {
+      "id": "infallible_chaplygin_g9",
+      "name": "infallible_chaplygin_G9",
+      "description": "Generation: 9 Lineage: compassionate_payne\u2192infallible_chaplygin_G9 Mass: 85.0kg Training Episodes: 1500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/infallible_chaplygin_G9/infallible_chaplygin_G9.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1603.0,
+        "win_rate": 0.619,
+        "wins": 10,
+        "losses": 5,
+        "draws": 6
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.940698",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "eb507927b34e09219f74c6948552ba626dad7bd056cca92d07659ead6f0026f9"
+    },
+    "jovial_spence_g3": {
+      "id": "jovial_spence_g3",
+      "name": "jovial_spence_G3",
+      "description": "Generation: 3 Lineage: ecstatic_lamarr\u2192jovial_spence_G3 Mass: 85.0kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/jovial_spence_G3/jovial_spence_G3.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1525.0,
+        "win_rate": 0.5,
+        "wins": 3,
+        "losses": 3,
+        "draws": 1
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.951089",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "4925d69647429c270187fdf24a057bd198267a9c086b5b8e50b974a08085b95d"
+    },
+    "pensive_torvalds_g11": {
+      "id": "pensive_torvalds_g11",
+      "name": "pensive_torvalds_G11",
+      "description": "Generation: 11 Lineage: happy_liskov_G7\u2192pensive_torvalds_G11 Mass: 85.0kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/pensive_torvalds_G11/pensive_torvalds_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1521.0,
+        "win_rate": 0.5,
+        "wins": 3,
+        "losses": 3,
+        "draws": 1
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.951665",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "e5f6bcff5e24e81e3f3a2b0a534060387d020074ec5d1c6def2b94e6c2b122dc"
+    },
+    "agitated_leakey_g11": {
+      "id": "agitated_leakey_g11",
+      "name": "agitated_leakey_G11",
+      "description": "Generation: 11 Lineage: happy_liskov_G7\u2192agitated_leakey_G11 Mass: 85.0kg Training Episodes: 3000 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/agitated_leakey_G11/agitated_leakey_G11.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1817.0,
+        "win_rate": 0.905,
+        "wins": 37,
+        "losses": 3,
+        "draws": 2
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.967938",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "a44625a9ec1fd87af60373cacbe1a11dbb4781150e59ad19f64877282b82ac9e"
+    },
+    "frosty_shaw_g7": {
+      "id": "frosty_shaw_g7",
+      "name": "frosty_shaw_G7",
+      "description": "Generation: 7 Lineage: youthful_lamport\u2192frosty_shaw_G7 Mass: 85.0kg Training Episodes: 500 Auto-generated wrapper for trained ONNX model. Compatible with atom_fight.py",
+      "creator": "population-training",
+      "type": "onnx-ai",
+      "file_path": "fighters/AIs/frosty_shaw_G7/frosty_shaw_G7.py",
+      "mass_default": 70.0,
+      "strategy_tags": [],
+      "performance_stats": {
+        "elo": 1543.0,
+        "win_rate": 0.5710000000000001,
+        "wins": 3,
+        "losses": 2,
+        "draws": 2
+      },
+      "version": "1.0",
+      "created_date": "2025-11-09T10:49:45.968534",
+      "protocol_version": "v1.0",
+      "world_spec_version": "v1.0",
+      "code_hash": "7e227697a2839d6b4e93cb9ac044f8450a122a0d4774868d5ecd6782045051dc"
     }
   }
 }

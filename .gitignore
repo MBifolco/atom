@@ -52,3 +52,5 @@ Thumbs.db
 # Temporary files
 *.html
 *.log
+
+fighters/retired_fighters/
