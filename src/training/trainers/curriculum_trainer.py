@@ -17,7 +17,8 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 
-from stable_baselines3 import PPO, SAC
+# Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
+from sbx import PPO, SAC  # JAX-accelerated algorithms
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -121,7 +122,8 @@ class CurriculumTrainer:
                  output_dir: str = "outputs/curriculum",
                  n_envs: int = 4,
                  max_ticks: int = 250,
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 device: str = "auto"):
         """
         Initialize the curriculum trainer.
 
@@ -131,12 +133,14 @@ class CurriculumTrainer:
             n_envs: Number of parallel environments
             max_ticks: Maximum ticks per episode
             verbose: Whether to print progress
+            device: Device to use for training ("cpu", "cuda", or "auto")
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.n_envs = n_envs
         self.max_ticks = max_ticks
         self.verbose = verbose
+        self.device = device
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -349,7 +353,8 @@ class CurriculumTrainer:
                 gae_lambda=0.95,
                 clip_range=0.2,
                 verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard")
+                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                device=self.device
             )
         elif self.algorithm == "sac":
             self.model = SAC(
@@ -362,7 +367,8 @@ class CurriculumTrainer:
                 tau=0.005,
                 gamma=0.99,
                 verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard")
+                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                device=self.device
             )
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")

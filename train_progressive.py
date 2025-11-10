@@ -22,7 +22,8 @@ if str(project_root) not in sys.path:
 from src.training.trainers.curriculum_trainer import CurriculumTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
 from src.arena import WorldConfig
-from stable_baselines3 import PPO, SAC
+# Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
+from sbx import PPO, SAC  # JAX-accelerated algorithms
 
 import argparse
 import json
@@ -45,7 +46,8 @@ class ProgressiveTrainer:
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
-                 max_ticks: int = 250):
+                 max_ticks: int = 250,
+                 device: str = "auto"):
         """
         Initialize the progressive trainer.
 
@@ -55,12 +57,14 @@ class ProgressiveTrainer:
             verbose: Whether to print progress
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
             max_ticks: Maximum ticks per episode (default: 250)
+            device: Device to use for training ("cpu", "cuda", or "auto")
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.n_parallel_fighters = n_parallel_fighters
         self.max_ticks = max_ticks
+        self.device = device
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -105,7 +109,8 @@ class ProgressiveTrainer:
             output_dir=str(self.curriculum_dir),
             n_envs=n_envs,
             max_ticks=self.max_ticks,
-            verbose=self.verbose
+            verbose=self.verbose,
+            device=self.device
         )
 
         # Train through curriculum
@@ -346,6 +351,13 @@ Examples:
         default=250,
         help="Maximum ticks per episode (default: 250, ~21 seconds)"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["cpu", "cuda", "auto"],
+        default="auto",
+        help="Device to use for training: cpu, cuda (GPU), or auto (default: auto)"
+    )
 
     args = parser.parse_args()
 
@@ -362,7 +374,8 @@ Examples:
         output_dir=output_dir,
         verbose=True,
         n_parallel_fighters=args.cores,
-        max_ticks=args.max_ticks
+        max_ticks=args.max_ticks,
+        device=args.device
     )
 
     # Run based on mode

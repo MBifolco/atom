@@ -14,7 +14,8 @@ import logging
 from datetime import datetime
 import time
 
-from stable_baselines3 import PPO
+# Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
+from sbx import PPO  # JAX-accelerated PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
@@ -305,7 +306,8 @@ def train_fighter(
     patience: int = 5,
     verbose: bool = True,
     tensorboard_log: Optional[str] = None,
-    continue_from_model: Optional[str] = None
+    continue_from_model: Optional[str] = None,
+    device: str = "auto"
 ):
     """
     Train a fighter using PPO with mixed opponents.
@@ -323,6 +325,7 @@ def train_fighter(
         verbose: Show progress
         tensorboard_log: Optional TensorBoard log directory
         continue_from_model: Path to existing model to continue training (prevents forgetting)
+        device: Device to use for training ("cpu", "cuda", or "auto")
     """
     print("=" * 60)
     print("ATOM COMBAT - FIGHTER TRAINING".center(60))
@@ -419,7 +422,7 @@ def train_fighter(
     if continue_from_model:
         print(f"\nLoading existing model from: {continue_from_model}")
         print("  (Continuing training to prevent catastrophic forgetting)")
-        model = PPO.load(continue_from_model, env=vec_env)
+        model = PPO.load(continue_from_model, env=vec_env, device=device)
         # Lower learning rate for continual learning to reduce forgetting
         model.learning_rate = 1e-4
         print(f"  ✓ Model loaded - learning rate lowered to {model.learning_rate} for stability")
@@ -438,8 +441,9 @@ def train_fighter(
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.01,  # Encourage exploration
+            device=device,
         )
-        print("  ✓ Fresh model created")
+        print(f"  ✓ Fresh model created on device: {device}")
 
     # Create callbacks
     callbacks = []
