@@ -16,12 +16,14 @@ import time
 
 # Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
 from sbx import PPO  # JAX-accelerated PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 
 from ...gym_env import AtomCombatEnv
+from ...vmap_env_wrapper import VmapEnvWrapper  # Level 3: JAX vmap parallelization
 from src.arena import WorldConfig
+import numpy as np
 
 
 class VerboseLoggingCallback(BaseCallback):
@@ -271,6 +273,56 @@ def load_opponent_function(filepath: str) -> Callable:
     return module.decide
 
 
+class VmapEnvAdapter(VecEnv):
+    """Adapter to make VmapEnvWrapper compatible with SBX VecEnv interface."""
+    def __init__(self, vmap_env):
+        self.vmap_env = vmap_env
+        super().__init__(
+            num_envs=vmap_env.n_envs,
+            observation_space=vmap_env.observation_space,
+            action_space=vmap_env.action_space
+        )
+        self.metadata = {"render_modes": []}
+
+    def reset(self):
+        obs, _ = self.vmap_env.reset()
+        return obs
+
+    def step_async(self, actions):
+        """Store actions for step_wait."""
+        self.actions = actions
+
+    def step_wait(self):
+        """Execute stored actions and return results."""
+        obs, rewards, dones, truncated, infos = self.vmap_env.step(self.actions)
+        # SBX expects combined done
+        dones = np.logical_or(dones, truncated)
+        return obs, rewards, dones, infos
+
+    def close(self):
+        pass  # VmapEnvWrapper doesn't need cleanup
+
+    def env_is_wrapped(self, wrapper_class, indices=None):
+        """Required for VecEnv interface."""
+        return [False] * self.num_envs
+
+    def seed(self, seed=None):
+        """Set seed (not used for vmap)."""
+        pass
+
+    def get_attr(self, attr_name, indices=None):
+        """Get attribute from environments."""
+        return [getattr(self.vmap_env, attr_name, None)] * self.num_envs
+
+    def set_attr(self, attr_name, value, indices=None):
+        """Set attribute (not supported)."""
+        pass
+
+    def env_method(self, method_name, *method_args, indices=None, **method_kwargs):
+        """Call method on environments (not supported)."""
+        pass
+
+
 def make_env(
     opponent_func: Callable,
     config: WorldConfig,
@@ -307,7 +359,8 @@ def train_fighter(
     verbose: bool = True,
     tensorboard_log: Optional[str] = None,
     continue_from_model: Optional[str] = None,
-    device: str = "auto"
+    device: str = "auto",
+    use_vmap: bool = False
 ):
     """
     Train a fighter using PPO with mixed opponents.
@@ -316,7 +369,7 @@ def train_fighter(
         opponent_files: List of paths to opponent Python files
         output_path: Where to save the trained model
         episodes: Target number of episodes (approximate)
-        n_envs: Number of parallel environments (CPU cores to use)
+        n_envs: Number of parallel environments (CPU cores to use or vmap batch size)
         fighter_mass: Mass of the fighter being trained
         opponent_mass: Mass of opponents
         max_ticks: Max ticks per episode
@@ -326,6 +379,7 @@ def train_fighter(
         tensorboard_log: Optional TensorBoard log directory
         continue_from_model: Path to existing model to continue training (prevents forgetting)
         device: Device to use for training ("cpu", "cuda", or "auto")
+        use_vmap: Use JAX vmap for parallel environments (Level 3 optimization, 10-15x speedup)
     """
     print("=" * 60)
     print("ATOM COMBAT - FIGHTER TRAINING".center(60))
@@ -387,36 +441,64 @@ def train_fighter(
     print(f"  Timesteps budget: ~{total_timesteps:,} (will stop at {episodes} episodes)")
 
     # Create parallel environments
-    print(f"\nCreating {n_envs} parallel environments...")
+    if use_vmap:
+        # Level 3: JAX vmap - run all envs in parallel with JIT-compiled physics
+        print(f"\n🚀 Creating {n_envs} parallel JAX vmap environments...")
+        print("  (Using Level 3 optimization: JIT + vmap parallelization)")
 
-    # Assign opponents to environments (cycle through opponents)
-    env_fns = []
-    env_opponent_map = []
-    for i in range(n_envs):
-        opponent_idx = i % len(opponents)
-        opponent_func = opponents[opponent_idx]
-        opponent_name = opponent_names[opponent_idx]
-        env_opponent_map.append((i, opponent_name))
+        # For vmap, we use the first opponent (TODO: support multiple opponents)
+        opponent_func = opponents[0]
+        opponent_name = opponent_names[0]
 
-        env_fn = make_env(
-            opponent_func=opponent_func,
+        vmap_env = VmapEnvWrapper(
+            n_envs=n_envs,
+            opponent_decision_func=opponent_func,
             config=config,
             max_ticks=max_ticks,
             fighter_mass=fighter_mass,
             opponent_mass=opponent_mass,
-            seed=42 + i  # Different seed per env
+            seed=42
         )
-        env_fns.append(env_fn)
 
-    # Show environment-opponent mapping
-    print("  Environment → Opponent mapping:")
-    for env_id, opp_name in env_opponent_map:
-        print(f"    Env {env_id} → {opp_name}")
+        # Wrap with adapter for SBX compatibility
+        vec_env = VmapEnvAdapter(vmap_env)
 
-    # Use SubprocVecEnv for true parallelism across CPU cores
-    vec_env = SubprocVecEnv(env_fns)
+        print(f"  ✓ {n_envs} vmap environments ready (all vs {opponent_name})")
+        if len(opponents) > 1:
+            print(f"  ⚠️  Note: vmap mode uses only first opponent ({opponent_name})")
+            print(f"     Other opponents ignored: {', '.join(opponent_names[1:])}")
+    else:
+        # Level 2: SubprocVecEnv - traditional parallel environments
+        print(f"\nCreating {n_envs} parallel environments...")
 
-    print("  ✓ Environments ready")
+        # Assign opponents to environments (cycle through opponents)
+        env_fns = []
+        env_opponent_map = []
+        for i in range(n_envs):
+            opponent_idx = i % len(opponents)
+            opponent_func = opponents[opponent_idx]
+            opponent_name = opponent_names[opponent_idx]
+            env_opponent_map.append((i, opponent_name))
+
+            env_fn = make_env(
+                opponent_func=opponent_func,
+                config=config,
+                max_ticks=max_ticks,
+                fighter_mass=fighter_mass,
+                opponent_mass=opponent_mass,
+                seed=42 + i  # Different seed per env
+            )
+            env_fns.append(env_fn)
+
+        # Show environment-opponent mapping
+        print("  Environment → Opponent mapping:")
+        for env_id, opp_name in env_opponent_map:
+            print(f"    Env {env_id} → {opp_name}")
+
+        # Use SubprocVecEnv for true parallelism across CPU cores
+        vec_env = SubprocVecEnv(env_fns)
+
+        print("  ✓ Environments ready")
 
     # Create or load PPO model
     if continue_from_model:

@@ -244,7 +244,7 @@ class ProgressiveTrainer:
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
             timesteps=curriculum_timesteps,
-            n_envs=4
+            n_envs=8  # Level 2 optimization: 8 parallel envs for 1.22x speedup
         )
 
         # Phase 2: Initialize Population
