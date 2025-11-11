@@ -117,6 +117,7 @@ class VmapEnvWrapper(gym.Env):
         # JAX states for all environments
         self.jax_states = None
         self.tick_counts = None
+        self.episode_rewards = None  # Track cumulative rewards per episode
 
         # Initialize environments
         self.reset()
@@ -148,8 +149,9 @@ class VmapEnvWrapper(gym.Env):
         # Stack into batch using tree.map (JAX 0.6+ API)
         self.jax_states = jax.tree.map(lambda *xs: jnp.stack(xs), *initial_states)
 
-        # Reset tick counts
+        # Reset tick counts and episode rewards
         self.tick_counts = np.zeros(self.n_envs, dtype=np.int32)
+        self.episode_rewards = np.zeros(self.n_envs, dtype=np.float32)
 
         # Get initial observations
         obs = self._get_observations()
@@ -204,12 +206,29 @@ class VmapEnvWrapper(gym.Env):
         # Calculate rewards (simplified for now)
         rewards = self._calculate_rewards()
 
+        # Accumulate episode rewards
+        self.episode_rewards += rewards
+
         # Check dones
         dones = self._check_dones()
         truncated = self.tick_counts >= self.max_ticks
 
-        # Create infos
-        infos = [{"episode": {"r": r}} if d else {} for r, d in zip(rewards, dones)]
+        # Create infos with both 'r' (reward) and 'l' (length) for SB3 compatibility
+        infos = []
+        for i, (r, d, t) in enumerate(zip(rewards, dones, truncated)):
+            if d or t:
+                # Episode ended - include cumulative episode stats
+                infos.append({
+                    "episode": {
+                        "r": float(self.episode_rewards[i]),
+                        "l": int(self.tick_counts[i])
+                    }
+                })
+                # Reset episode reward for this env
+                self.episode_rewards[i] = 0.0
+                self.tick_counts[i] = 0
+            else:
+                infos.append({})
 
         # Reset finished environments
         # For simplicity, we'll handle resets in the next call to reset()
