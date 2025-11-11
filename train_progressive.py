@@ -22,8 +22,15 @@ if str(project_root) not in sys.path:
 from src.training.trainers.curriculum_trainer import CurriculumTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
 from src.arena import WorldConfig
-# Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
-from sbx import PPO, SAC  # JAX-accelerated algorithms
+
+# Phase 2: Try SBX (JAX) first, fall back to SB3 (PyTorch)
+# SBX requires JAX < 0.7.0, incompatible with ROCm JAX 0.7.1
+try:
+    from sbx import PPO, SAC  # JAX-accelerated (if available)
+    _using_sbx = True
+except ImportError:
+    from stable_baselines3 import PPO, SAC  # PyTorch fallback
+    _using_sbx = False
 
 import argparse
 import json
@@ -247,6 +254,9 @@ class ProgressiveTrainer:
             print("\n" + "🚀"*40)
             print("STARTING PROGRESSIVE TRAINING PIPELINE")
             print("🚀"*40)
+            print(f"\nConfiguration:")
+            print(f"  Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
+            print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
             print(f"\nOutput directory: {self.output_dir}")
             print(f"Logs will be saved to:")
             print(f"  - {self.curriculum_dir / 'logs'}")

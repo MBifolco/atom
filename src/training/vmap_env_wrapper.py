@@ -145,8 +145,8 @@ class VmapEnvWrapper(gym.Env):
             state = ArenaStateJAX(jax_fighter, jax_opponent, 0)
             initial_states.append(state)
 
-        # Stack into batch using tree_map
-        self.jax_states = jax.tree_map(lambda *xs: jnp.stack(xs), *initial_states)
+        # Stack into batch using tree.map (JAX 0.6+ API)
+        self.jax_states = jax.tree.map(lambda *xs: jnp.stack(xs), *initial_states)
 
         # Reset tick counts
         self.tick_counts = np.zeros(self.n_envs, dtype=np.int32)
