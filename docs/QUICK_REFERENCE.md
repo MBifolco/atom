@@ -15,6 +15,15 @@ python -c "import jax; print(jax.devices())"
 ```
 
 ### Run Training
+
+**Progressive Training (Recommended)**:
+```bash
+# GPU-accelerated progressive training
+source setup_gpu.sh
+python train_progressive.py --use-vmap --mode complete
+```
+
+**Direct Training (Advanced)**:
 ```python
 from src.training.trainers.ppo.trainer import train_fighter
 
@@ -35,8 +44,23 @@ train_fighter(
 | Level | Configuration | Speedup | Command |
 |-------|--------------|---------|---------|
 | 1+2 | SBX + 8 envs (CPU) | 3.2x | `python train_progressive.py` |
-| 3 | vmap 100 (CPU) | 10-15x | `use_vmap=True, n_envs=100` |
-| 4 | vmap 250 (GPU) | **77x** | `source setup_gpu.sh` then train |
+| 3 | vmap 100 (CPU) | 10-15x | `python train_progressive.py --use-vmap` |
+| 4 | vmap 250 (GPU) | **77x** | `source setup_gpu.sh && python train_progressive.py --use-vmap` |
+
+### Progressive Training Options
+
+```bash
+# CPU training (default)
+python train_progressive.py --mode complete --timesteps 500000
+
+# GPU training (77x faster)
+source setup_gpu.sh
+python train_progressive.py --use-vmap --mode complete --timesteps 500000
+
+# Quick test (GPU)
+source setup_gpu.sh
+python train_progressive.py --use-vmap --mode quick
+```
 
 ---
 

@@ -47,7 +47,8 @@ class ProgressiveTrainer:
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
                  max_ticks: int = 250,
-                 device: str = "auto"):
+                 device: str = "auto",
+                 use_vmap: bool = False):
         """
         Initialize the progressive trainer.
 
@@ -58,6 +59,7 @@ class ProgressiveTrainer:
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
             max_ticks: Maximum ticks per episode (default: 250)
             device: Device to use for training ("cpu", "cuda", or "auto")
+            use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -65,6 +67,7 @@ class ProgressiveTrainer:
         self.n_parallel_fighters = n_parallel_fighters
         self.max_ticks = max_ticks
         self.device = device
+        self.use_vmap = use_vmap
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -80,17 +83,21 @@ class ProgressiveTrainer:
 
     def run_curriculum_training(self,
                               timesteps: int = 500_000,
-                              n_envs: int = 4) -> Path:
+                              n_envs: int = None) -> Path:
         """
         Run curriculum training phase.
 
         Args:
             timesteps: Total training timesteps
-            n_envs: Number of parallel environments
+            n_envs: Number of parallel environments (default: 8 for CPU, 250 for GPU)
 
         Returns:
             Path to the trained model
         """
+        # Set default n_envs based on vmap usage
+        if n_envs is None:
+            n_envs = 250 if self.use_vmap else 8
+
         if self.verbose:
             print("\n" + "="*80)
             print("PHASE 1: CURRICULUM TRAINING")
@@ -101,6 +108,10 @@ class ProgressiveTrainer:
             print(f"- Level 3: Distance/stamina management (intermediate)")
             print(f"- Level 4: Behavioral fighters (advanced)")
             print(f"- Level 5: Hardcoded fighters (expert)")
+            if self.use_vmap:
+                print(f"\n⚡ GPU Acceleration: ENABLED (vmap with {n_envs} parallel environments)")
+            else:
+                print(f"\n💻 CPU Training: {n_envs} parallel environments")
             print()
 
         # Create curriculum trainer
@@ -110,7 +121,8 @@ class ProgressiveTrainer:
             n_envs=n_envs,
             max_ticks=self.max_ticks,
             verbose=self.verbose,
-            device=self.device
+            device=self.device,
+            use_vmap=self.use_vmap
         )
 
         # Train through curriculum
@@ -243,8 +255,8 @@ class ProgressiveTrainer:
 
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
-            timesteps=curriculum_timesteps,
-            n_envs=8  # Level 2 optimization: 8 parallel envs for 1.22x speedup
+            timesteps=curriculum_timesteps
+            # n_envs defaults to 8 for CPU or 250 for GPU (auto-configured)
         )
 
         # Phase 2: Initialize Population
@@ -358,6 +370,11 @@ Examples:
         default="auto",
         help="Device to use for training: cpu, cuda (GPU), or auto (default: auto)"
     )
+    parser.add_argument(
+        "--use-vmap",
+        action="store_true",
+        help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
+    )
 
     args = parser.parse_args()
 
@@ -375,7 +392,8 @@ Examples:
         verbose=True,
         n_parallel_fighters=args.cores,
         max_ticks=args.max_ticks,
-        device=args.device
+        device=args.device,
+        use_vmap=args.use_vmap
     )
 
     # Run based on mode

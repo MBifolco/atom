@@ -19,12 +19,64 @@ from enum import Enum
 
 # Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
 from sbx import PPO, SAC  # JAX-accelerated algorithms
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
 # Import test dummy loader
 import importlib.util
+
+# Level 3: JAX vmap support
+from ...vmap_env_wrapper import VmapEnvWrapper
+from ...arena import WorldConfig
+
+
+class VmapEnvAdapter(VecEnv):
+    """Adapter to make VmapEnvWrapper compatible with SBX VecEnv interface."""
+    def __init__(self, vmap_env):
+        self.vmap_env = vmap_env
+        super().__init__(
+            num_envs=vmap_env.n_envs,
+            observation_space=vmap_env.observation_space,
+            action_space=vmap_env.action_space
+        )
+        self.metadata = {"render_modes": []}
+        self._supports_set_opponent = False  # vmap doesn't support dynamic opponent switching
+
+    def reset(self):
+        obs, _ = self.vmap_env.reset()
+        return obs
+
+    def step_async(self, actions):
+        """Store actions for step_wait."""
+        self.actions = actions
+
+    def step_wait(self):
+        """Execute stored actions and return results."""
+        obs, rewards, dones, truncated, infos = self.vmap_env.step(self.actions)
+        # SBX expects combined done
+        dones = np.logical_or(dones, truncated)
+        return obs, rewards, dones, infos
+
+    def close(self):
+        pass  # VmapEnvWrapper doesn't need cleanup
+
+    def env_is_wrapped(self, wrapper_class, indices=None):
+        """Required for VecEnv interface."""
+        return False
+
+    def env_method(self, method_name, *method_args, indices=None, **method_kwargs):
+        """Override to handle set_opponent calls gracefully."""
+        if method_name == "set_opponent":
+            # vmap doesn't support dynamic opponent switching - just log and skip
+            if hasattr(self, '_warned_about_opponent_switch'):
+                return
+            print("⚠️  Note: VmapEnvWrapper doesn't support dynamic opponent switching during training.")
+            print("    Using the initial opponent for all episodes. This is a known limitation.")
+            self._warned_about_opponent_switch = True
+            return
+        # For other methods, try to call them (though vmap doesn't support much)
+        return [None] * self.num_envs
 
 
 class DifficultyLevel(Enum):
@@ -123,17 +175,19 @@ class CurriculumTrainer:
                  n_envs: int = 4,
                  max_ticks: int = 250,
                  verbose: bool = True,
-                 device: str = "auto"):
+                 device: str = "auto",
+                 use_vmap: bool = False):
         """
         Initialize the curriculum trainer.
 
         Args:
             algorithm: "ppo" or "sac"
             output_dir: Directory for saving models and logs
-            n_envs: Number of parallel environments
+            n_envs: Number of parallel environments (or vmap batch size)
             max_ticks: Maximum ticks per episode
             verbose: Whether to print progress
             device: Device to use for training ("cpu", "cuda", or "auto")
+            use_vmap: Use JAX vmap for parallel environments (Level 3/4 optimization)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -141,6 +195,7 @@ class CurriculumTrainer:
         self.max_ticks = max_ticks
         self.verbose = verbose
         self.device = device
+        self.use_vmap = use_vmap
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -317,27 +372,55 @@ class CurriculumTrainer:
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
         """Create parallel environments for the current level."""
-        # Create environments with different opponents from the level
-        env_fns = []
-        for i in range(self.n_envs):
-            opponent_idx = i % len(level.opponents)
-            opponent_path = level.opponents[opponent_idx]
 
-            # Use Monitor with unique level-based filenames to avoid file handle conflicts
-            # The allow_early_resets=True is important for level transitions
-            level_name = level.name.replace(" ", "_").lower()
-            monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
+        if self.use_vmap:
+            # Level 3/4: Use JAX vmap for GPU-accelerated parallelization
+            # Note: vmap only supports single opponent (uses first opponent from level)
+            opponent_path = level.opponents[0]
+            opponent_func = self.load_opponent(opponent_path)
 
-            env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
-                self.create_env(opp_path),
-                mfile,
-                allow_early_resets=True
+            if self.verbose:
+                print(f"🚀 Creating {self.n_envs} parallel JAX vmap environments...")
+                print(f"   Opponent: {Path(opponent_path).stem}")
+                if len(level.opponents) > 1:
+                    print(f"   Note: Using first opponent only (vmap limitation)")
+
+            vmap_env = VmapEnvWrapper(
+                n_envs=self.n_envs,
+                opponent_decision_func=opponent_func,
+                config=WorldConfig(),
+                max_ticks=self.max_ticks,
+                fighter_mass=70.0,
+                opponent_mass=70.0,
+                seed=42
             )
-            env_fns.append(env_fn)
 
-        # ALWAYS use DummyVecEnv for curriculum training
-        # SubprocVecEnv has too many pickle/process issues during curriculum progression
-        return DummyVecEnv(env_fns)
+            # Wrap with adapter for SBX compatibility
+            return VmapEnvAdapter(vmap_env)
+
+        else:
+            # Level 1/2: Use DummyVecEnv with multiple opponents
+            # Create environments with different opponents from the level
+            env_fns = []
+            for i in range(self.n_envs):
+                opponent_idx = i % len(level.opponents)
+                opponent_path = level.opponents[opponent_idx]
+
+                # Use Monitor with unique level-based filenames to avoid file handle conflicts
+                # The allow_early_resets=True is important for level transitions
+                level_name = level.name.replace(" ", "_").lower()
+                monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
+
+                env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
+                    self.create_env(opp_path),
+                    mfile,
+                    allow_early_resets=True
+                )
+                env_fns.append(env_fn)
+
+            # ALWAYS use DummyVecEnv for curriculum training
+            # SubprocVecEnv has too many pickle/process issues during curriculum progression
+            return DummyVecEnv(env_fns)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
