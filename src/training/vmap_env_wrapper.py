@@ -118,6 +118,8 @@ class VmapEnvWrapper(gym.Env):
         self.jax_states = None
         self.tick_counts = None
         self.episode_rewards = None  # Track cumulative rewards per episode
+        self.prev_fighter_hp = None  # Track HP for damage calculation
+        self.prev_opponent_hp = None
 
         # Initialize environments
         self.reset()
@@ -152,6 +154,10 @@ class VmapEnvWrapper(gym.Env):
         # Reset tick counts and episode rewards
         self.tick_counts = np.zeros(self.n_envs, dtype=np.int32)
         self.episode_rewards = np.zeros(self.n_envs, dtype=np.float32)
+
+        # Initialize HP tracking for damage calculation
+        self.prev_fighter_hp = np.array(self.jax_states.fighter_a.hp, dtype=np.float32)
+        self.prev_opponent_hp = np.array(self.jax_states.fighter_b.hp, dtype=np.float32)
 
         # Get initial observations
         obs = self._get_observations()
@@ -319,13 +325,21 @@ class VmapEnvWrapper(gym.Env):
         return obs
 
     def _calculate_rewards(self):
-        """Calculate rewards for all environments."""
-        # Simplified reward: HP differential
-        fighter_hp = np.array(self.jax_states.fighter_a.hp)
-        opponent_hp = np.array(self.jax_states.fighter_b.hp)
+        """Calculate rewards based on damage differential."""
+        # Get current HP
+        fighter_hp = np.array(self.jax_states.fighter_a.hp, dtype=np.float32)
+        opponent_hp = np.array(self.jax_states.fighter_b.hp, dtype=np.float32)
 
-        hp_diff = fighter_hp - opponent_hp
-        rewards = hp_diff * 0.1  # Scale reward
+        # Calculate damage dealt and taken this step
+        damage_dealt = self.prev_opponent_hp - opponent_hp
+        damage_taken = self.prev_fighter_hp - fighter_hp
+
+        # Reward is damage differential * 10 (matches gym_env.py)
+        rewards = (damage_dealt - damage_taken) * 10.0
+
+        # Update previous HP for next step
+        self.prev_fighter_hp = fighter_hp.copy()
+        self.prev_opponent_hp = opponent_hp.copy()
 
         return rewards.astype(np.float32)
 
@@ -390,6 +404,14 @@ class VmapEnvWrapper(gym.Env):
             self.jax_states,
             fresh_state
         )
+
+        # Reset HP tracking for reset environments
+        fresh_fighter_hp = 100.0
+        fresh_opponent_hp = 100.0
+        for i, should_reset in enumerate(reset_mask):
+            if should_reset:
+                self.prev_fighter_hp[i] = fresh_fighter_hp
+                self.prev_opponent_hp[i] = fresh_opponent_hp
 
 
 # Standalone test
