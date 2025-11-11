@@ -217,12 +217,20 @@ class VmapEnvWrapper(gym.Env):
         infos = []
         for i, (r, d, t) in enumerate(zip(rewards, dones, truncated)):
             if d or t:
+                # Determine who won
+                fighter_hp = float(self.jax_states.fighter_a.hp[i])
+                opponent_hp = float(self.jax_states.fighter_b.hp[i])
+                won = fighter_hp > opponent_hp
+
                 # Episode ended - include cumulative episode stats
                 infos.append({
                     "episode": {
                         "r": float(self.episode_rewards[i]),
                         "l": int(self.tick_counts[i])
-                    }
+                    },
+                    "won": won,  # Add win/loss flag for curriculum trainer
+                    "fighter_hp": fighter_hp,
+                    "opponent_hp": opponent_hp
                 })
                 # Reset episode reward for this env
                 self.episode_rewards[i] = 0.0
@@ -230,9 +238,11 @@ class VmapEnvWrapper(gym.Env):
             else:
                 infos.append({})
 
-        # Reset finished environments
-        # For simplicity, we'll handle resets in the next call to reset()
-        # In a production version, you'd reset individual envs here
+        # Auto-reset finished environments
+        # Reset individual environments that are done
+        reset_mask = dones | truncated
+        if np.any(reset_mask):
+            self._reset_envs(reset_mask)
 
         return obs, rewards, dones, truncated, infos
 
@@ -327,6 +337,59 @@ class VmapEnvWrapper(gym.Env):
         dones = (fighter_hp <= 0) | (opponent_hp <= 0)
 
         return dones
+
+    def _reset_envs(self, reset_mask):
+        """Reset specific environments that are done.
+
+        Args:
+            reset_mask: Boolean array [n_envs] indicating which envs to reset
+        """
+        # Create fresh fighters for reset
+        from ..arena import FighterState
+
+        fighter = FighterState(
+            name="fighter",
+            position=0.0,
+            velocity=0.0,
+            hp=100.0,
+            stamina=100.0,
+            mass=self.fighter_mass,
+            max_hp=100.0,
+            max_stamina=100.0,
+            stance="neutral"
+        )
+
+        opponent = FighterState(
+            name="opponent",
+            position=self.arena_width,
+            velocity=0.0,
+            hp=100.0,
+            stamina=100.0,
+            mass=self.opponent_mass,
+            max_hp=100.0,
+            max_stamina=100.0,
+            stance="neutral"
+        )
+
+        jax_fighter = FighterStateJAX.from_fighter_state(fighter)
+        jax_opponent = FighterStateJAX.from_fighter_state(opponent)
+        fresh_state = ArenaStateJAX(jax_fighter, jax_opponent, 0)
+
+        # Reset only the environments indicated by reset_mask
+        # Use JAX tree operations to selectively update states
+        def reset_if_mask(old_val, fresh_val, mask):
+            """Replace old_val with fresh_val where mask is True."""
+            mask_expanded = jnp.broadcast_to(mask.reshape(-1, 1), old_val.shape) if old_val.ndim > 1 else mask
+            return jnp.where(mask_expanded, fresh_val, old_val)
+
+        reset_mask_jax = jnp.array(reset_mask)
+
+        # Reset each field of the state tree
+        self.jax_states = jax.tree.map(
+            lambda old, fresh: reset_if_mask(old, jnp.broadcast_to(fresh, old.shape), reset_mask_jax),
+            self.jax_states,
+            fresh_state
+        )
 
 
 # Standalone test
