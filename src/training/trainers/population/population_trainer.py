@@ -107,6 +107,12 @@ def _train_single_fighter_parallel(
 
     # Create environments based on mode
     if use_vmap:
+        # GPU mode: Configure JAX memory to prevent OOM
+        import os
+        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.4'  # Use max 40% of GPU memory
+        os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
+
         # GPU mode: Use VmapEnvWrapper with opponent models
         from src.training.trainers.curriculum_trainer import VmapEnvAdapter
         from src.training.vmap_env_wrapper import VmapEnvWrapper
@@ -316,8 +322,16 @@ class PopulationTrainer:
 
         # Parallel training configuration
         if n_parallel_fighters is None:
-            # Default to CPU count - 1 (leave one core free)
-            n_parallel_fighters = max(1, multiprocessing.cpu_count() - 1)
+            if use_vmap:
+                # GPU mode: Limit parallelism to avoid GPU OOM
+                # Each process uses GPU, so use fewer parallel processes
+                n_parallel_fighters = 2  # Conservative: 2 parallel GPU processes
+                if verbose:
+                    print(f"⚠️  GPU mode: Automatically limiting parallel fighters to {n_parallel_fighters}")
+                    print(f"   (prevents GPU out-of-memory errors)")
+            else:
+                # CPU mode: Use more parallelism
+                n_parallel_fighters = max(1, multiprocessing.cpu_count() - 1)
         self.n_parallel_fighters = n_parallel_fighters
 
         # Create output directories
