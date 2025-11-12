@@ -58,6 +58,7 @@ class VmapEnvWrapper(gym.Env):
         n_envs: int,
         opponent_decision_func: Callable = None,
         opponent_paths: List[str] = None,
+        opponent_models: List = None,
         config: WorldConfig = None,
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
@@ -72,6 +73,7 @@ class VmapEnvWrapper(gym.Env):
             n_envs: Number of parallel environments (recommend 100-500)
             opponent_decision_func: Single opponent decision function (legacy)
             opponent_paths: List of opponent file paths for curriculum training
+            opponent_models: List of trained SB3 models for population training
             config: WorldConfig (uses default if None)
             max_ticks: Max ticks per episode
             fighter_mass: Fighter mass
@@ -88,17 +90,29 @@ class VmapEnvWrapper(gym.Env):
         self.seed_base = seed
         self.debug = debug
 
-        # Setup multi-opponent system if paths provided
-        if opponent_paths is not None and len(opponent_paths) > 0:
+        # Setup opponent system
+        if opponent_models is not None and len(opponent_models) > 0:
+            # Population training: Use trained models
+            self.opponent_models = opponent_models
+            self.opponent_paths = None
+            self.opponent_decide = None
+            self.use_multi_opponent = False
+            self.use_opponent_models = True
+        elif opponent_paths is not None and len(opponent_paths) > 0:
+            # Curriculum training: Use JAX test dummies
             from .opponents_jax import create_multi_opponent_func
             self.opponent_decide = create_multi_opponent_func(opponent_paths, self.config)
             self.opponent_paths = opponent_paths
+            self.opponent_models = None
             self.use_multi_opponent = True
+            self.use_opponent_models = False
         else:
             # Legacy: single opponent
             self.opponent_decide = opponent_decision_func
             self.opponent_paths = None
+            self.opponent_models = None
             self.use_multi_opponent = False
+            self.use_opponent_models = False
 
         # Define observation/action spaces (same as AtomCombatEnv)
         self.observation_space = spaces.Box(
@@ -238,8 +252,14 @@ class VmapEnvWrapper(gym.Env):
         stance_int = jnp.array(actions[:, 1].astype(np.int32))
 
         # Get opponent actions
-        if self.use_multi_opponent:
-            # Call batched opponent decision function (already vmapped)
+        if self.use_opponent_models:
+            # Population training: Use trained models to predict opponent actions
+            opponent_observations = self._get_opponent_observations()  # [n_envs, obs_dim]
+            opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 2]
+            opponent_accel = jnp.array(opponent_actions_np[:, 0]) * self.max_accel
+            opponent_stance = jnp.array(opponent_actions_np[:, 1].astype(np.int32))
+        elif self.use_multi_opponent:
+            # Curriculum training: Call batched JAX opponent functions
             env_indices = jnp.arange(self.n_envs)
             opponent_actions = self.opponent_decide(self.jax_states, env_indices)
             opponent_accel = opponent_actions[:, 0]
@@ -407,6 +427,83 @@ class VmapEnvWrapper(gym.Env):
         ], axis=1).astype(np.float32)
 
         return obs
+
+    def _get_opponent_observations(self):
+        """Extract observations from opponent's perspective for model predictions."""
+        # Extract states (opponent is fighter_b)
+        opponent_pos = np.array(self.jax_states.fighter_b.position)
+        opponent_vel = np.array(self.jax_states.fighter_b.velocity)
+        opponent_hp = np.array(self.jax_states.fighter_b.hp)
+        opponent_stamina = np.array(self.jax_states.fighter_b.stamina)
+        opponent_max_hp = np.array(self.jax_states.fighter_b.max_hp)
+        opponent_max_stamina = np.array(self.jax_states.fighter_b.max_stamina)
+
+        fighter_pos = np.array(self.jax_states.fighter_a.position)
+        fighter_vel = np.array(self.jax_states.fighter_a.velocity)
+        fighter_hp = np.array(self.jax_states.fighter_a.hp)
+        fighter_stamina = np.array(self.jax_states.fighter_a.stamina)
+        fighter_max_hp = np.array(self.jax_states.fighter_a.max_hp)
+        fighter_max_stamina = np.array(self.jax_states.fighter_a.max_stamina)
+
+        # Compute relative metrics (from opponent's view)
+        distance = np.abs(fighter_pos - opponent_pos)
+        relative_velocity = fighter_vel - opponent_vel
+
+        # Normalize
+        hp_norm = opponent_hp / opponent_max_hp
+        stamina_norm = opponent_stamina / opponent_max_stamina
+        opp_hp_norm = fighter_hp / fighter_max_hp
+        opp_stamina_norm = fighter_stamina / fighter_max_stamina
+
+        # Stack observations (same format as _get_observations but from opponent's perspective)
+        obs = np.stack([
+            opponent_pos,
+            opponent_vel,
+            hp_norm,
+            stamina_norm,
+            distance,
+            relative_velocity,
+            opp_hp_norm,
+            opp_stamina_norm,
+            np.full(self.n_envs, self.arena_width)
+        ], axis=1).astype(np.float32)
+
+        return obs
+
+    def _predict_opponent_actions(self, opponent_observations):
+        """
+        Predict opponent actions using trained models.
+
+        Distributes environments across population models and batches predictions on GPU.
+
+        Args:
+            opponent_observations: [n_envs, obs_dim] numpy array
+
+        Returns:
+            actions: [n_envs, 2] numpy array (acceleration, stance_selector)
+        """
+        n_models = len(self.opponent_models)
+        envs_per_model = self.n_envs // n_models
+
+        all_actions = np.zeros((self.n_envs, 2), dtype=np.float32)
+
+        # Predict in batches for each model
+        for i, model in enumerate(self.opponent_models):
+            start_idx = i * envs_per_model
+            # Last model handles remaining envs
+            end_idx = (i + 1) * envs_per_model if i < n_models - 1 else self.n_envs
+
+            if start_idx >= self.n_envs:
+                break
+
+            batch_obs = opponent_observations[start_idx:end_idx]
+
+            # Predict actions (SB3 models can use GPU internally)
+            # predict() returns (actions, _states) but we only need actions
+            actions, _ = model.predict(batch_obs, deterministic=False)
+            all_actions[start_idx:end_idx] = actions
+
+        return all_actions
 
     def _calculate_rewards(self, dones, truncated):
         """
