@@ -138,6 +138,35 @@ class CurriculumCallback(BaseCallback):
         self.episode_rewards = []
         self.episode_wins = []
         self.recent_reward_components = []
+        self.last_rollout_time = None
+        self.last_train_time = None
+
+    def _on_rollout_start(self) -> None:
+        """Called before collecting rollouts."""
+        import time
+        self.last_rollout_time = time.time()
+        if self.verbose:
+            print(f"\n🎮 Collecting rollouts (GPU physics)...", flush=True)
+
+    def _on_rollout_end(self) -> None:
+        """Called after rollouts are collected, before training."""
+        import time
+        if self.last_rollout_time:
+            rollout_duration = time.time() - self.last_rollout_time
+            if self.verbose:
+                print(f"✅ Rollouts collected in {rollout_duration:.2f}s", flush=True)
+
+        self.last_train_time = time.time()
+        if self.verbose:
+            print(f"🧠 Training neural network (CPU)...", flush=True)
+
+    def _on_training_end(self) -> None:
+        """Called after training completes."""
+        import time
+        if self.last_train_time:
+            train_duration = time.time() - self.last_train_time
+            if self.verbose:
+                print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -394,19 +423,21 @@ class CurriculumTrainer:
 
         if self.use_vmap:
             # Level 3/4: Use JAX vmap for GPU-accelerated parallelization
-            # Note: vmap only supports single opponent (uses first opponent from level)
-            opponent_path = level.opponents[0]
-            opponent_func = self.load_opponent(opponent_path)
+            # Now supports multiple opponents distributed across environments!
+            opponent_paths = level.opponents
 
             if self.verbose:
                 print(f"🚀 Creating {self.n_envs} parallel JAX vmap environments...")
-                print(f"   Opponent: {Path(opponent_path).stem}")
-                if len(level.opponents) > 1:
-                    print(f"   Note: Using first opponent only (vmap limitation)")
+                print(f"   Opponents: {len(opponent_paths)} different types")
+                if len(opponent_paths) > 1:
+                    envs_per_opponent = self.n_envs // len(opponent_paths)
+                    print(f"   Distribution: ~{envs_per_opponent} envs per opponent")
+                    for i, path in enumerate(opponent_paths):
+                        print(f"     {i+1}. {Path(path).stem}")
 
             vmap_env = VmapEnvWrapper(
                 n_envs=self.n_envs,
-                opponent_decision_func=opponent_func,
+                opponent_paths=opponent_paths,  # Pass list of paths instead of single func
                 config=WorldConfig(),
                 max_ticks=self.max_ticks,
                 fighter_mass=70.0,

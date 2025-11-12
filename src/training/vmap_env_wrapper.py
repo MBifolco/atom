@@ -56,7 +56,8 @@ class VmapEnvWrapper(gym.Env):
     def __init__(
         self,
         n_envs: int,
-        opponent_decision_func: Callable,
+        opponent_decision_func: Callable = None,
+        opponent_paths: List[str] = None,
         config: WorldConfig = None,
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
@@ -69,7 +70,8 @@ class VmapEnvWrapper(gym.Env):
 
         Args:
             n_envs: Number of parallel environments (recommend 100-500)
-            opponent_decision_func: Opponent decision function
+            opponent_decision_func: Single opponent decision function (legacy)
+            opponent_paths: List of opponent file paths for curriculum training
             config: WorldConfig (uses default if None)
             max_ticks: Max ticks per episode
             fighter_mass: Fighter mass
@@ -79,13 +81,24 @@ class VmapEnvWrapper(gym.Env):
         super().__init__()
 
         self.n_envs = n_envs
-        self.opponent_decide = opponent_decision_func
         self.config = config or WorldConfig()
         self.max_ticks = max_ticks
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self.seed_base = seed
         self.debug = debug
+
+        # Setup multi-opponent system if paths provided
+        if opponent_paths is not None and len(opponent_paths) > 0:
+            from .opponents_jax import create_multi_opponent_func
+            self.opponent_decide = create_multi_opponent_func(opponent_paths, self.config)
+            self.opponent_paths = opponent_paths
+            self.use_multi_opponent = True
+        else:
+            # Legacy: single opponent
+            self.opponent_decide = opponent_decision_func
+            self.opponent_paths = None
+            self.use_multi_opponent = False
 
         # Define observation/action spaces (same as AtomCombatEnv)
         self.observation_space = spaces.Box(
@@ -224,10 +237,17 @@ class VmapEnvWrapper(gym.Env):
         accel = jnp.array(actions[:, 0]) * self.max_accel
         stance_int = jnp.array(actions[:, 1].astype(np.int32))
 
-        # Get opponent actions (for now, random or fixed)
-        # TODO: Call opponent_decide for each env
-        opponent_accel = jnp.zeros(self.n_envs)
-        opponent_stance = jnp.zeros(self.n_envs, dtype=jnp.int32)  # Neutral
+        # Get opponent actions
+        if self.use_multi_opponent:
+            # Call batched opponent decision function (already vmapped)
+            env_indices = jnp.arange(self.n_envs)
+            opponent_actions = self.opponent_decide(self.jax_states, env_indices)
+            opponent_accel = opponent_actions[:, 0]
+            opponent_stance = opponent_actions[:, 1].astype(jnp.int32)
+        else:
+            # Legacy: single opponent (or no opponent)
+            opponent_accel = jnp.zeros(self.n_envs)
+            opponent_stance = jnp.zeros(self.n_envs, dtype=jnp.int32)  # Neutral
 
         # Stack actions
         actions_a = jnp.stack([accel, stance_int], axis=1)
