@@ -146,27 +146,54 @@ class CurriculumCallback(BaseCallback):
         """Called before collecting rollouts."""
         import time
         self.last_rollout_time = time.time()
-        if self.verbose:
+
+        # Initialize rollout counter if not exists
+        if not hasattr(self, 'rollout_count'):
+            self.rollout_count = 0
+        self.rollout_count += 1
+
+        # For SAC: Only log every 50 rollouts to reduce spam
+        # For PPO: Always log (only happens once per iteration)
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            self.rollout_count % 50 == 1
+        )
+
+        if self.verbose and should_log:
             print(f"\n🎮 Collecting rollouts (GPU physics)...", flush=True)
 
     def _on_rollout_end(self) -> None:
         """Called after rollouts are collected, before training."""
         import time
+
+        # Same logging logic as _on_rollout_start
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            self.rollout_count % 50 == 1
+        )
+
         if self.last_rollout_time:
             rollout_duration = time.time() - self.last_rollout_time
-            if self.verbose:
+            if self.verbose and should_log:
                 print(f"✅ Rollouts collected in {rollout_duration:.2f}s", flush=True)
 
         self.last_train_time = time.time()
-        if self.verbose:
+        if self.verbose and should_log:
             print(f"🧠 Training neural network (CPU)...", flush=True)
 
     def _on_training_end(self) -> None:
         """Called after training completes."""
         import time
+
+        # Same logging logic as other methods
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            getattr(self, 'rollout_count', 0) % 50 == 0
+        )
+
         if self.last_train_time:
             train_duration = time.time() - self.last_train_time
-            if self.verbose:
+            if self.verbose and should_log:
                 print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
@@ -477,9 +504,14 @@ class CurriculumTrainer:
     def initialize_model(self):
         """Initialize or load the RL model."""
         if self.algorithm == "ppo":
+            # IMPORTANT: Force CPU for MlpPolicy as GPU is 1.4x slower for simple MLPs
+            # The main speedup comes from JAX physics simulation (77x), not NN training
+            # See: https://github.com/DLR-RM/stable-baselines3/issues/1245
+            actual_device = "cpu" if self.device == "auto" else self.device
+
             # Debug: Print device being used
             if self.verbose:
-                print(f"Initializing PPO with device: {self.device}")
+                print(f"Initializing PPO with device: {actual_device} (forced CPU for MlpPolicy)")
 
             self.model = PPO(
                 "MlpPolicy",
@@ -492,23 +524,33 @@ class CurriculumTrainer:
                 gae_lambda=0.95,
                 clip_range=0.2,
                 max_grad_norm=0.5,  # Gradient clipping to prevent NaN
-                verbose=1 if self.verbose else 0,
+                verbose=2 if self.verbose else 0,  # Set to 2 for detailed NN training logs
                 tensorboard_log=str(self.logs_dir / "tensorboard"),
-                device=self.device
+                device=actual_device
             )
         elif self.algorithm == "sac":
+            # Same CPU optimization for SAC with MlpPolicy
+            actual_device = "cpu" if self.device == "auto" else self.device
+
+            # Debug: Print device being used
+            if self.verbose:
+                print(f"Initializing SAC with device: {actual_device} (forced CPU for MlpPolicy)")
+
             self.model = SAC(
                 "MlpPolicy",
                 self.envs,
                 learning_rate=3e-4,
-                buffer_size=100000,
-                learning_starts=1000,
-                batch_size=256,
-                tau=0.005,
+                buffer_size=50000,      # Smaller buffer for faster initial learning
+                learning_starts=100,    # Start learning much earlier (was 1000)
+                batch_size=64,          # Smaller batch size like PPO (was 256)
+                tau=0.01,               # Faster target network updates (was 0.005)
                 gamma=0.99,
+                ent_coef='auto',        # Auto-tune entropy for exploration
+                target_update_interval=1,  # Update target network every step
+                gradient_steps=1,       # One gradient step per env step
                 verbose=1 if self.verbose else 0,
                 tensorboard_log=str(self.logs_dir / "tensorboard"),
-                device=self.device
+                device=actual_device
             )
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
