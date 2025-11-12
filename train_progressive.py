@@ -380,8 +380,8 @@ Examples:
         "--device",
         type=str,
         choices=["cpu", "cuda", "auto"],
-        default="auto",
-        help="Device to use for training: cpu, cuda (GPU), or auto (default: auto)"
+        default="cuda",
+        help="Device to use for training: cpu, cuda (GPU), or auto (default: cuda for ROCm)"
     )
     parser.add_argument(
         "--use-vmap",

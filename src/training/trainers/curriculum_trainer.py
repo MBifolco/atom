@@ -445,6 +445,10 @@ class CurriculumTrainer:
     def initialize_model(self):
         """Initialize or load the RL model."""
         if self.algorithm == "ppo":
+            # Debug: Print device being used
+            if self.verbose:
+                print(f"Initializing PPO with device: {self.device}")
+
             self.model = PPO(
                 "MlpPolicy",
                 self.envs,
