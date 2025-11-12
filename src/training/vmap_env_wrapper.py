@@ -354,6 +354,14 @@ class VmapEnvWrapper(gym.Env):
         if np.any(reset_mask):
             self._reset_envs(reset_mask)
 
+        # Validate observations - replace any NaN or Inf with zeros to prevent training crashes
+        if np.isnan(obs).any() or np.isinf(obs).any():
+            print(f"⚠️  WARNING: NaN or Inf detected in observations! Clipping...")
+            obs = np.nan_to_num(obs, nan=0.0, posinf=1000.0, neginf=-1000.0)
+
+        # Validate rewards - clip extreme values
+        rewards = np.clip(rewards, -10000, 10000)
+
         return obs, rewards, dones, truncated, infos
 
     def _vmap_step(self, states, actions_a, actions_b):

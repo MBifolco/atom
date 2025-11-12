@@ -43,7 +43,9 @@ def _train_single_fighter_parallel(
     max_ticks: int,
     algorithm: str,
     config_dict: dict,
-    logs_dir: str
+    logs_dir: str,
+    use_vmap: bool = False,
+    n_vmap_envs: int = 250
 ) -> Dict:
     """
     Train a single fighter in a separate process.
@@ -56,12 +58,14 @@ def _train_single_fighter_parallel(
         fighter_mass: Mass of the fighter
         model_path: Path to the fighter's model file
         opponent_data: List of (opponent_name, opponent_mass, opponent_model_path)
-        n_envs: Number of parallel environments
+        n_envs: Number of parallel environments (CPU mode)
         episodes: Number of episodes to train
         max_ticks: Max ticks per episode
         algorithm: "ppo" or "sac"
         config_dict: WorldConfig as dictionary
         logs_dir: Directory for logs
+        use_vmap: Use JAX vmap for GPU acceleration
+        n_vmap_envs: Number of vmap environments (GPU mode)
 
     Returns:
         Dictionary with training statistics
@@ -91,62 +95,83 @@ def _train_single_fighter_parallel(
     else:
         config = WorldConfig(**config_dict)
 
-    # Load opponent models
+    # Load opponent models on CPU to save GPU memory
+    # Opponent inference is fast on CPU (~1-2ms), GPU is reserved for physics
     opponent_models = []
     for opp_name, opp_mass, opp_path in opponent_data:
         if algorithm == "ppo":
-            opp_model = PPO.load(opp_path)
+            opp_model = PPO.load(opp_path, device="cpu")
         else:
-            opp_model = SAC.load(opp_path)
+            opp_model = SAC.load(opp_path, device="cpu")
         opponent_models.append((opp_name, opp_mass, opp_model))
 
-    # Create decision function factory for opponents
-    def create_opponent_decide_func(model):
-        def decide(snapshot):
-            obs = np.array([
-                snapshot["you"]["position"],
-                snapshot["you"]["velocity"],
-                snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
-                snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
-                snapshot["opponent"]["distance"],
-                snapshot["opponent"]["velocity"],
-                snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
-                snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
-                snapshot["arena"]["width"]
-            ], dtype=np.float32)
+    # Create environments based on mode
+    if use_vmap:
+        # GPU mode: Use VmapEnvWrapper with opponent models
+        from src.training.trainers.curriculum_trainer import VmapEnvAdapter
+        from src.training.vmap_env_wrapper import VmapEnvWrapper
 
-            action, _ = model.predict(obs, deterministic=False)
+        # Extract just the models for vmap
+        opp_models_only = [opp_model for _, _, opp_model in opponent_models]
 
-            acceleration = float(action[0]) * 4.5
-            stance_idx = int(action[1])
-            stances = ["neutral", "extended", "retracted", "defending"]
-            stance = stances[min(stance_idx, 3)]
+        vmap_env = VmapEnvWrapper(
+            n_envs=n_vmap_envs,
+            opponent_models=opp_models_only,
+            config=config,
+            max_ticks=max_ticks,
+            fighter_mass=fighter_mass,
+            opponent_mass=fighter_mass,  # Assume same mass for simplicity
+            seed=42
+        )
 
-            return {"acceleration": acceleration, "stance": stance}
+        vec_env = VmapEnvAdapter(vmap_env)
+    else:
+        # CPU mode: Use DummyVecEnv with decision functions
+        def create_opponent_decide_func(model):
+            def decide(snapshot):
+                obs = np.array([
+                    snapshot["you"]["position"],
+                    snapshot["you"]["velocity"],
+                    snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
+                    snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
+                    snapshot["opponent"]["distance"],
+                    snapshot["opponent"]["velocity"],
+                    snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
+                    snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
+                    snapshot["arena"]["width"]
+                ], dtype=np.float32)
 
-        return decide
+                action, _ = model.predict(obs, deterministic=False)
 
-    # Create environments
-    env_fns = []
-    for i in range(n_envs):
-        opp_name, opp_mass, opp_model = opponent_models[i % len(opponent_models)]
+                acceleration = float(action[0]) * 4.5
+                stance_idx = int(action[1])
+                stances = ["neutral", "extended", "retracted", "defending"]
+                stance = stances[min(stance_idx, 3)]
 
-        # Use closure with default arguments to capture values
-        def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass):
-            return Monitor(
-                AtomCombatEnv(
-                    opponent_decision_func=create_opponent_decide_func(opp_m),
-                    config=config,
-                    max_ticks=max_ticks,
-                    fighter_mass=f_mass,
-                    opponent_mass=o_mass
-                ),
-                str(Path(logs_dir) / f"{fighter_name}_env_{i}")
-            )
+                return {"acceleration": acceleration, "stance": stance}
 
-        env_fns.append(make_env)
+            return decide
 
-    vec_env = DummyVecEnv(env_fns)
+        env_fns = []
+        for i in range(n_envs):
+            opp_name, opp_mass, opp_model = opponent_models[i % len(opponent_models)]
+
+            # Use closure with default arguments to capture values
+            def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass):
+                return Monitor(
+                    AtomCombatEnv(
+                        opponent_decision_func=create_opponent_decide_func(opp_m),
+                        config=config,
+                        max_ticks=max_ticks,
+                        fighter_mass=f_mass,
+                        opponent_mass=o_mass
+                    ),
+                    str(Path(logs_dir) / f"{fighter_name}_env_{i}")
+                )
+
+            env_fns.append(make_env)
+
+        vec_env = DummyVecEnv(env_fns)
 
     # Load fighter model
     if algorithm == "ppo":
@@ -257,7 +282,9 @@ class PopulationTrainer:
                  mass_range: Tuple[float, float] = (70.0, 70.0),
                  verbose: bool = True,
                  export_threshold: float = 0.5,
-                 n_parallel_fighters: int = None):
+                 n_parallel_fighters: int = None,
+                 use_vmap: bool = False,
+                 n_vmap_envs: int = 250):
         """
         Initialize the population trainer.
 
@@ -266,12 +293,14 @@ class PopulationTrainer:
             config: World configuration
             algorithm: "ppo" or "sac"
             output_dir: Directory for saving models and logs
-            n_envs_per_fighter: Parallel environments per fighter
+            n_envs_per_fighter: Parallel environments per fighter (CPU mode)
             max_ticks: Maximum ticks per episode
             mass_range: Range of masses for fighter variety
             verbose: Whether to print progress
             export_threshold: Minimum win rate to export fighters to AIs directory
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
+            use_vmap: Use JAX vmap for GPU-accelerated training (77x speedup)
+            n_vmap_envs: Number of vmap environments for GPU mode (default: 250)
         """
         self.population_size = population_size
         self.config = config or WorldConfig()
@@ -282,6 +311,8 @@ class PopulationTrainer:
         self.mass_range = mass_range
         self.verbose = verbose
         self.export_threshold = export_threshold
+        self.use_vmap = use_vmap
+        self.n_vmap_envs = n_vmap_envs
 
         # Parallel training configuration
         if n_parallel_fighters is None:
@@ -331,6 +362,10 @@ class PopulationTrainer:
         self.logger.info(f"Algorithm: {self.algorithm}")
         self.logger.info(f"Mass Range: {self.mass_range}")
         self.logger.info(f"Parallel Fighters: {self.n_parallel_fighters}")
+        if self.use_vmap:
+            self.logger.info(f"GPU Acceleration: ENABLED (vmap with {self.n_vmap_envs} envs)")
+        else:
+            self.logger.info(f"GPU Acceleration: DISABLED (CPU with {self.n_envs_per_fighter} envs)")
         self.logger.info("="*80)
 
     def _create_fighter_name(self, index: int, generation: int = 0) -> str:
@@ -580,7 +615,9 @@ class PopulationTrainer:
                 self.max_ticks,
                 self.algorithm,
                 config_dict,
-                str(self.logs_dir)
+                str(self.logs_dir),
+                self.use_vmap,
+                self.n_vmap_envs
             )
             training_tasks.append(task)
 

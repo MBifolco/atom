@@ -83,12 +83,13 @@ class VmapEnvAdapter(VecEnv):
     def env_method(self, method_name, *method_args, indices=None, **method_kwargs):
         """Override to handle set_opponent calls gracefully."""
         if method_name == "set_opponent":
-            # vmap doesn't support dynamic opponent switching - just log and skip
-            if hasattr(self, '_warned_about_opponent_switch'):
-                return
-            print("⚠️  Note: VmapEnvWrapper doesn't support dynamic opponent switching during training.")
-            print("    Using the initial opponent for all episodes. This is a known limitation.")
-            self._warned_about_opponent_switch = True
+            # This should no longer happen since we recreate VmapEnvWrapper for new levels
+            # If you see this warning, it means the curriculum trainer isn't recreating envs properly
+            if not hasattr(self, '_warned_about_opponent_switch'):
+                print("⚠️  WARNING: Attempted to call set_opponent() on VmapEnvWrapper.")
+                print("    This should not happen - vmap environments should be recreated for new levels.")
+                print("    If you see this, there's a bug in curriculum_trainer.py:advance_level()")
+                self._warned_about_opponent_switch = True
             return
         # For other methods, try to call them (though vmap doesn't support much)
         return [None] * self.num_envs
@@ -278,9 +279,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/stationary_defending.py"),
                 str(test_dummy_dir / "atomic/stationary_retracted.py"),
             ],
-            min_episodes=100,
+            min_episodes=200,
             graduation_win_rate=0.9,  # Should easily beat stationary targets
-            graduation_episodes=10,
+            graduation_episodes=50,  # Increased from 10 to prevent lucky streaks
             description="Learn basic attacking and stance usage against stationary targets"
         ))
 
@@ -296,9 +297,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/circle_left.py"),
                 str(test_dummy_dir / "atomic/circle_right.py"),
             ],
-            min_episodes=200,
-            graduation_win_rate=0.8,
-            graduation_episodes=20,
+            min_episodes=300,
+            graduation_win_rate=0.88,  # High standards maintained
+            graduation_episodes=50,
             description="Learn pursuit, evasion, and predictive movement"
         ))
 
@@ -317,9 +318,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/wall_hugger_left.py"),
                 str(test_dummy_dir / "atomic/wall_hugger_right.py"),
             ],
-            min_episodes=300,
-            graduation_win_rate=0.75,
-            graduation_episodes=30,
+            min_episodes=400,
+            graduation_win_rate=0.85,  # Maintained high standards
+            graduation_episodes=50,
             description="Learn spacing control, resource management, and wall combat"
         ))
 
@@ -335,9 +336,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "behavioral/wall_fighter.py"),
                 str(test_dummy_dir / "behavioral/adaptive_fighter.py"),
             ],
-            min_episodes=400,
-            graduation_win_rate=0.6,
-            graduation_episodes=40,
+            min_episodes=500,
+            graduation_win_rate=0.83,  # Staying near 85% standards
+            graduation_episodes=50,
             description="Learn complex strategies and counter-strategies"
         ))
 
@@ -354,8 +355,8 @@ class CurriculumTrainer:
                 str(example_dir / "dodger.py"),
                 str(example_dir / "berserker.py"),
             ],
-            min_episodes=500,
-            graduation_win_rate=0.5,  # 50% against expert fighters is good
+            min_episodes=600,
+            graduation_win_rate=0.80,  # Excellence required even at final level
             graduation_episodes=50,
             description="Master combat against diverse expert strategies"
         ))
@@ -490,6 +491,7 @@ class CurriculumTrainer:
                 gamma=0.99,
                 gae_lambda=0.95,
                 clip_range=0.2,
+                max_grad_norm=0.5,  # Gradient clipping to prevent NaN
                 verbose=1 if self.verbose else 0,
                 tensorboard_log=str(self.logs_dir / "tensorboard"),
                 device=self.device
@@ -615,7 +617,31 @@ class CurriculumTrainer:
             return False
 
         recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-        return recent_win_rate >= level.graduation_win_rate
+        recent_wins = sum(self.progress.recent_episodes)
+        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+
+        # Require BOTH recent AND overall performance to be good
+        # Overall must be within 10% of graduation threshold to prevent lucky streaks
+        overall_threshold = max(0.5, level.graduation_win_rate - 0.15)  # At least 50%, or 15% below requirement
+
+        recent_passed = recent_win_rate >= level.graduation_win_rate
+        overall_passed = overall_win_rate >= overall_threshold
+
+        # Debug logging for graduation decisions
+        will_graduate = recent_passed and overall_passed
+
+        # Only log if graduating OR every 100 episodes when recent passes (to reduce spam)
+        should_log = will_graduate or (recent_passed and self.progress.episodes_at_level % 100 == 0)
+
+        if should_log:
+            status = "✅ PASSED" if will_graduate else "❌ FAILED (overall too low)"
+            self.logger.info(f"🎓 GRADUATION CHECK {status}")
+            self.logger.info(f"   Recent wins: {recent_wins}/{len(self.progress.recent_episodes)}")
+            self.logger.info(f"   Recent WR: {recent_win_rate:.2%} (need {level.graduation_win_rate:.1%}) {'✓' if recent_passed else '✗'}")
+            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {overall_threshold:.1%}) {'✓' if overall_passed else '✗'}")
+            self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
+
+        return will_graduate
 
     def advance_level(self):
         """Advance to the next curriculum level."""
@@ -636,6 +662,12 @@ class CurriculumTrainer:
         self.progress.wins_at_level = 0
         self.progress.recent_episodes = []
 
+        # Log the reset for debugging
+        self.logger.info("📊 METRICS RESET FOR NEW LEVEL:")
+        self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
+        self.logger.info(f"   Wins at level: {self.progress.wins_at_level}")
+        self.logger.info(f"   Recent episodes buffer: {len(self.progress.recent_episodes)} episodes")
+
         # Check if completed curriculum
         if self.progress.current_level >= len(self.curriculum):
             self.logger.info("🎉 CURRICULUM COMPLETED! 🎉")
@@ -648,15 +680,29 @@ class CurriculumTrainer:
             self.logger.info(f"Opponents: {len(new_level.opponents)} different types")
             self.logger.info(f"Graduation Requirements: {new_level.graduation_win_rate:.0%} win rate over {new_level.graduation_episodes} episodes")
 
-            # Switch opponents in existing environments (avoids closing/recreating VecEnv)
-            # This prevents Monitor file handle issues during level transitions
-            for env_idx in range(self.n_envs):
-                opponent_idx = env_idx % len(new_level.opponents)
-                opponent_path = new_level.opponents[opponent_idx]
-                opponent_func = self.load_opponent(opponent_path)
+            if self.use_vmap:
+                # For vmap: Create new VmapEnvWrapper with new opponents
+                # We can't dynamically switch opponents in vmap, so recreate the wrapper
+                self.logger.info("📦 Recreating vmap environments for new level...")
 
-                # Use env_method to call set_opponent() on each environment
-                self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
+                # Create new environment
+                self.envs = self.create_envs_for_level(new_level)
+
+                # Update model's environment reference
+                self.model.set_env(self.envs)
+
+                # Note: Old environment will be garbage collected automatically
+                # Don't manually delete attributes as the model may still hold references
+            else:
+                # For CPU: Switch opponents in existing environments (avoids closing/recreating VecEnv)
+                # This prevents Monitor file handle issues during level transitions
+                for env_idx in range(self.n_envs):
+                    opponent_idx = env_idx % len(new_level.opponents)
+                    opponent_path = new_level.opponents[opponent_idx]
+                    opponent_func = self.load_opponent(opponent_path)
+
+                    # Use env_method to call set_opponent() on each environment
+                    self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""

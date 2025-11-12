@@ -168,13 +168,17 @@ class ProgressiveTrainer:
             print(f"Creating population of {population_size} fighters from curriculum graduate...")
 
         # Create population trainer
+        # NOTE: Population training uses GPU with reduced envs to fit memory
+        # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
         self.population_trainer = PopulationTrainer(
             population_size=population_size,
             algorithm=self.algorithm,
             output_dir=str(self.population_dir),
             max_ticks=self.max_ticks,
             verbose=self.verbose,
-            n_parallel_fighters=self.n_parallel_fighters
+            n_parallel_fighters=self.n_parallel_fighters,
+            use_vmap=self.use_vmap,  # Use GPU if enabled
+            n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
         )
 
         # Initialize population with the curriculum model as base
@@ -212,13 +216,17 @@ class ProgressiveTrainer:
 
         if not self.population_trainer:
             # Create population trainer if not already created
+            # NOTE: Population training uses GPU with reduced envs to fit memory
+            # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
             self.population_trainer = PopulationTrainer(
                 population_size=population_size,
                 algorithm=self.algorithm,
                 output_dir=str(self.population_dir),
                 max_ticks=self.max_ticks,
                 verbose=self.verbose,
-                n_parallel_fighters=self.n_parallel_fighters
+                n_parallel_fighters=self.n_parallel_fighters,
+                use_vmap=self.use_vmap,  # Use GPU if enabled
+                n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
             )
 
         # Check if we have a base model from curriculum training
