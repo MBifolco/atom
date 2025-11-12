@@ -191,7 +191,8 @@ class CurriculumTrainer:
                  max_ticks: int = 250,
                  verbose: bool = True,
                  device: str = "auto",
-                 use_vmap: bool = False):
+                 use_vmap: bool = False,
+                 debug: bool = False):
         """
         Initialize the curriculum trainer.
 
@@ -211,6 +212,7 @@ class CurriculumTrainer:
         self.verbose = verbose
         self.device = device
         self.use_vmap = use_vmap
+        self.debug = debug
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -409,7 +411,8 @@ class CurriculumTrainer:
                 max_ticks=self.max_ticks,
                 fighter_mass=70.0,
                 opponent_mass=70.0,
-                seed=42
+                seed=42,
+                debug=self.debug
             )
 
             # Wrap with adapter for SBX compatibility

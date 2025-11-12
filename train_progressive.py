@@ -55,7 +55,8 @@ class ProgressiveTrainer:
                  n_parallel_fighters: int = None,
                  max_ticks: int = 250,
                  device: str = "auto",
-                 use_vmap: bool = False):
+                 use_vmap: bool = False,
+                 debug: bool = False):
         """
         Initialize the progressive trainer.
 
@@ -75,6 +76,7 @@ class ProgressiveTrainer:
         self.max_ticks = max_ticks
         self.device = device
         self.use_vmap = use_vmap
+        self.debug = debug
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -129,7 +131,8 @@ class ProgressiveTrainer:
             max_ticks=self.max_ticks,
             verbose=self.verbose,
             device=self.device,
-            use_vmap=self.use_vmap
+            use_vmap=self.use_vmap,
+            debug=self.debug
         )
 
         # Train through curriculum
@@ -385,6 +388,11 @@ Examples:
         action="store_true",
         help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging to see detailed fight information"
+    )
 
     args = parser.parse_args()
 
@@ -403,7 +411,8 @@ Examples:
         n_parallel_fighters=args.cores,
         max_ticks=args.max_ticks,
         device=args.device,
-        use_vmap=args.use_vmap
+        use_vmap=args.use_vmap,
+        debug=args.debug
     )
 
     # Run based on mode

@@ -43,7 +43,7 @@ class AtomCombatEnv(gym.Env):
         config: WorldConfig = None,
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
-        opponent_mass: float = 75.0,
+        opponent_mass: float = 70.0,
         seed: int = None,
         use_jax: bool = False,
         use_jax_jit: bool = False
