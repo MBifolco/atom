@@ -194,11 +194,19 @@ def _train_single_fighter_parallel(
     # Track statistics
     episode_count = 0
     recent_rewards = []
+    last_report_episode = 0
 
-    # Simple callback to track progress
-    class SimpleCallback(BaseCallback):
+    import sys
+    import time
+
+    start_time = time.time()
+    last_update_time = start_time
+
+    # Enhanced callback with progress reporting
+    class ProgressCallback(BaseCallback):
         def _on_step(self) -> bool:
-            nonlocal episode_count, recent_rewards
+            nonlocal episode_count, recent_rewards, last_report_episode, last_update_time
+
             for info in self.locals.get("infos", []):
                 if "episode" in info:
                     episode_count += 1
@@ -206,21 +214,45 @@ def _train_single_fighter_parallel(
                     recent_rewards.append(reward)
                     if len(recent_rewards) > 100:
                         recent_rewards.pop(0)
+
+                    # Report every 25 episodes or every 10 seconds
+                    now = time.time()
+                    if episode_count - last_report_episode >= 25 or now - last_update_time >= 10:
+                        elapsed = now - start_time
+                        avg_reward = float(np.mean(recent_rewards)) if recent_rewards else 0.0
+                        eps_per_sec = episode_count / elapsed if elapsed > 0 else 0
+                        eta_sec = (episodes - episode_count) / eps_per_sec if eps_per_sec > 0 else 0
+
+                        print(f"      [{fighter_name}] Episodes: {episode_count}/{episodes} "
+                              f"({episode_count*100//episodes}%) | "
+                              f"Reward: {avg_reward:.1f} | "
+                              f"ETA: {int(eta_sec)}s", flush=True)
+
+                        last_report_episode = episode_count
+                        last_update_time = now
+
             return True
 
-    callback = SimpleCallback()
+    callback = ProgressCallback()
 
     # Calculate timesteps
     avg_ticks_per_episode = 100
     total_timesteps = episodes * avg_ticks_per_episode
 
-    # Train
+    print(f"    [{fighter_name}] 🎮 Starting episode collection (target: {episodes} episodes)...", flush=True)
+
+    # Train - this includes both rollout collection AND neural network updates
+    # PPO does rollouts in batches, then trains NN multiple epochs on that data
     fighter_model.learn(
         total_timesteps=total_timesteps,
         callback=callback,
         progress_bar=False,
         reset_num_timesteps=True  # Reset to show only current session's timesteps
     )
+
+    training_time = time.time() - start_time
+    print(f"    [{fighter_name}] ✅ Training complete in {training_time:.1f}s "
+          f"({episode_count} episodes, {episode_count/training_time:.1f} eps/sec)", flush=True)
 
     # Save updated model
     fighter_model.save(model_path)
@@ -651,19 +683,25 @@ class PopulationTrainer:
         if self.verbose:
             print(f"  Training {len(training_tasks)} fighters in parallel on {self.n_parallel_fighters} cores...")
             print(f"  Episodes per fighter: {episodes_per_fighter}")
+            print(f"  Note: PPO alternates between episode collection (physics) and NN training")
             print()
 
         # Set multiprocessing start method to 'spawn' to avoid TensorFlow/PyTorch issues
         import multiprocessing as mp
         mp_context = mp.get_context('spawn')
 
+        import time
+        training_start_time = time.time()
+
         with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
             # Submit all tasks
             future_to_fighter = {}
+            future_to_start_time = {}
             for task in training_tasks:
                 future = executor.submit(_train_single_fighter_parallel, *task)
                 fighter_name = task[0]
                 future_to_fighter[future] = fighter_name
+                future_to_start_time[future] = time.time()
                 if self.verbose:
                     print(f"    ⏳ Starting: {fighter_name}")
 
@@ -672,18 +710,32 @@ class PopulationTrainer:
             total_fighters = len(future_to_fighter)
 
             if self.verbose:
-                print()  # Blank line for readability
+                print()
+                print(f"  ⏱️  Training in progress (started {total_fighters} fighters)...")
+                print()
 
             for future in as_completed(future_to_fighter):
                 fighter_name = future_to_fighter[future]
                 completed_count += 1
+                elapsed = time.time() - future_to_start_time[future]
 
                 try:
                     result = future.result(timeout=300)  # 5 minute timeout per fighter
                     results.append(result)
                     if self.verbose:
                         print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
-                              f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}")
+                              f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
+                              f"time: {elapsed:.1f}s")
+
+                        # Show remaining fighters every 2 completions
+                        if completed_count % 2 == 0 and completed_count < total_fighters:
+                            remaining = total_fighters - completed_count
+                            overall_elapsed = time.time() - training_start_time
+                            avg_time = overall_elapsed / completed_count
+                            eta = avg_time * remaining
+                            print(f"       💭 {remaining} fighters still training... (ETA: {int(eta)}s)")
+                            print()
+
                 except TimeoutError:
                     self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
                     if self.verbose:
@@ -714,9 +766,11 @@ class PopulationTrainer:
                 fighter.training_episodes += episodes_per_fighter
 
         # Print training summary
+        total_training_time = time.time() - training_start_time
         if self.verbose and results:
             print()
             print("  📊 Training Summary:")
+            print(f"     Total time: {total_training_time:.1f}s ({total_training_time/60:.1f} min)")
             successful = [r for r in results if 'mean_reward' in r]
             if successful:
                 mean_rewards = [r['mean_reward'] for r in successful]
@@ -724,6 +778,10 @@ class PopulationTrainer:
                 print(f"     Best reward: {max(mean_rewards):.1f}")
                 print(f"     Worst reward: {min(mean_rewards):.1f}")
             print(f"     Success rate: {len(successful)}/{len(results)}")
+            if successful:
+                total_episodes = sum(r.get('episodes', 0) for r in successful)
+                print(f"     Total episodes: {total_episodes}")
+                print(f"     Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
 
         # Clean up temp files
         for temp_path in temp_model_paths.values():
