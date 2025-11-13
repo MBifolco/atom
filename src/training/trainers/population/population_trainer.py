@@ -186,16 +186,6 @@ def _train_single_fighter_parallel(
     # Load fighter model
     if algorithm == "ppo":
         fighter_model = PPO.load(model_path, env=vec_env)
-
-        # Fix n_steps for vectorized environments
-        # If we have 45 parallel envs and n_steps=2048, we'd collect 92k steps per rollout
-        # Adjust n_steps to keep rollouts reasonable
-        if use_vmap and hasattr(vec_env, 'num_envs'):
-            # Target ~2048 total steps per rollout, so divide by num_envs
-            fighter_model.n_steps = max(128, 2048 // vec_env.num_envs)
-            if vec_env.num_envs > 1:
-                print(f"    [{fighter_name}] Adjusted n_steps to {fighter_model.n_steps} "
-                      f"(was 2048, divided by {vec_env.num_envs} parallel envs)", flush=True)
     else:
         fighter_model = SAC.load(model_path, env=vec_env)
 
