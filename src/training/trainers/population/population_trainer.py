@@ -185,6 +185,12 @@ def _train_single_fighter_parallel(
     else:
         fighter_model = SAC.load(model_path, env=vec_env)
 
+    # Disable tensorboard logging for population training to avoid confusion
+    # (models loaded from curriculum keep their old tensorboard paths)
+    fighter_model.tensorboard_log = None
+    # Also disable verbose output to prevent rollout stats in stdout
+    fighter_model.verbose = 0
+
     # Track statistics
     episode_count = 0
     recent_rewards = []
@@ -213,7 +219,7 @@ def _train_single_fighter_parallel(
         total_timesteps=total_timesteps,
         callback=callback,
         progress_bar=False,
-        reset_num_timesteps=False
+        reset_num_timesteps=True  # Reset to show only current session's timesteps
     )
 
     # Save updated model
