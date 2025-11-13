@@ -133,8 +133,8 @@ def resume_population_training(
     population_size: int = 8,
     episodes_per_gen: int = 2000,
     n_envs: int = 45,
-    device: str = "auto",
     use_vmap: bool = False,
+    n_parallel_fighters: int = None,
     output_dir: str = None
 ):
     """Resume or continue population training from a checkpoint."""
@@ -207,6 +207,7 @@ def resume_population_training(
         output_dir=output_dir / "population",
         use_vmap=use_vmap,
         n_vmap_envs=n_envs if use_vmap else 250,  # Use detected or specified vmap envs
+        n_parallel_fighters=n_parallel_fighters,  # None = auto (2 for GPU, cpu_count-1 for CPU)
         verbose=True
     )
 
@@ -304,20 +305,20 @@ Examples:
         "--n-envs",
         type=int,
         default=45,
-        help="Number of parallel environments (default: 45)"
-    )
-
-    parser.add_argument(
-        "--device",
-        choices=["cpu", "cuda", "auto"],
-        default="auto",
-        help="Device for training (default: auto)"
+        help="Number of parallel environments / vmap batch size (default: 45)"
     )
 
     parser.add_argument(
         "--use-vmap",
         action="store_true",
         help="Use JAX vmap for GPU acceleration"
+    )
+
+    parser.add_argument(
+        "--n-parallel-fighters",
+        type=int,
+        default=None,
+        help="Number of fighters to train in parallel (default: auto - 2 for GPU, cpu_count-1 for CPU)"
     )
 
     parser.add_argument(
@@ -354,8 +355,8 @@ Examples:
         population_size=args.population,
         episodes_per_gen=args.episodes_per_gen,
         n_envs=args.n_envs,
-        device=args.device,
         use_vmap=args.use_vmap,
+        n_parallel_fighters=args.n_parallel_fighters,
         output_dir=args.output_dir
     )
 

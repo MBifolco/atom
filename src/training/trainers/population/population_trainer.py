@@ -329,9 +329,13 @@ class PopulationTrainer:
                 if verbose:
                     print(f"⚠️  GPU mode: Automatically limiting parallel fighters to {n_parallel_fighters}")
                     print(f"   (prevents GPU out-of-memory errors)")
+                    print(f"   💡 Tip: If GPU memory usage is low (<50%), try --n-parallel-fighters 4")
             else:
                 # CPU mode: Use more parallelism
                 n_parallel_fighters = max(1, multiprocessing.cpu_count() - 1)
+        elif use_vmap and verbose:
+            print(f"🚀 GPU mode: Using {n_parallel_fighters} parallel fighters")
+
         self.n_parallel_fighters = n_parallel_fighters
 
         # Create output directories
