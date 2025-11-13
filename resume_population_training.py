@@ -52,8 +52,14 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
         print(f"  Loading fighter: {fighter_name}")
 
         # Create a dummy environment for loading
-        from src.envs.atom_fight_env import AtomFightEnv
-        env = AtomFightEnv()
+        from src.training.gym_env import AtomCombatEnv
+        from stable_baselines3.common.vec_env import DummyVecEnv
+        from stable_baselines3.common.monitor import Monitor
+
+        env = DummyVecEnv([lambda: Monitor(AtomCombatEnv(
+            opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"},
+            max_ticks=250
+        ))])
 
         # Load the model
         if trainer.algorithm == "ppo":
@@ -62,13 +68,13 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
             model = SAC.load(model_file, env=env)
 
         # Create fighter object
-        from src.training.trainers.population.population_trainer import Fighter
-        fighter = Fighter(
+        from src.training.trainers.population.population_trainer import PopulationFighter
+        fighter = PopulationFighter(
             name=fighter_name,
             model=model,
             generation=generation,
-            parent=None,  # Parent info lost, but not critical
-            mass=100,  # Default mass
+            lineage=f"G{generation}",  # Lineage from generation
+            mass=70.0,  # Default mass
             last_checkpoint=str(model_file)
         )
 
