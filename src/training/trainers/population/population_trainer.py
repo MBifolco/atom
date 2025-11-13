@@ -1076,6 +1076,8 @@ class PopulationTrainer:
         dummy_input = torch.zeros(1, 9, dtype=torch.float32)
 
         # Export to ONNX
+        # Note: Using opset 17 instead of 12 because PyTorch 2.x requires opset 17+
+        # Modern browsers and onnxruntime support opset 17
         torch.onnx.export(
             policy,
             dummy_input,
@@ -1083,7 +1085,7 @@ class PopulationTrainer:
             input_names=["observation"],
             output_names=["action"],
             dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
-            opset_version=12
+            opset_version=17
         )
 
     def _create_fighter_wrapper(self, fighter: PopulationFighter, output_path: Path, onnx_filename: str) -> None:
