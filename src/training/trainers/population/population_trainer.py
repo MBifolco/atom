@@ -108,9 +108,13 @@ def _train_single_fighter_parallel(
     # Create environments based on mode
     if use_vmap:
         # GPU mode: Configure JAX memory to prevent OOM
+        # Note: This is set PER SUBPROCESS, so divide by expected parallel processes
         import os
         os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.4'  # Use max 40% of GPU memory
+        # Reduce memory fraction for parallel training - each subprocess gets a fraction
+        # With 4 parallel fighters: 0.2/fighter = 80% total GPU usage (safe)
+        # With 2 parallel fighters: 0.35/fighter = 70% total GPU usage
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.2'  # Conservative for multiple processes
         os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
 
         # GPU mode: Use VmapEnvWrapper with opponent models
@@ -756,9 +760,15 @@ class PopulationTrainer:
                     if self.verbose:
                         print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
                 except Exception as e:
-                    self.logger.error(f"Fighter {fighter_name} training failed: {e}")
+                    import traceback
+                    error_msg = str(e) if str(e) else repr(e)
+                    tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
                     if self.verbose:
-                        print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {e}")
+                        if not error_msg or error_msg == "":
+                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
+                        else:
+                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
 
         # Reload updated models back into fighters
         for fighter, _ in fighter_opponent_pairs:
