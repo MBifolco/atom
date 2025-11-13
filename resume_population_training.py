@@ -134,6 +134,7 @@ def resume_population_training(
     episodes_per_gen: int = 2000,
     n_envs: int = 45,
     use_vmap: bool = False,
+    force_cpu: bool = False,
     n_parallel_fighters: int = None,
     output_dir: str = None
 ):
@@ -142,8 +143,19 @@ def resume_population_training(
     # Detect original training configuration
     original_use_vmap, original_n_vmap_envs = detect_original_gpu_mode(checkpoint_dir)
 
-    # Warn if there's a mismatch in GPU mode
-    if original_use_vmap and not use_vmap:
+    # Handle force_cpu override
+    if force_cpu:
+        print("\n" + "="*80)
+        print("🚫 FORCING CPU MODE (--force-cpu flag)")
+        print("="*80)
+        if original_use_vmap:
+            print(f"Original training used GPU (vmap with {original_n_vmap_envs} envs)")
+            print("Overriding to CPU mode - this will be ~77x slower!")
+        use_vmap = False
+        print("="*80 + "\n")
+
+    # Warn if there's a mismatch in GPU mode (but only if not force_cpu)
+    elif original_use_vmap and not use_vmap:
         print("\n" + "="*80)
         print("⚠️  WARNING: GPU MODE MISMATCH DETECTED!")
         print("="*80)
@@ -315,6 +327,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--force-cpu",
+        action="store_true",
+        help="Force CPU mode even if checkpoint was trained with GPU (disables auto-detection)"
+    )
+
+    parser.add_argument(
         "--n-parallel-fighters",
         type=int,
         default=None,
@@ -356,6 +374,7 @@ Examples:
         episodes_per_gen=args.episodes_per_gen,
         n_envs=args.n_envs,
         use_vmap=args.use_vmap,
+        force_cpu=args.force_cpu,
         n_parallel_fighters=args.n_parallel_fighters,
         output_dir=args.output_dir
     )
