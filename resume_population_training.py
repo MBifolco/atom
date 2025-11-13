@@ -29,6 +29,39 @@ from src.training.trainers.population.population_trainer import PopulationTraine
 from stable_baselines3 import PPO, SAC
 
 
+def detect_original_gpu_mode(checkpoint_dir: Path) -> tuple[bool, int]:
+    """Detect if original training used GPU/vmap by checking log files.
+
+    Returns:
+        (use_vmap, n_vmap_envs): True if GPU was used, and number of vmap envs
+    """
+    # Check population training log
+    log_files = list((checkpoint_dir / "population" / "logs").glob("*.log"))
+
+    if not log_files:
+        return False, 0
+
+    # Read the most recent log file
+    log_file = sorted(log_files)[-1]
+
+    try:
+        with open(log_file, 'r') as f:
+            for line in f:
+                if "GPU Acceleration: ENABLED" in line:
+                    # Extract vmap env count from line like "GPU Acceleration: ENABLED (vmap with 45 envs)"
+                    import re
+                    match = re.search(r'vmap with (\d+) envs', line)
+                    n_envs = int(match.group(1)) if match else 250
+                    return True, n_envs
+                elif "GPU Acceleration: DISABLED" in line or "Parallel Fighters:" in line:
+                    # If we see parallel fighters line without GPU acceleration, it's CPU mode
+                    continue
+    except Exception as e:
+        print(f"Warning: Could not read log file {log_file}: {e}")
+
+    return False, 0
+
+
 def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: Path, generation: int):
     """Load a population from a saved generation checkpoint."""
 
@@ -106,6 +139,32 @@ def resume_population_training(
 ):
     """Resume or continue population training from a checkpoint."""
 
+    # Detect original training configuration
+    original_use_vmap, original_n_vmap_envs = detect_original_gpu_mode(checkpoint_dir)
+
+    # Warn if there's a mismatch in GPU mode
+    if original_use_vmap and not use_vmap:
+        print("\n" + "="*80)
+        print("⚠️  WARNING: GPU MODE MISMATCH DETECTED!")
+        print("="*80)
+        print(f"Original training used GPU acceleration (vmap with {original_n_vmap_envs} envs)")
+        print("Current settings: CPU mode (no --use-vmap flag)")
+        print("\nThis will be MUCH SLOWER (~77x slower)!")
+        print("\nTo resume with GPU acceleration, add --use-vmap flag:")
+        print(f"  python resume_population_training.py --checkpoint-dir {checkpoint_dir} \\")
+        print(f"         --start-gen {start_generation} --total-gens {total_generations} --use-vmap")
+        print("\nAuto-enabling GPU mode to match original training...")
+        print("="*80 + "\n")
+        use_vmap = True
+        if original_n_vmap_envs > 0:
+            n_envs = original_n_vmap_envs
+    elif not original_use_vmap and use_vmap:
+        print("\n" + "="*80)
+        print("ℹ️  INFO: Original training used CPU mode, but --use-vmap was specified")
+        print("="*80)
+        print("Continuing with GPU mode as requested (this may give different results)")
+        print("="*80 + "\n")
+
     # Create output directory
     if output_dir is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -137,6 +196,9 @@ def resume_population_training(
     print(f"  Episodes per generation: {episodes_per_gen}")
     print(f"  Starting from generation: {start_generation}")
     print(f"  Training until generation: {total_generations}")
+    print(f"  GPU acceleration: {'ENABLED' if use_vmap else 'DISABLED'}")
+    if use_vmap:
+        print(f"  Vmap environments: {n_envs}")
 
     trainer = PopulationTrainer(
         population_size=population_size,
@@ -144,7 +206,7 @@ def resume_population_training(
         n_envs_per_fighter=n_envs if not use_vmap else 1,  # vmap handles parallelization differently
         output_dir=output_dir / "population",
         use_vmap=use_vmap,
-        n_vmap_envs=250,  # Number of vmap environments for GPU mode
+        n_vmap_envs=n_envs if use_vmap else 250,  # Use detected or specified vmap envs
         verbose=True
     )
 
