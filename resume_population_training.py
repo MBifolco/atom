@@ -25,8 +25,8 @@ import os
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent))
 
+from train_progressive import ProgressiveTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
-from stable_baselines3 import PPO, SAC
 
 
 def detect_original_gpu_mode(checkpoint_dir: Path) -> tuple[bool, int]:
@@ -138,7 +138,10 @@ def resume_population_training(
     n_parallel_fighters: int = None,
     output_dir: str = None
 ):
-    """Resume or continue population training from a checkpoint."""
+    """Resume or continue population training from a checkpoint.
+
+    Uses ProgressiveTrainer to ensure same code paths as train_progressive.py
+    """
 
     # Detect original training configuration
     original_use_vmap, original_n_vmap_envs = detect_original_gpu_mode(checkpoint_dir)
@@ -177,54 +180,60 @@ def resume_population_training(
         print("Continuing with GPU mode as requested (this may give different results)")
         print("="*80 + "\n")
 
-    # Create output directory
+    # Use existing checkpoint directory or create new output directory
     if output_dir is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = f"outputs/resumed_{timestamp}"
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = checkpoint_dir
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy checkpoint data to new output directory if different
-    if checkpoint_dir != output_dir.parent:
-        print(f"\nCopying checkpoint data to {output_dir}")
+        # Copy checkpoint data if using new directory
+        if checkpoint_dir != output_dir:
+            print(f"\nCopying checkpoint data to {output_dir}")
+            src_models = checkpoint_dir / "population" / "models"
+            dst_models = output_dir / "population" / "models"
+            dst_models.mkdir(parents=True, exist_ok=True)
 
-        # Copy population models up to start_generation
-        src_models = checkpoint_dir / "population" / "models"
-        dst_models = output_dir / "population" / "models"
-        dst_models.mkdir(parents=True, exist_ok=True)
+            for gen in range(start_generation + 1):
+                src_gen = src_models / f"generation_{gen}"
+                if src_gen.exists():
+                    dst_gen = dst_models / f"generation_{gen}"
+                    if not dst_gen.exists():
+                        shutil.copytree(src_gen, dst_gen)
+                        print(f"  Copied generation_{gen}")
 
-        for gen in range(start_generation + 1):
-            src_gen = src_models / f"generation_{gen}"
-            if src_gen.exists():
-                dst_gen = dst_models / f"generation_{gen}"
-                if not dst_gen.exists():
-                    shutil.copytree(src_gen, dst_gen)
-                    print(f"  Copied generation_{gen}")
-
-    # Initialize population trainer
-    print(f"\nInitializing population trainer")
+    # Create ProgressiveTrainer instance (reuses same code as train_progressive.py)
+    print(f"\nInitializing ProgressiveTrainer...")
     print(f"  Algorithm: {algorithm}")
-    print(f"  Population size: {population_size}")
-    print(f"  Episodes per generation: {episodes_per_gen}")
-    print(f"  Starting from generation: {start_generation}")
-    print(f"  Training until generation: {total_generations}")
     print(f"  GPU acceleration: {'ENABLED' if use_vmap else 'DISABLED'}")
     if use_vmap:
         print(f"  Vmap environments: {n_envs}")
 
-    trainer = PopulationTrainer(
-        population_size=population_size,
+    progressive_trainer = ProgressiveTrainer(
+        output_dir=str(output_dir),
         algorithm=algorithm,
-        n_envs_per_fighter=n_envs if not use_vmap else 1,  # vmap handles parallelization differently
-        output_dir=output_dir / "population",
         use_vmap=use_vmap,
-        n_vmap_envs=n_envs if use_vmap else 250,  # Use detected or specified vmap envs
-        n_parallel_fighters=n_parallel_fighters,  # None = auto (2 for GPU, cpu_count-1 for CPU)
+        n_parallel_fighters=n_parallel_fighters,
         verbose=True
     )
 
+    # Create population trainer using same method as train_progressive.py
+    progressive_trainer.population_trainer = PopulationTrainer(
+        population_size=population_size,
+        algorithm=algorithm,
+        output_dir=str(output_dir / "population"),
+        verbose=True,
+        n_parallel_fighters=n_parallel_fighters,
+        use_vmap=use_vmap,
+        n_vmap_envs=n_envs if use_vmap else 45
+    )
+
     # Load the population from checkpoint
-    trainer = load_population_from_checkpoint(trainer, checkpoint_dir, start_generation)
+    progressive_trainer.population_trainer = load_population_from_checkpoint(
+        progressive_trainer.population_trainer,
+        checkpoint_dir,
+        start_generation
+    )
 
     # Continue training from next generation
     remaining_generations = total_generations - start_generation
@@ -236,11 +245,12 @@ def resume_population_training(
     print(f"\nResuming training for {remaining_generations} more generations")
     print("="*80)
 
-    # Run the remaining generations using the train() method
-    trainer.train(
+    # Run remaining generations using same method as train_progressive.py
+    # This ensures we use the exact same training logic and parameters
+    progressive_trainer.run_population_training(
         generations=remaining_generations,
         episodes_per_generation=episodes_per_gen,
-        evolution_frequency=2,  # Evolve every 2 generations
+        population_size=population_size,
         keep_top=0.5  # Keep top 50% during evolution
     )
 
