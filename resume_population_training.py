@@ -27,6 +27,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from train_progressive import ProgressiveTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
+from stable_baselines3 import PPO, SAC
 
 
 def detect_original_gpu_mode(checkpoint_dir: Path) -> tuple[bool, int]:
