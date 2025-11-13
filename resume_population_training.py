@@ -12,6 +12,7 @@ Usage:
 
     # Continue training for 20 more generations after completing 40
     python resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 40 --total-gens 60
+    python resume_population_training.py --checkpoint-dir  outputs/progressive_20251112_183943 --start-gen 8 --total-gens 40
 """
 
 import argparse
@@ -134,11 +135,10 @@ def resume_population_training(
     trainer = PopulationTrainer(
         population_size=population_size,
         algorithm=algorithm,
-        device=device,
-        n_envs=n_envs if not use_vmap else 1,  # vmap handles parallelization differently
-        episodes_per_generation=episodes_per_gen,
+        n_envs_per_fighter=n_envs if not use_vmap else 1,  # vmap handles parallelization differently
         output_dir=output_dir / "population",
         use_vmap=use_vmap,
+        n_vmap_envs=250,  # Number of vmap environments for GPU mode
         verbose=True
     )
 
@@ -155,31 +155,13 @@ def resume_population_training(
     print(f"\nResuming training for {remaining_generations} more generations")
     print("="*80)
 
-    # Run the remaining generations
-    for gen in range(remaining_generations):
-        current_gen = start_generation + gen + 1
-        print(f"\n{'='*80}")
-        print(f"GENERATION {current_gen}/{total_generations}")
-        print(f"{'='*80}")
-
-        # Tournament phase
-        print("\n📊 TOURNAMENT PHASE")
-        trainer.run_tournament()
-
-        # Selection and reproduction
-        print("\n🧬 SELECTION & REPRODUCTION")
-        trainer.select_and_reproduce()
-
-        # Training phase
-        print("\n🎯 TRAINING PHASE")
-        trainer.train_population(episodes_per_gen)
-
-        # Save checkpoint
-        print("\n💾 SAVING CHECKPOINT")
-        trainer.save_generation_checkpoint()
-
-        # Update generation counter
-        trainer.generation = current_gen
+    # Run the remaining generations using the train() method
+    trainer.train(
+        generations=remaining_generations,
+        episodes_per_generation=episodes_per_gen,
+        evolution_frequency=2,  # Evolve every 2 generations
+        keep_top=0.5  # Keep top 50% during evolution
+    )
 
     print(f"\n{'='*80}")
     print(f"✅ POPULATION TRAINING COMPLETE!")
