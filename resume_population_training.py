@@ -226,7 +226,8 @@ def resume_population_training(
         verbose=True,
         n_parallel_fighters=n_parallel_fighters,
         use_vmap=use_vmap,
-        n_vmap_envs=n_envs if use_vmap else 45
+        n_vmap_envs=n_envs if use_vmap else 45,
+        n_envs_per_fighter=n_envs if not use_vmap else 1  # Critical: vmap handles parallelization
     )
 
     # Load the population from checkpoint
