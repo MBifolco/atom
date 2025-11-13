@@ -194,7 +194,7 @@ def _train_single_fighter_parallel(
     # Track statistics
     episode_count = 0
     recent_rewards = []
-    last_report_episode = 0
+    last_report_timestep = 0
 
     import sys
     import time
@@ -202,10 +202,14 @@ def _train_single_fighter_parallel(
     start_time = time.time()
     last_update_time = start_time
 
+    # Calculate timesteps
+    avg_ticks_per_episode = 100
+    total_timesteps = episodes * avg_ticks_per_episode
+
     # Enhanced callback with progress reporting
     class ProgressCallback(BaseCallback):
         def _on_step(self) -> bool:
-            nonlocal episode_count, recent_rewards, last_report_episode, last_update_time
+            nonlocal episode_count, recent_rewards, last_report_timestep, last_update_time
 
             for info in self.locals.get("infos", []):
                 if "episode" in info:
@@ -215,31 +219,32 @@ def _train_single_fighter_parallel(
                     if len(recent_rewards) > 100:
                         recent_rewards.pop(0)
 
-                    # Report every 25 episodes or every 10 seconds
-                    now = time.time()
-                    if episode_count - last_report_episode >= 25 or now - last_update_time >= 10:
-                        elapsed = now - start_time
-                        avg_reward = float(np.mean(recent_rewards)) if recent_rewards else 0.0
-                        eps_per_sec = episode_count / elapsed if elapsed > 0 else 0
-                        eta_sec = (episodes - episode_count) / eps_per_sec if eps_per_sec > 0 else 0
+            # Report based on timesteps, not episodes (since PPO trains on timesteps)
+            current_timestep = self.num_timesteps
+            now = time.time()
 
-                        print(f"      [{fighter_name}] Episodes: {episode_count}/{episodes} "
-                              f"({episode_count*100//episodes}%) | "
-                              f"Reward: {avg_reward:.1f} | "
-                              f"ETA: {int(eta_sec)}s", flush=True)
+            # Report every 2500 timesteps or every 10 seconds
+            if current_timestep - last_report_timestep >= 2500 or now - last_update_time >= 10:
+                elapsed = now - start_time
+                avg_reward = float(np.mean(recent_rewards)) if recent_rewards else 0.0
+                progress_pct = min(100, int(current_timestep * 100 / total_timesteps))
 
-                        last_report_episode = episode_count
-                        last_update_time = now
+                timesteps_per_sec = current_timestep / elapsed if elapsed > 0 else 0
+                eta_sec = (total_timesteps - current_timestep) / timesteps_per_sec if timesteps_per_sec > 0 else 0
+
+                print(f"      [{fighter_name}] Progress: {progress_pct}% "
+                      f"({current_timestep}/{total_timesteps} steps, {episode_count} eps) | "
+                      f"Reward: {avg_reward:.1f} | "
+                      f"ETA: {int(eta_sec)}s", flush=True)
+
+                last_report_timestep = current_timestep
+                last_update_time = now
 
             return True
 
     callback = ProgressCallback()
 
-    # Calculate timesteps
-    avg_ticks_per_episode = 100
-    total_timesteps = episodes * avg_ticks_per_episode
-
-    print(f"    [{fighter_name}] 🎮 Starting episode collection (target: {episodes} episodes)...", flush=True)
+    print(f"    [{fighter_name}] 🎮 Starting training (target: ~{episodes} episodes, {total_timesteps} timesteps)...", flush=True)
 
     # Train - this includes both rollout collection AND neural network updates
     # PPO does rollouts in batches, then trains NN multiple epochs on that data
