@@ -644,7 +644,8 @@ class PopulationTrainer:
 
         if self.verbose:
             print(f"  Training {len(training_tasks)} fighters in parallel on {self.n_parallel_fighters} cores...")
-            print(f"  Note: Subprocess output won't be visible in real-time...")
+            print(f"  Episodes per fighter: {episodes_per_fighter}")
+            print()
 
         # Set multiprocessing start method to 'spawn' to avoid TensorFlow/PyTorch issues
         import multiprocessing as mp
@@ -652,14 +653,20 @@ class PopulationTrainer:
 
         with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
             # Submit all tasks
-            future_to_fighter = {
-                executor.submit(_train_single_fighter_parallel, *task): task[0]
-                for task in training_tasks
-            }
+            future_to_fighter = {}
+            for task in training_tasks:
+                future = executor.submit(_train_single_fighter_parallel, *task)
+                fighter_name = task[0]
+                future_to_fighter[future] = fighter_name
+                if self.verbose:
+                    print(f"    ⏳ Starting: {fighter_name}")
 
             # Collect results as they complete
             completed_count = 0
             total_fighters = len(future_to_fighter)
+
+            if self.verbose:
+                print()  # Blank line for readability
 
             for future in as_completed(future_to_fighter):
                 fighter_name = future_to_fighter[future]
@@ -669,16 +676,16 @@ class PopulationTrainer:
                     result = future.result(timeout=300)  # 5 minute timeout per fighter
                     results.append(result)
                     if self.verbose:
-                        print(f"    ✓ [{completed_count}/{total_fighters}] {fighter_name}: {result['episodes']} episodes, "
-                              f"mean reward: {result['mean_reward']:.1f}")
+                        print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
+                              f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}")
                 except TimeoutError:
                     self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
                     if self.verbose:
-                        print(f"    ✗ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
+                        print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
                 except Exception as e:
                     self.logger.error(f"Fighter {fighter_name} training failed: {e}")
                     if self.verbose:
-                        print(f"    ✗ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {e}")
+                        print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {e}")
 
         # Reload updated models back into fighters
         for fighter, _ in fighter_opponent_pairs:
@@ -699,6 +706,18 @@ class PopulationTrainer:
                     fighter.model = SAC.load(temp_path, env=env)
 
                 fighter.training_episodes += episodes_per_fighter
+
+        # Print training summary
+        if self.verbose and results:
+            print()
+            print("  📊 Training Summary:")
+            successful = [r for r in results if 'mean_reward' in r]
+            if successful:
+                mean_rewards = [r['mean_reward'] for r in successful]
+                print(f"     Average reward: {sum(mean_rewards)/len(mean_rewards):.1f}")
+                print(f"     Best reward: {max(mean_rewards):.1f}")
+                print(f"     Worst reward: {min(mean_rewards):.1f}")
+            print(f"     Success rate: {len(successful)}/{len(results)}")
 
         # Clean up temp files
         for temp_path in temp_model_paths.values():
