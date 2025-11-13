@@ -22,7 +22,15 @@ if str(project_root) not in sys.path:
 from src.training.trainers.curriculum_trainer import CurriculumTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
 from src.arena import WorldConfig
-from stable_baselines3 import PPO, SAC
+
+# Phase 2: Try SBX (JAX) first, fall back to SB3 (PyTorch)
+# SBX requires JAX < 0.7.0, incompatible with ROCm JAX 0.7.1
+try:
+    from sbx import PPO, SAC  # JAX-accelerated (if available)
+    _using_sbx = True
+except ImportError:
+    from stable_baselines3 import PPO, SAC  # PyTorch fallback
+    _using_sbx = False
 
 import argparse
 import json
@@ -45,7 +53,10 @@ class ProgressiveTrainer:
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
-                 max_ticks: int = 250):
+                 max_ticks: int = 250,
+                 device: str = "auto",
+                 use_vmap: bool = False,
+                 debug: bool = False):
         """
         Initialize the progressive trainer.
 
@@ -55,12 +66,17 @@ class ProgressiveTrainer:
             verbose: Whether to print progress
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
             max_ticks: Maximum ticks per episode (default: 250)
+            device: Device to use for training ("cpu", "cuda", or "auto")
+            use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.n_parallel_fighters = n_parallel_fighters
         self.max_ticks = max_ticks
+        self.device = device
+        self.use_vmap = use_vmap
+        self.debug = debug
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -76,17 +92,21 @@ class ProgressiveTrainer:
 
     def run_curriculum_training(self,
                               timesteps: int = 500_000,
-                              n_envs: int = 4) -> Path:
+                              n_envs: int = None) -> Path:
         """
         Run curriculum training phase.
 
         Args:
             timesteps: Total training timesteps
-            n_envs: Number of parallel environments
+            n_envs: Number of parallel environments (default: 8 for CPU, 250 for GPU)
 
         Returns:
             Path to the trained model
         """
+        # Set default n_envs based on vmap usage
+        if n_envs is None:
+            n_envs = 250 if self.use_vmap else 8
+
         if self.verbose:
             print("\n" + "="*80)
             print("PHASE 1: CURRICULUM TRAINING")
@@ -97,6 +117,10 @@ class ProgressiveTrainer:
             print(f"- Level 3: Distance/stamina management (intermediate)")
             print(f"- Level 4: Behavioral fighters (advanced)")
             print(f"- Level 5: Hardcoded fighters (expert)")
+            if self.use_vmap:
+                print(f"\n⚡ GPU Acceleration: ENABLED (vmap with {n_envs} parallel environments)")
+            else:
+                print(f"\n💻 CPU Training: {n_envs} parallel environments")
             print()
 
         # Create curriculum trainer
@@ -105,7 +129,10 @@ class ProgressiveTrainer:
             output_dir=str(self.curriculum_dir),
             n_envs=n_envs,
             max_ticks=self.max_ticks,
-            verbose=self.verbose
+            verbose=self.verbose,
+            device=self.device,
+            use_vmap=self.use_vmap,
+            debug=self.debug
         )
 
         # Train through curriculum
@@ -141,13 +168,17 @@ class ProgressiveTrainer:
             print(f"Creating population of {population_size} fighters from curriculum graduate...")
 
         # Create population trainer
+        # NOTE: Population training uses GPU with reduced envs to fit memory
+        # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
         self.population_trainer = PopulationTrainer(
             population_size=population_size,
             algorithm=self.algorithm,
             output_dir=str(self.population_dir),
             max_ticks=self.max_ticks,
             verbose=self.verbose,
-            n_parallel_fighters=self.n_parallel_fighters
+            n_parallel_fighters=self.n_parallel_fighters,
+            use_vmap=self.use_vmap,  # Use GPU if enabled
+            n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
         )
 
         # Initialize population with the curriculum model as base
@@ -185,13 +216,17 @@ class ProgressiveTrainer:
 
         if not self.population_trainer:
             # Create population trainer if not already created
+            # NOTE: Population training uses GPU with reduced envs to fit memory
+            # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
             self.population_trainer = PopulationTrainer(
                 population_size=population_size,
                 algorithm=self.algorithm,
                 output_dir=str(self.population_dir),
                 max_ticks=self.max_ticks,
                 verbose=self.verbose,
-                n_parallel_fighters=self.n_parallel_fighters
+                n_parallel_fighters=self.n_parallel_fighters,
+                use_vmap=self.use_vmap,  # Use GPU if enabled
+                n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
             )
 
         # Check if we have a base model from curriculum training
@@ -230,6 +265,9 @@ class ProgressiveTrainer:
             print("\n" + "🚀"*40)
             print("STARTING PROGRESSIVE TRAINING PIPELINE")
             print("🚀"*40)
+            print(f"\nConfiguration:")
+            print(f"  Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
+            print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
             print(f"\nOutput directory: {self.output_dir}")
             print(f"Logs will be saved to:")
             print(f"  - {self.curriculum_dir / 'logs'}")
@@ -238,8 +276,8 @@ class ProgressiveTrainer:
 
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
-            timesteps=curriculum_timesteps,
-            n_envs=4
+            timesteps=curriculum_timesteps
+            # n_envs defaults to 8 for CPU or 250 for GPU (auto-configured)
         )
 
         # Phase 2: Initialize Population
@@ -346,6 +384,23 @@ Examples:
         default=250,
         help="Maximum ticks per episode (default: 250, ~21 seconds)"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        choices=["cpu", "cuda", "auto"],
+        default="cuda",
+        help="Device to use for training: cpu, cuda (GPU), or auto (default: cuda for ROCm)"
+    )
+    parser.add_argument(
+        "--use-vmap",
+        action="store_true",
+        help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging to see detailed fight information"
+    )
 
     args = parser.parse_args()
 
@@ -362,7 +417,10 @@ Examples:
         output_dir=output_dir,
         verbose=True,
         n_parallel_fighters=args.cores,
-        max_ticks=args.max_ticks
+        max_ticks=args.max_ticks,
+        device=args.device,
+        use_vmap=args.use_vmap,
+        debug=args.debug
     )
 
     # Run based on mode

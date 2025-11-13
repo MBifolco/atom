@@ -17,13 +17,82 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 
-from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+# Phase 2: Try SBX (JAX) first, fall back to SB3 (PyTorch)
+# SBX requires JAX < 0.7.0, incompatible with ROCm JAX 0.7.1
+try:
+    from sbx import PPO, SAC  # JAX-accelerated (if available)
+    _using_sbx = True
+except ImportError:
+    from stable_baselines3 import PPO, SAC  # PyTorch fallback
+    _using_sbx = False
+
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
 # Import test dummy loader
 import importlib.util
+
+# Level 3: JAX vmap support
+from ..vmap_env_wrapper import VmapEnvWrapper
+from ...arena import WorldConfig
+
+
+class VmapEnvAdapter(VecEnv):
+    """Adapter to make VmapEnvWrapper compatible with SBX VecEnv interface."""
+    def __init__(self, vmap_env):
+        self.vmap_env = vmap_env
+        super().__init__(
+            num_envs=vmap_env.n_envs,
+            observation_space=vmap_env.observation_space,
+            action_space=vmap_env.action_space
+        )
+        self.metadata = {"render_modes": []}
+        self._supports_set_opponent = False  # vmap doesn't support dynamic opponent switching
+
+    def reset(self):
+        obs, _ = self.vmap_env.reset()
+        return obs
+
+    def step_async(self, actions):
+        """Store actions for step_wait."""
+        self.actions = actions
+
+    def step_wait(self):
+        """Execute stored actions and return results."""
+        obs, rewards, dones, truncated, infos = self.vmap_env.step(self.actions)
+        # SBX expects combined done
+        dones = np.logical_or(dones, truncated)
+        return obs, rewards, dones, infos
+
+    def close(self):
+        pass  # VmapEnvWrapper doesn't need cleanup
+
+    def env_is_wrapped(self, wrapper_class, indices=None):
+        """Required for VecEnv interface."""
+        return False
+
+    def get_attr(self, attr_name, indices=None):
+        """Get attribute from environments."""
+        return [getattr(self.vmap_env, attr_name, None)] * self.num_envs
+
+    def set_attr(self, attr_name, value, indices=None):
+        """Set attribute (not supported)."""
+        pass
+
+    def env_method(self, method_name, *method_args, indices=None, **method_kwargs):
+        """Override to handle set_opponent calls gracefully."""
+        if method_name == "set_opponent":
+            # This should no longer happen since we recreate VmapEnvWrapper for new levels
+            # If you see this warning, it means the curriculum trainer isn't recreating envs properly
+            if not hasattr(self, '_warned_about_opponent_switch'):
+                print("⚠️  WARNING: Attempted to call set_opponent() on VmapEnvWrapper.")
+                print("    This should not happen - vmap environments should be recreated for new levels.")
+                print("    If you see this, there's a bug in curriculum_trainer.py:advance_level()")
+                self._warned_about_opponent_switch = True
+            return
+        # For other methods, try to call them (though vmap doesn't support much)
+        return [None] * self.num_envs
 
 
 class DifficultyLevel(Enum):
@@ -70,6 +139,62 @@ class CurriculumCallback(BaseCallback):
         self.episode_rewards = []
         self.episode_wins = []
         self.recent_reward_components = []
+        self.last_rollout_time = None
+        self.last_train_time = None
+
+    def _on_rollout_start(self) -> None:
+        """Called before collecting rollouts."""
+        import time
+        self.last_rollout_time = time.time()
+
+        # Initialize rollout counter if not exists
+        if not hasattr(self, 'rollout_count'):
+            self.rollout_count = 0
+        self.rollout_count += 1
+
+        # For SAC: Only log every 50 rollouts to reduce spam
+        # For PPO: Always log (only happens once per iteration)
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            self.rollout_count % 50 == 1
+        )
+
+        if self.verbose and should_log:
+            print(f"\n🎮 Collecting rollouts (GPU physics)...", flush=True)
+
+    def _on_rollout_end(self) -> None:
+        """Called after rollouts are collected, before training."""
+        import time
+
+        # Same logging logic as _on_rollout_start
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            self.rollout_count % 50 == 1
+        )
+
+        if self.last_rollout_time:
+            rollout_duration = time.time() - self.last_rollout_time
+            if self.verbose and should_log:
+                print(f"✅ Rollouts collected in {rollout_duration:.2f}s", flush=True)
+
+        self.last_train_time = time.time()
+        if self.verbose and should_log:
+            print(f"🧠 Training neural network (CPU)...", flush=True)
+
+    def _on_training_end(self) -> None:
+        """Called after training completes."""
+        import time
+
+        # Same logging logic as other methods
+        should_log = (
+            self.curriculum_trainer.algorithm == 'ppo' or
+            getattr(self, 'rollout_count', 0) % 50 == 0
+        )
+
+        if self.last_train_time:
+            train_duration = time.time() - self.last_train_time
+            if self.verbose and should_log:
+                print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -121,22 +246,30 @@ class CurriculumTrainer:
                  output_dir: str = "outputs/curriculum",
                  n_envs: int = 4,
                  max_ticks: int = 250,
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 device: str = "auto",
+                 use_vmap: bool = False,
+                 debug: bool = False):
         """
         Initialize the curriculum trainer.
 
         Args:
             algorithm: "ppo" or "sac"
             output_dir: Directory for saving models and logs
-            n_envs: Number of parallel environments
+            n_envs: Number of parallel environments (or vmap batch size)
             max_ticks: Maximum ticks per episode
             verbose: Whether to print progress
+            device: Device to use for training ("cpu", "cuda", or "auto")
+            use_vmap: Use JAX vmap for parallel environments (Level 3/4 optimization)
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.n_envs = n_envs
         self.max_ticks = max_ticks
         self.verbose = verbose
+        self.device = device
+        self.use_vmap = use_vmap
+        self.debug = debug
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -173,9 +306,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/stationary_defending.py"),
                 str(test_dummy_dir / "atomic/stationary_retracted.py"),
             ],
-            min_episodes=100,
+            min_episodes=200,
             graduation_win_rate=0.9,  # Should easily beat stationary targets
-            graduation_episodes=10,
+            graduation_episodes=50,  # Increased from 10 to prevent lucky streaks
             description="Learn basic attacking and stance usage against stationary targets"
         ))
 
@@ -191,9 +324,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/circle_left.py"),
                 str(test_dummy_dir / "atomic/circle_right.py"),
             ],
-            min_episodes=200,
-            graduation_win_rate=0.8,
-            graduation_episodes=20,
+            min_episodes=300,
+            graduation_win_rate=0.88,  # High standards maintained
+            graduation_episodes=50,
             description="Learn pursuit, evasion, and predictive movement"
         ))
 
@@ -212,9 +345,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/wall_hugger_left.py"),
                 str(test_dummy_dir / "atomic/wall_hugger_right.py"),
             ],
-            min_episodes=300,
-            graduation_win_rate=0.75,
-            graduation_episodes=30,
+            min_episodes=400,
+            graduation_win_rate=0.85,  # Maintained high standards
+            graduation_episodes=50,
             description="Learn spacing control, resource management, and wall combat"
         ))
 
@@ -230,9 +363,9 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "behavioral/wall_fighter.py"),
                 str(test_dummy_dir / "behavioral/adaptive_fighter.py"),
             ],
-            min_episodes=400,
-            graduation_win_rate=0.6,
-            graduation_episodes=40,
+            min_episodes=500,
+            graduation_win_rate=0.83,  # Staying near 85% standards
+            graduation_episodes=50,
             description="Learn complex strategies and counter-strategies"
         ))
 
@@ -249,8 +382,8 @@ class CurriculumTrainer:
                 str(example_dir / "dodger.py"),
                 str(example_dir / "berserker.py"),
             ],
-            min_episodes=500,
-            graduation_win_rate=0.5,  # 50% against expert fighters is good
+            min_episodes=600,
+            graduation_win_rate=0.80,  # Excellence required even at final level
             graduation_episodes=50,
             description="Master combat against diverse expert strategies"
         ))
@@ -283,6 +416,8 @@ class CurriculumTrainer:
         self.logger.info("="*80)
         self.logger.info("CURRICULUM TRAINING INITIALIZED")
         self.logger.info(f"Algorithm: {self.algorithm}")
+        self.logger.info(f"Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
+        self.logger.info(f"GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
         self.logger.info(f"Curriculum Levels: {len(self.curriculum)}")
         self.logger.info("="*80)
 
@@ -313,31 +448,71 @@ class CurriculumTrainer:
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
         """Create parallel environments for the current level."""
-        # Create environments with different opponents from the level
-        env_fns = []
-        for i in range(self.n_envs):
-            opponent_idx = i % len(level.opponents)
-            opponent_path = level.opponents[opponent_idx]
 
-            # Use Monitor with unique level-based filenames to avoid file handle conflicts
-            # The allow_early_resets=True is important for level transitions
-            level_name = level.name.replace(" ", "_").lower()
-            monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
+        if self.use_vmap:
+            # Level 3/4: Use JAX vmap for GPU-accelerated parallelization
+            # Now supports multiple opponents distributed across environments!
+            opponent_paths = level.opponents
 
-            env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
-                self.create_env(opp_path),
-                mfile,
-                allow_early_resets=True
+            if self.verbose:
+                print(f"🚀 Creating {self.n_envs} parallel JAX vmap environments...")
+                print(f"   Opponents: {len(opponent_paths)} different types")
+                if len(opponent_paths) > 1:
+                    envs_per_opponent = self.n_envs // len(opponent_paths)
+                    print(f"   Distribution: ~{envs_per_opponent} envs per opponent")
+                    for i, path in enumerate(opponent_paths):
+                        print(f"     {i+1}. {Path(path).stem}")
+
+            vmap_env = VmapEnvWrapper(
+                n_envs=self.n_envs,
+                opponent_paths=opponent_paths,  # Pass list of paths instead of single func
+                config=WorldConfig(),
+                max_ticks=self.max_ticks,
+                fighter_mass=70.0,
+                opponent_mass=70.0,
+                seed=42,
+                debug=self.debug
             )
-            env_fns.append(env_fn)
 
-        # ALWAYS use DummyVecEnv for curriculum training
-        # SubprocVecEnv has too many pickle/process issues during curriculum progression
-        return DummyVecEnv(env_fns)
+            # Wrap with adapter for SBX compatibility
+            return VmapEnvAdapter(vmap_env)
+
+        else:
+            # Level 1/2: Use DummyVecEnv with multiple opponents
+            # Create environments with different opponents from the level
+            env_fns = []
+            for i in range(self.n_envs):
+                opponent_idx = i % len(level.opponents)
+                opponent_path = level.opponents[opponent_idx]
+
+                # Use Monitor with unique level-based filenames to avoid file handle conflicts
+                # The allow_early_resets=True is important for level transitions
+                level_name = level.name.replace(" ", "_").lower()
+                monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
+
+                env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
+                    self.create_env(opp_path),
+                    mfile,
+                    allow_early_resets=True
+                )
+                env_fns.append(env_fn)
+
+            # ALWAYS use DummyVecEnv for curriculum training
+            # SubprocVecEnv has too many pickle/process issues during curriculum progression
+            return DummyVecEnv(env_fns)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
         if self.algorithm == "ppo":
+            # IMPORTANT: Force CPU for MlpPolicy as GPU is 1.4x slower for simple MLPs
+            # The main speedup comes from JAX physics simulation (77x), not NN training
+            # See: https://github.com/DLR-RM/stable-baselines3/issues/1245
+            actual_device = "cpu" if self.device == "auto" else self.device
+
+            # Debug: Print device being used
+            if self.verbose:
+                print(f"Initializing PPO with device: {actual_device} (forced CPU for MlpPolicy)")
+
             self.model = PPO(
                 "MlpPolicy",
                 self.envs,
@@ -348,21 +523,34 @@ class CurriculumTrainer:
                 gamma=0.99,
                 gae_lambda=0.95,
                 clip_range=0.2,
-                verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard")
+                max_grad_norm=0.5,  # Gradient clipping to prevent NaN
+                verbose=2 if self.verbose else 0,  # Set to 2 for detailed NN training logs
+                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                device=actual_device
             )
         elif self.algorithm == "sac":
+            # Same CPU optimization for SAC with MlpPolicy
+            actual_device = "cpu" if self.device == "auto" else self.device
+
+            # Debug: Print device being used
+            if self.verbose:
+                print(f"Initializing SAC with device: {actual_device} (forced CPU for MlpPolicy)")
+
             self.model = SAC(
                 "MlpPolicy",
                 self.envs,
                 learning_rate=3e-4,
-                buffer_size=100000,
-                learning_starts=1000,
-                batch_size=256,
-                tau=0.005,
+                buffer_size=50000,      # Smaller buffer for faster initial learning
+                learning_starts=100,    # Start learning much earlier (was 1000)
+                batch_size=64,          # Smaller batch size like PPO (was 256)
+                tau=0.01,               # Faster target network updates (was 0.005)
                 gamma=0.99,
+                ent_coef='auto',        # Auto-tune entropy for exploration
+                target_update_interval=1,  # Update target network every step
+                gradient_steps=1,       # One gradient step per env step
                 verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard")
+                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                device=actual_device
             )
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
@@ -471,7 +659,31 @@ class CurriculumTrainer:
             return False
 
         recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-        return recent_win_rate >= level.graduation_win_rate
+        recent_wins = sum(self.progress.recent_episodes)
+        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+
+        # Require BOTH recent AND overall performance to be good
+        # Overall must be within 10% of graduation threshold to prevent lucky streaks
+        overall_threshold = max(0.5, level.graduation_win_rate - 0.15)  # At least 50%, or 15% below requirement
+
+        recent_passed = recent_win_rate >= level.graduation_win_rate
+        overall_passed = overall_win_rate >= overall_threshold
+
+        # Debug logging for graduation decisions
+        will_graduate = recent_passed and overall_passed
+
+        # Only log if graduating OR every 100 episodes when recent passes (to reduce spam)
+        should_log = will_graduate or (recent_passed and self.progress.episodes_at_level % 100 == 0)
+
+        if should_log:
+            status = "✅ PASSED" if will_graduate else "❌ FAILED (overall too low)"
+            self.logger.info(f"🎓 GRADUATION CHECK {status}")
+            self.logger.info(f"   Recent wins: {recent_wins}/{len(self.progress.recent_episodes)}")
+            self.logger.info(f"   Recent WR: {recent_win_rate:.2%} (need {level.graduation_win_rate:.1%}) {'✓' if recent_passed else '✗'}")
+            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {overall_threshold:.1%}) {'✓' if overall_passed else '✗'}")
+            self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
+
+        return will_graduate
 
     def advance_level(self):
         """Advance to the next curriculum level."""
@@ -492,6 +704,12 @@ class CurriculumTrainer:
         self.progress.wins_at_level = 0
         self.progress.recent_episodes = []
 
+        # Log the reset for debugging
+        self.logger.info("📊 METRICS RESET FOR NEW LEVEL:")
+        self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
+        self.logger.info(f"   Wins at level: {self.progress.wins_at_level}")
+        self.logger.info(f"   Recent episodes buffer: {len(self.progress.recent_episodes)} episodes")
+
         # Check if completed curriculum
         if self.progress.current_level >= len(self.curriculum):
             self.logger.info("🎉 CURRICULUM COMPLETED! 🎉")
@@ -504,15 +722,29 @@ class CurriculumTrainer:
             self.logger.info(f"Opponents: {len(new_level.opponents)} different types")
             self.logger.info(f"Graduation Requirements: {new_level.graduation_win_rate:.0%} win rate over {new_level.graduation_episodes} episodes")
 
-            # Switch opponents in existing environments (avoids closing/recreating VecEnv)
-            # This prevents Monitor file handle issues during level transitions
-            for env_idx in range(self.n_envs):
-                opponent_idx = env_idx % len(new_level.opponents)
-                opponent_path = new_level.opponents[opponent_idx]
-                opponent_func = self.load_opponent(opponent_path)
+            if self.use_vmap:
+                # For vmap: Create new VmapEnvWrapper with new opponents
+                # We can't dynamically switch opponents in vmap, so recreate the wrapper
+                self.logger.info("📦 Recreating vmap environments for new level...")
 
-                # Use env_method to call set_opponent() on each environment
-                self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
+                # Create new environment
+                self.envs = self.create_envs_for_level(new_level)
+
+                # Update model's environment reference
+                self.model.set_env(self.envs)
+
+                # Note: Old environment will be garbage collected automatically
+                # Don't manually delete attributes as the model may still hold references
+            else:
+                # For CPU: Switch opponents in existing environments (avoids closing/recreating VecEnv)
+                # This prevents Monitor file handle issues during level transitions
+                for env_idx in range(self.n_envs):
+                    opponent_idx = env_idx % len(new_level.opponents)
+                    opponent_path = new_level.opponents[opponent_idx]
+                    opponent_func = self.load_opponent(opponent_path)
+
+                    # Use env_method to call set_opponent() on each environment
+                    self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""

@@ -152,22 +152,29 @@ Create AI fighters using our **Progressive Training System** that combines curri
 # Quick test run (~5 minutes)
 python train_progressive.py --mode quick
 
-# Full training pipeline
+# Full training pipeline (CPU)
 python train_progressive.py --mode complete
+
+# GPU-accelerated training (77x faster!)
+python train_progressive.py --mode complete --use-vmap
 ```
 
 **What you get:**
-- **Curriculum Learning**: 5 progressive difficulty levels with test dummies
-- **Population Training**: Self-play evolution for diverse strategies
+- **Curriculum Learning**: 5 progressive difficulty levels with 29 test dummies
+- **Hardcore Graduation**: Maintain 80-88% win rates throughout training
+- **Population Training**: Self-play evolution for diverse strategies (8 fighters in parallel)
+- **GPU Acceleration**: 77x speedup with JAX vmap (250 parallel environments)
 - **PPO/SAC algorithms**: Industry-standard reinforcement learning
 - **Automatic export**: Fighters ready to use with `atom_fight.py`
 - **Complete logs**: Track training progress in real-time
 
 **Key Features:**
 - ✅ Systematic skill progression (fundamentals → expert)
-- ✅ 32 specialized test dummies across 5 curriculum levels
+- ✅ Dual-requirement graduation (recent + overall win rates)
+- ✅ 29 specialized test dummies across 5 curriculum levels
 - ✅ Population diversity through evolution
 - ✅ Battle-ready champions exported automatically
+- ✅ GPU support (AMD ROCm + NVIDIA CUDA)
 - ✅ Multicore parallel training support
 - ✅ Detailed progress logging and reward tracking
 

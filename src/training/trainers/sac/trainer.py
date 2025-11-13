@@ -306,7 +306,8 @@ def train_fighter(
     patience: int = 5,
     verbose: bool = True,
     tensorboard_log: Optional[str] = None,
-    continue_from_model: Optional[str] = None
+    continue_from_model: Optional[str] = None,
+    device: str = "auto"
 ):
     """
     Train a fighter using SAC with mixed opponents.
@@ -327,6 +328,7 @@ def train_fighter(
         verbose: Show progress
         tensorboard_log: Optional TensorBoard log directory
         continue_from_model: Path to existing model to continue training
+        device: Device to use for training ("cpu", "cuda", or "auto")
     """
 
     # SAC works best with single environment (off-policy learning)
@@ -413,7 +415,7 @@ def train_fighter(
     if continue_from_model:
         print(f"\nLoading existing model from: {continue_from_model}")
         print("  (Continuing training to prevent catastrophic forgetting)")
-        model = SAC.load(continue_from_model, env=vec_env)
+        model = SAC.load(continue_from_model, env=vec_env, device=device)
         # Lower learning rate for continual learning
         model.learning_rate = 3e-5
         print(f"  ✓ Model loaded - learning rate lowered to {model.learning_rate} for stability")
@@ -433,8 +435,9 @@ def train_fighter(
             train_freq=1,  # Train every step
             gradient_steps=1,
             ent_coef='auto',  # Automatic entropy tuning for exploration
+            device=device,
         )
-        print("  ✓ Fresh SAC model created")
+        print(f"  ✓ Fresh SAC model created on device: {device}")
         print("  Features:")
         print("    - Automatic entropy tuning for exploration")
         print("    - Off-policy learning with replay buffer")

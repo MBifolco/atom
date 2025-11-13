@@ -10,6 +10,8 @@ from gymnasium import spaces
 
 # Use relative imports within the src package
 from ..arena import WorldConfig, FighterState, Arena1D
+from ..arena.arena_1d_jax import Arena1DJAX
+from ..arena.arena_1d_jax_jit import Arena1DJAXJit
 from ..protocol.combat_protocol import generate_snapshot
 
 
@@ -41,8 +43,10 @@ class AtomCombatEnv(gym.Env):
         config: WorldConfig = None,
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
-        opponent_mass: float = 75.0,
-        seed: int = None
+        opponent_mass: float = 70.0,
+        seed: int = None,
+        use_jax: bool = False,
+        use_jax_jit: bool = False
     ):
         """
         Initialize the environment.
@@ -54,6 +58,8 @@ class AtomCombatEnv(gym.Env):
             fighter_mass: Mass of the learning fighter
             opponent_mass: Mass of the opponent
             seed: Random seed
+            use_jax: Use JAX-accelerated physics Phase 1 (default: False)
+            use_jax_jit: Use JAX JIT-compiled physics Phase 3 (default: False, overrides use_jax)
         """
         super().__init__()
 
@@ -63,6 +69,8 @@ class AtomCombatEnv(gym.Env):
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self._seed = seed
+        self.use_jax = use_jax
+        self.use_jax_jit = use_jax_jit
 
         # Define observation space (9 continuous values)
         # Normalized to roughly [-1, 1] or [0, 1] range
@@ -115,8 +123,14 @@ class AtomCombatEnv(gym.Env):
         self.fighter = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
         self.opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
 
-        # Create arena
-        self.arena = Arena1D(self.fighter, self.opponent, self.config, seed=self._seed or 0)
+        # Create arena (JAX JIT > JAX > Python)
+        if self.use_jax_jit:
+            ArenaClass = Arena1DJAXJit
+        elif self.use_jax:
+            ArenaClass = Arena1DJAX
+        else:
+            ArenaClass = Arena1D
+        self.arena = ArenaClass(self.fighter, self.opponent, self.config, seed=self._seed or 0)
 
         self.tick = 0
         self.episode_damage_dealt = 0
