@@ -700,8 +700,11 @@ class PopulationTrainer:
         results = []
 
         if self.verbose:
-            print(f"  Training {len(training_tasks)} fighters in parallel on {self.n_parallel_fighters} cores...")
+            print(f"  Training {len(training_tasks)} fighters total, {self.n_parallel_fighters} at a time...")
             print(f"  Episodes per fighter: {episodes_per_fighter}")
+            if len(training_tasks) > self.n_parallel_fighters:
+                batches = (len(training_tasks) + self.n_parallel_fighters - 1) // self.n_parallel_fighters
+                print(f"  Will train in {batches} batches of {self.n_parallel_fighters}")
             print(f"  Note: PPO alternates between episode collection (physics) and NN training")
             print()
 
