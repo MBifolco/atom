@@ -114,7 +114,9 @@ def _train_single_fighter_parallel(
         # Reduce memory fraction for parallel training - each subprocess gets a fraction
         # With 4 parallel fighters: 0.2/fighter = 80% total GPU usage (safe)
         # With 2 parallel fighters: 0.35/fighter = 70% total GPU usage
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.2'  # Conservative for multiple processes
+        # Set memory fraction conservatively (each subprocess doesn't know total count)
+        # For safety, assume up to 4 parallel processes
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.2'  # 20% per process × 4 = 80% total
         os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
 
         # GPU mode: Use VmapEnvWrapper with opponent models
@@ -210,6 +212,19 @@ def _train_single_fighter_parallel(
     avg_ticks_per_episode = 100
     total_timesteps = episodes * avg_ticks_per_episode
 
+    # Get logger for this subprocess early so callback can use it
+    import logging
+    import os
+    log_dir = Path(logs_dir)  # Use logs_dir which is passed as parameter
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / f"population_training_{os.getpid()}.log"
+    subprocess_logger = logging.getLogger(f"population_fighter_{fighter_name}")
+    if not subprocess_logger.handlers:
+        handler = logging.FileHandler(log_file, mode='a')
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        subprocess_logger.addHandler(handler)
+        subprocess_logger.setLevel(logging.INFO)
+
     # Enhanced callback with progress reporting
     class ProgressCallback(BaseCallback):
         def _on_step(self) -> bool:
@@ -236,10 +251,12 @@ def _train_single_fighter_parallel(
                 timesteps_per_sec = current_timestep / elapsed if elapsed > 0 else 0
                 eta_sec = (total_timesteps - current_timestep) / timesteps_per_sec if timesteps_per_sec > 0 else 0
 
-                print(f"      [{fighter_name}] Progress: {progress_pct}% "
-                      f"({current_timestep}/{total_timesteps} steps, {episode_count} eps) | "
-                      f"Reward: {avg_reward:.1f} | "
-                      f"ETA: {int(eta_sec)}s", flush=True)
+                progress_msg = (f"[{fighter_name}] Progress: {progress_pct}% "
+                               f"({current_timestep}/{total_timesteps} steps, {episode_count} eps) | "
+                               f"Reward: {avg_reward:.1f} | "
+                               f"ETA: {int(eta_sec)}s")
+                print(f"      {progress_msg}", flush=True)
+                subprocess_logger.info(progress_msg)
 
                 last_report_timestep = current_timestep
                 last_update_time = now
@@ -249,6 +266,7 @@ def _train_single_fighter_parallel(
     callback = ProgressCallback()
 
     print(f"    [{fighter_name}] 🎮 Starting training (target: ~{episodes} episodes, {total_timesteps} timesteps)...", flush=True)
+    subprocess_logger.info(f"[{fighter_name}] Starting training (target: ~{episodes} episodes, {total_timesteps} timesteps)")
 
     # Train - this includes both rollout collection AND neural network updates
     # PPO does rollouts in batches, then trains NN multiple epochs on that data
@@ -260,8 +278,11 @@ def _train_single_fighter_parallel(
     )
 
     training_time = time.time() - start_time
+    completion_msg = (f"[{fighter_name}] Training complete in {training_time:.1f}s "
+                      f"({episode_count} episodes, {episode_count/training_time:.1f} eps/sec)")
     print(f"    [{fighter_name}] ✅ Training complete in {training_time:.1f}s "
           f"({episode_count} episodes, {episode_count/training_time:.1f} eps/sec)", flush=True)
+    subprocess_logger.info(completion_msg)
 
     # Save updated model
     fighter_model.save(model_path)
@@ -607,7 +628,11 @@ class PopulationTrainer:
         random.shuffle(available_fighters)
 
         # Strategy 1: Similar skill pairs (50% of matches)
-        balanced_matches = self.elo_tracker.suggest_balanced_matches(len(available_fighters) // 4)
+        active_names = [f.name for f in self.population]
+        balanced_matches = self.elo_tracker.suggest_balanced_matches(
+            len(available_fighters) // 4,
+            active_fighters=active_names
+        )
         for name_a, name_b in balanced_matches:
             fighter_a = next((f for f in self.population if f.name == name_a), None)
             fighter_b = next((f for f in self.population if f.name == name_b), None)
@@ -698,6 +723,13 @@ class PopulationTrainer:
             print(f"  Note: PPO alternates between episode collection (physics) and NN training")
             print()
 
+        # Log to file as well
+        self.logger.info(f"Training {len(training_tasks)} fighters, {self.n_parallel_fighters} at a time")
+        self.logger.info(f"Episodes per fighter: {episodes_per_fighter}")
+        if len(training_tasks) > self.n_parallel_fighters:
+            batches = (len(training_tasks) + self.n_parallel_fighters - 1) // self.n_parallel_fighters
+            self.logger.info(f"Training in {batches} batches of {self.n_parallel_fighters}")
+
         # Set multiprocessing start method to 'spawn' to avoid TensorFlow/PyTorch issues
         import multiprocessing as mp
         mp_context = mp.get_context('spawn')
@@ -705,39 +737,45 @@ class PopulationTrainer:
         import time
         training_start_time = time.time()
 
-        with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
-            # Submit all tasks
-            future_to_fighter = {}
-            future_to_start_time = {}
-            for task in training_tasks:
-                future = executor.submit(_train_single_fighter_parallel, *task)
-                fighter_name = task[0]
-                future_to_fighter[future] = fighter_name
-                future_to_start_time[future] = time.time()
-                if self.verbose:
-                    print(f"    ⏳ Starting: {fighter_name}")
-
-            # Collect results as they complete
-            completed_count = 0
-            total_fighters = len(future_to_fighter)
-
-            if self.verbose:
-                print()
-                print(f"  ⏱️  Training in progress (started {total_fighters} fighters)...")
-                print()
-
-            for future in as_completed(future_to_fighter):
-                fighter_name = future_to_fighter[future]
-                completed_count += 1
-                elapsed = time.time() - future_to_start_time[future]
-
-                try:
-                    result = future.result(timeout=300)  # 5 minute timeout per fighter
-                    results.append(result)
+        executor = None
+        try:
+            with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
+                # Submit all tasks
+                future_to_fighter = {}
+                future_to_start_time = {}
+                for task in training_tasks:
+                    future = executor.submit(_train_single_fighter_parallel, *task)
+                    fighter_name = task[0]
+                    future_to_fighter[future] = fighter_name
+                    future_to_start_time[future] = time.time()
                     if self.verbose:
-                        print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
-                              f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
-                              f"time: {elapsed:.1f}s")
+                        print(f"    ⏳ Starting: {fighter_name}")
+                    self.logger.info(f"Starting training: {fighter_name}")
+
+                # Collect results as they complete
+                completed_count = 0
+                total_fighters = len(future_to_fighter)
+
+                if self.verbose:
+                    print()
+                    print(f"  ⏱️  Training in progress (started {total_fighters} fighters)...")
+                    print()
+
+                for future in as_completed(future_to_fighter):
+                    fighter_name = future_to_fighter[future]
+                    completed_count += 1
+                    elapsed = time.time() - future_to_start_time[future]
+
+                    try:
+                        result = future.result(timeout=300)  # 5 minute timeout per fighter
+                        results.append(result)
+                        if self.verbose:
+                            print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
+                                  f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
+                                  f"time: {elapsed:.1f}s")
+                        self.logger.info(f"Completed training [{completed_count}/{total_fighters}] {fighter_name}: "
+                                        f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
+                                        f"time: {elapsed:.1f}s")
 
                         # Show remaining fighters every 2 completions
                         if completed_count % 2 == 0 and completed_count < total_fighters:
@@ -748,20 +786,40 @@ class PopulationTrainer:
                             print(f"       💭 {remaining} fighters still training... (ETA: {int(eta)}s)")
                             print()
 
-                except TimeoutError:
-                    self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
-                    if self.verbose:
-                        print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
-                except Exception as e:
-                    import traceback
-                    error_msg = str(e) if str(e) else repr(e)
-                    tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                    self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
-                    if self.verbose:
-                        if not error_msg or error_msg == "":
-                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
-                        else:
-                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
+                    except TimeoutError:
+                        self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
+                        if self.verbose:
+                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
+                    except Exception as e:
+                        import traceback
+                        error_msg = str(e) if str(e) else repr(e)
+                        tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                        self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
+                        if self.verbose:
+                            if not error_msg or error_msg == "":
+                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
+                            else:
+                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
+
+        except KeyboardInterrupt:
+            if self.verbose:
+                print("\n\n⚠️  Training interrupted by user (Ctrl+C). Cleaning up worker processes...")
+            # Shutdown executor and cancel pending futures
+            if executor is not None:
+                executor.shutdown(wait=False, cancel_futures=True)
+            if self.verbose:
+                print("   Worker processes terminated.")
+            # Re-raise to allow higher-level cleanup
+            raise
+
+        finally:
+            # Always clean up temp files, even on interrupt
+            for temp_path in temp_model_paths.values():
+                if temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass  # Best effort cleanup
 
         # Reload updated models back into fighters
         for fighter, _ in fighter_opponent_pairs:
@@ -801,10 +859,23 @@ class PopulationTrainer:
                 print(f"     Total episodes: {total_episodes}")
                 print(f"     Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
 
-        # Clean up temp files
-        for temp_path in temp_model_paths.values():
-            if temp_path.exists():
-                temp_path.unlink()
+        # Log summary to file
+        if results:
+            self.logger.info("Training Summary:")
+            self.logger.info(f"  Total time: {total_training_time:.1f}s ({total_training_time/60:.1f} min)")
+            successful = [r for r in results if 'mean_reward' in r]
+            if successful:
+                mean_rewards = [r['mean_reward'] for r in successful]
+                self.logger.info(f"  Average reward: {sum(mean_rewards)/len(mean_rewards):.1f}")
+                self.logger.info(f"  Best reward: {max(mean_rewards):.1f}")
+                self.logger.info(f"  Worst reward: {min(mean_rewards):.1f}")
+            self.logger.info(f"  Success rate: {len(successful)}/{len(results)}")
+            if successful:
+                total_episodes = sum(r.get('episodes', 0) for r in successful)
+                self.logger.info(f"  Total episodes: {total_episodes}")
+                self.logger.info(f"  Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
+
+        # Note: Temp files are cleaned up in finally block
 
         return results
 
@@ -894,16 +965,27 @@ class PopulationTrainer:
         """
         Run evaluation matches between all fighters to update ELO ratings.
         """
+        self.logger.info(f"Starting evaluation matches with {len(self.population)} fighters")
+
         if self.verbose:
             print("\n" + "="*60)
             print("EVALUATION MATCHES")
             print("="*60)
+            print(f"Running matches between {len(self.population)} fighters")
 
         # Get all unique pairs
         pairs = []
         for i in range(len(self.population)):
             for j in range(i+1, len(self.population)):
                 pairs.append((self.population[i], self.population[j]))
+
+        self.logger.info(f"Created {len(pairs)} unique matchups")
+
+        if len(pairs) == 0:
+            self.logger.error("No pairs created for evaluation! Population may be corrupted.")
+            if self.verbose:
+                print("ERROR: No evaluation pairs created!")
+            return
 
         random.shuffle(pairs)
 
@@ -985,16 +1067,18 @@ class PopulationTrainer:
         rankings = self.elo_tracker.get_rankings()
         keep_count = max(2, int(len(self.population) * keep_top))
 
-        # Identify survivors and those to replace
-        survivors = []
-        to_replace = []
+        # Get rankings for ONLY the current population fighters
+        population_names = {f.name for f in self.population}
+        population_rankings = [(i, stats) for i, stats in enumerate(rankings)
+                              if stats.name in population_names]
 
-        for fighter in self.population:
-            fighter_rank = next((i for i, stats in enumerate(rankings) if stats.name == fighter.name), -1)
-            if fighter_rank < keep_count and fighter_rank >= 0:
-                survivors.append(fighter)
-            else:
-                to_replace.append(fighter)
+        # Sort current population by their global ELO rank
+        population_by_rank = sorted(self.population,
+                                   key=lambda f: next((i for i, s in population_rankings if s.name == f.name), 999))
+
+        # Identify survivors and those to replace based on relative ranking in current population
+        survivors = population_by_rank[:keep_count]
+        to_replace = population_by_rank[keep_count:]
 
         if self.verbose:
             print(f"  Keeping top {len(survivors)} fighters")
@@ -1031,12 +1115,32 @@ class PopulationTrainer:
                 )
                 # Apply mutation by slightly changing learning rate
                 new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
+
+                # IMPORTANT: Also mutate the actual neural network weights!
+                import torch
+                with torch.no_grad():
+                    for param in new_model.policy.parameters():
+                        # Add Gaussian noise to weights
+                        # Scale noise by mutation_rate and parameter std
+                        noise_scale = mutation_rate * 0.1  # 0.1 is base noise level
+                        noise = torch.randn_like(param) * noise_scale
+                        param.data.add_(noise)
+
             else:  # SAC
                 new_model = SAC.load(
                     parent.last_checkpoint if parent.last_checkpoint else parent.model,
                     env=env
                 )
                 new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
+
+                # IMPORTANT: Also mutate the actual neural network weights!
+                import torch
+                with torch.no_grad():
+                    for param in new_model.policy.parameters():
+                        # Add Gaussian noise to weights
+                        noise_scale = mutation_rate * 0.1  # 0.1 is base noise level
+                        noise = torch.randn_like(param) * noise_scale
+                        param.data.add_(noise)
 
             # Create new fighter
             new_fighter = PopulationFighter(
@@ -1051,7 +1155,9 @@ class PopulationTrainer:
             idx = self.population.index(old_fighter)
             self.population[idx] = new_fighter
 
-            # Add to ELO tracker (starts at default ELO)
+            # Remove old fighter from ELO tracker before adding new one
+            self.elo_tracker.remove_fighter(old_fighter.name)
+            # Add new fighter to ELO tracker (starts at default ELO)
             self.elo_tracker.add_fighter(new_name)
 
             if self.verbose:
@@ -1369,7 +1475,8 @@ being hand-coded.
              episodes_per_generation: int = 500,
              evolution_frequency: int = 2,
              base_model_path: Optional[str] = None,
-             keep_top: float = 0.5) -> None:
+             keep_top: float = 0.5,
+             mutation_rate: float = 0.1) -> None:
         """
         Run the full population training loop.
 
@@ -1379,6 +1486,7 @@ being hand-coded.
             evolution_frequency: Evolve every N generations
             base_model_path: Optional path to pre-trained model for initialization
             keep_top: Fraction of population to keep during evolution
+            mutation_rate: Strength of mutations (0.1 = 10% noise added to weights)
         """
         if self.verbose:
             print("\n" + "="*80)
@@ -1402,6 +1510,9 @@ being hand-coded.
                 print(f"\n{'='*80}")
                 print(f"GENERATION {self.generation + 1}/{generations}")
                 print(f"{'='*80}")
+            self.logger.info(f"{'='*80}")
+            self.logger.info(f"GENERATION {self.generation + 1}/{generations}")
+            self.logger.info(f"{'='*80}")
 
             # Create matchmaking pairs
             pairs = self.create_matchmaking_pairs()
@@ -1427,6 +1538,7 @@ being hand-coded.
             # Train all fighters in parallel
             if self.verbose:
                 print(f"\n🚀 Training {len(self.population)} fighters in parallel...")
+            self.logger.info(f"Training {len(self.population)} fighters in parallel")
 
             results = self.train_fighters_parallel(
                 fighter_opponent_pairs,
@@ -1438,17 +1550,23 @@ being hand-coded.
                 total_episodes = sum(r['episodes'] for r in results)
                 print(f"  ✓ Completed {total_episodes} episodes total, "
                       f"mean reward: {mean_reward_overall:.1f}")
+            if results:
+                mean_reward_overall = np.mean([r['mean_reward'] for r in results])
+                total_episodes = sum(r['episodes'] for r in results)
+                self.logger.info(f"Generation training complete: {total_episodes} episodes total, "
+                                f"mean reward: {mean_reward_overall:.1f}")
 
             # Evaluation matches
             self.run_evaluation_matches(num_matches_per_pair=3)
 
-            # Show leaderboard
+            # Show leaderboard (only active fighters)
             if self.verbose:
-                self.elo_tracker.print_leaderboard()
+                active_names = [f.name for f in self.population]
+                self.elo_tracker.print_leaderboard(active_only=active_names)
 
             # Evolution
             if (gen + 1) % evolution_frequency == 0 and gen < generations - 1:
-                self.evolve_population(keep_top=keep_top)
+                self.evolve_population(keep_top=keep_top, mutation_rate=mutation_rate)
 
             # Save checkpoint
             self.save_population()
@@ -1462,8 +1580,8 @@ being hand-coded.
             print("="*80)
             print(f"Total Generations: {self.generation}")
             print(f"Total Matches: {self.total_matches}")
-            print("\nFinal Rankings:")
-            self.elo_tracker.print_leaderboard()
+            print("\nFinal Rankings (All Time):")
+            self.elo_tracker.print_leaderboard()  # Show all fighters for historical record
 
             # Show diversity metrics
             metrics = self.elo_tracker.get_diversity_metrics()
@@ -1472,6 +1590,21 @@ being hand-coded.
             print(f"  ELO Std Dev: {metrics['elo_std']:.1f}")
             if 'win_rate_std' in metrics:
                 print(f"  Win Rate Variance: {metrics['win_rate_std']:.3f}")
+
+        # Log final report to file
+        self.logger.info("="*80)
+        self.logger.info("TRAINING COMPLETE")
+        self.logger.info("="*80)
+        self.logger.info(f"Total Generations: {self.generation}")
+        self.logger.info(f"Total Matches: {self.total_matches}")
+
+        # Log diversity metrics
+        metrics = self.elo_tracker.get_diversity_metrics()
+        self.logger.info("Population Diversity:")
+        self.logger.info(f"  ELO Spread: {metrics['elo_range']:.0f}")
+        self.logger.info(f"  ELO Std Dev: {metrics['elo_std']:.1f}")
+        if 'win_rate_std' in metrics:
+            self.logger.info(f"  Win Rate Variance: {metrics['win_rate_std']:.3f}")
 
         self.logger.info("Training complete")
         self.logger.info(f"Final generation: {self.generation}")

@@ -18,9 +18,7 @@ Usage:
 import argparse
 import shutil
 from pathlib import Path
-from datetime import datetime
 import sys
-import os
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent))
@@ -91,7 +89,7 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
         from stable_baselines3.common.monitor import Monitor
 
         env = DummyVecEnv([lambda: Monitor(AtomCombatEnv(
-            opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"},
+            opponent_decision_func=lambda _: {"acceleration": 0, "stance": "neutral"},
             max_ticks=250
         ))])
 
@@ -113,6 +111,8 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
         )
 
         trainer.population.append(fighter)
+        # Also add to ELO tracker to avoid duplicates later
+        trainer.elo_tracker.add_fighter(fighter_name)
 
     print(f"Loaded {len(trainer.population)} fighters from generation {generation}")
 
@@ -137,7 +137,10 @@ def resume_population_training(
     use_vmap: bool = False,
     force_cpu: bool = False,
     n_parallel_fighters: int = None,
-    output_dir: str = None
+    output_dir: str = None,
+    keep_top: float = 0.5,
+    mutation_rate: float = 0.1,
+    evolution_frequency: int = 2
 ):
     """Resume or continue population training from a checkpoint.
 
@@ -245,6 +248,10 @@ def resume_population_training(
         return
 
     print(f"\nResuming training for {remaining_generations} more generations")
+    print(f"Evolution Settings:")
+    print(f"  Keep top: {keep_top*100:.0f}% of population")
+    print(f"  Mutation rate: {mutation_rate} (weight noise level)")
+    print(f"  Evolution frequency: Every {evolution_frequency} generations")
     print("="*80)
 
     # Run remaining generations using same method as train_progressive.py
@@ -253,7 +260,9 @@ def resume_population_training(
         generations=remaining_generations,
         episodes_per_generation=episodes_per_gen,
         population_size=population_size,
-        keep_top=0.5  # Keep top 50% during evolution
+        keep_top=keep_top,
+        evolution_frequency=evolution_frequency,
+        mutation_rate=mutation_rate
     )
 
     print(f"\n{'='*80}")
@@ -358,6 +367,27 @@ Examples:
         help="Output directory (default: outputs/resumed_TIMESTAMP)"
     )
 
+    parser.add_argument(
+        "--keep-top",
+        type=float,
+        default=0.5,
+        help="Fraction of population to keep during evolution (default: 0.5)"
+    )
+
+    parser.add_argument(
+        "--mutation-rate",
+        type=float,
+        default=0.1,
+        help="Mutation strength for evolved fighters (default: 0.1)"
+    )
+
+    parser.add_argument(
+        "--evolution-frequency",
+        type=int,
+        default=2,
+        help="Evolve population every N generations (default: 2)"
+    )
+
     args = parser.parse_args()
 
     # Validate checkpoint exists
@@ -388,7 +418,10 @@ Examples:
         use_vmap=args.use_vmap,
         force_cpu=args.force_cpu,
         n_parallel_fighters=args.n_parallel_fighters,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        keep_top=args.keep_top,
+        mutation_rate=args.mutation_rate,
+        evolution_frequency=args.evolution_frequency
     )
 
 

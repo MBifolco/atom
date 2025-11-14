@@ -194,7 +194,9 @@ class ProgressiveTrainer:
                               generations: int = 10,
                               episodes_per_generation: int = 500,
                               population_size: int = 8,
-                              keep_top: float = 0.5):
+                              keep_top: float = 0.5,
+                              evolution_frequency: int = 2,
+                              mutation_rate: float = 0.1):
         """
         Run population-based training phase.
 
@@ -203,6 +205,8 @@ class ProgressiveTrainer:
             episodes_per_generation: Training episodes per generation
             population_size: Size of the population
             keep_top: Fraction to keep during evolution
+            evolution_frequency: Evolve every N generations
+            mutation_rate: Strength of mutations (noise level for weights)
         """
         if self.verbose:
             print("\n" + "="*80)
@@ -212,6 +216,8 @@ class ProgressiveTrainer:
             print(f"Population size: {population_size}")
             print(f"Episodes per generation: {episodes_per_generation}")
             print(f"Selection pressure: Keep top {keep_top*100:.0f}%")
+            print(f"Mutation rate: {mutation_rate} (weight noise level)")
+            print(f"Evolution frequency: Every {evolution_frequency} generations")
             print()
 
         if not self.population_trainer:
@@ -240,7 +246,8 @@ class ProgressiveTrainer:
             generations=generations,
             episodes_per_generation=episodes_per_generation,
             keep_top=keep_top,
-            evolution_frequency=2,  # Evolve every 2 generations
+            evolution_frequency=evolution_frequency,
+            mutation_rate=mutation_rate,
             base_model_path=base_model
         )
 
