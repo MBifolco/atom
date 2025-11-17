@@ -358,7 +358,10 @@ class PopulationTrainer:
                  export_threshold: float = 0.5,
                  n_parallel_fighters: int = None,
                  use_vmap: bool = False,
-                 n_vmap_envs: int = 250):
+                 n_vmap_envs: int = 250,
+                 record_replays: bool = False,
+                 replay_recording_frequency: int = 5,
+                 replay_matches_per_pair: int = 2):
         """
         Initialize the population trainer.
 
@@ -375,6 +378,9 @@ class PopulationTrainer:
             n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
             use_vmap: Use JAX vmap for GPU-accelerated training (77x speedup)
             n_vmap_envs: Number of vmap environments for GPU mode (default: 250)
+            record_replays: Whether to record fight replays for montage
+            replay_recording_frequency: Record replays every N generations
+            replay_matches_per_pair: Number of evaluation matches per fighter pair for replay recording
         """
         self.population_size = population_size
         self.config = config or WorldConfig()
@@ -387,6 +393,9 @@ class PopulationTrainer:
         self.export_threshold = export_threshold
         self.use_vmap = use_vmap
         self.n_vmap_envs = n_vmap_envs
+        self.record_replays = record_replays
+        self.replay_recording_frequency = replay_recording_frequency
+        self.replay_matches_per_pair = replay_matches_per_pair
 
         # Parallel training configuration
         if n_parallel_fighters is None:
@@ -420,6 +429,17 @@ class PopulationTrainer:
         # Training state
         self.generation = 0
         self.total_matches = 0
+
+        # Replay recorder (if enabled)
+        self.replay_recorder = None
+        if self.record_replays:
+            from ...replay_recorder import ReplayRecorder
+            self.replay_recorder = ReplayRecorder(
+                output_dir=str(self.output_dir),
+                config=self.config,
+                max_ticks=max_ticks,
+                verbose=verbose
+            )
 
         # Setup logging
         self._setup_logging()
@@ -1109,10 +1129,23 @@ class PopulationTrainer:
             ))])
 
             if self.algorithm == "ppo":
-                new_model = PPO.load(
-                    parent.last_checkpoint if parent.last_checkpoint else parent.model,
-                    env=env
-                )
+                # Load parent model - save temporarily if no checkpoint exists
+                if parent.last_checkpoint:
+                    parent_path = parent.last_checkpoint
+                else:
+                    # Save temporarily for loading
+                    import tempfile
+                    temp_dir = Path(tempfile.mkdtemp())
+                    parent_path = temp_dir / f"{parent.name}_temp.zip"
+                    parent.model.save(parent_path)
+
+                new_model = PPO.load(parent_path, env=env)
+
+                # Clean up temp file if we created one
+                if not parent.last_checkpoint:
+                    parent_path.unlink()
+                    parent_path.parent.rmdir()
+
                 # Apply mutation by slightly changing learning rate
                 new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
 
@@ -1127,10 +1160,23 @@ class PopulationTrainer:
                         param.data.add_(noise)
 
             else:  # SAC
-                new_model = SAC.load(
-                    parent.last_checkpoint if parent.last_checkpoint else parent.model,
-                    env=env
-                )
+                # Load parent model - save temporarily if no checkpoint exists
+                if parent.last_checkpoint:
+                    parent_path = parent.last_checkpoint
+                else:
+                    # Save temporarily for loading
+                    import tempfile
+                    temp_dir = Path(tempfile.mkdtemp())
+                    parent_path = temp_dir / f"{parent.name}_temp.zip"
+                    parent.model.save(parent_path)
+
+                new_model = SAC.load(parent_path, env=env)
+
+                # Clean up temp file if we created one
+                if not parent.last_checkpoint:
+                    parent_path.unlink()
+                    parent_path.parent.rmdir()
+
                 new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
 
                 # IMPORTANT: Also mutate the actual neural network weights!
@@ -1559,6 +1605,17 @@ being hand-coded.
             # Evaluation matches
             self.run_evaluation_matches(num_matches_per_pair=3)
 
+            # Record replays if enabled (based on frequency)
+            if self.replay_recorder and (gen + 1) % self.replay_recording_frequency == 0:
+                try:
+                    self.replay_recorder.record_population_generation(
+                        generation=self.generation + 1,
+                        fighters=self.population,
+                        num_matches_per_pair=self.replay_matches_per_pair
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to record replays for generation {self.generation + 1}: {e}")
+
             # Show leaderboard (only active fighters)
             if self.verbose:
                 active_names = [f.name for f in self.population]
@@ -1605,6 +1662,10 @@ being hand-coded.
         self.logger.info(f"  ELO Std Dev: {metrics['elo_std']:.1f}")
         if 'win_rate_std' in metrics:
             self.logger.info(f"  Win Rate Variance: {metrics['win_rate_std']:.3f}")
+
+        # Save replay index if recording was enabled
+        if self.replay_recorder:
+            self.replay_recorder.save_replay_index()
 
         self.logger.info("Training complete")
         self.logger.info(f"Final generation: {self.generation}")

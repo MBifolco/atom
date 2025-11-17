@@ -56,7 +56,9 @@ class ProgressiveTrainer:
                  max_ticks: int = 250,
                  device: str = "auto",
                  use_vmap: bool = False,
-                 debug: bool = False):
+                 debug: bool = False,
+                 record_replays: bool = False,
+                 replay_frequency: int = 5):
         """
         Initialize the progressive trainer.
 
@@ -68,6 +70,8 @@ class ProgressiveTrainer:
             max_ticks: Maximum ticks per episode (default: 250)
             device: Device to use for training ("cpu", "cuda", or "auto")
             use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
+            record_replays: Whether to record fight replays for montage
+            replay_frequency: Record replays every N generations
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -77,6 +81,8 @@ class ProgressiveTrainer:
         self.device = device
         self.use_vmap = use_vmap
         self.debug = debug
+        self.record_replays = record_replays
+        self.replay_frequency = replay_frequency
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -132,7 +138,8 @@ class ProgressiveTrainer:
             verbose=self.verbose,
             device=self.device,
             use_vmap=self.use_vmap,
-            debug=self.debug
+            debug=self.debug,
+            record_replays=self.record_replays
         )
 
         # Train through curriculum
@@ -178,7 +185,9 @@ class ProgressiveTrainer:
             verbose=self.verbose,
             n_parallel_fighters=self.n_parallel_fighters,
             use_vmap=self.use_vmap,  # Use GPU if enabled
-            n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+            n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+            record_replays=self.record_replays,
+            replay_recording_frequency=self.replay_frequency
         )
 
         # Initialize population with the curriculum model as base
@@ -232,7 +241,9 @@ class ProgressiveTrainer:
                 verbose=self.verbose,
                 n_parallel_fighters=self.n_parallel_fighters,
                 use_vmap=self.use_vmap,  # Use GPU if enabled
-                n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+                n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+                record_replays=self.record_replays,
+                replay_recording_frequency=self.replay_frequency
             )
 
         # Check if we have a base model from curriculum training
@@ -258,7 +269,10 @@ class ProgressiveTrainer:
                              curriculum_timesteps: int = 500_000,
                              population_generations: int = 10,
                              population_size: int = 8,
-                             episodes_per_generation: int = 2000):
+                             episodes_per_generation: int = 2000,
+                             keep_top: float = 0.5,
+                             evolution_frequency: int = 2,
+                             mutation_rate: float = 0.1):
         """
         Run the complete progressive training pipeline.
 
@@ -299,7 +313,9 @@ class ProgressiveTrainer:
             generations=population_generations,
             episodes_per_generation=episodes_per_generation,
             population_size=population_size,
-            keep_top=0.5
+            keep_top=keep_top,
+            evolution_frequency=evolution_frequency,
+            mutation_rate=mutation_rate
         )
 
         if self.verbose:
@@ -408,6 +424,35 @@ Examples:
         action="store_true",
         help="Enable debug logging to see detailed fight information"
     )
+    parser.add_argument(
+        "--record-replays",
+        action="store_true",
+        help="Record fight replays for creating a training montage (samples bottom/middle/top spectacle)"
+    )
+    parser.add_argument(
+        "--replay-frequency",
+        type=int,
+        default=5,
+        help="Record replays every N generations for population training (default: 5)"
+    )
+    parser.add_argument(
+        "--keep-top",
+        type=float,
+        default=0.5,
+        help="Fraction of population to keep during evolution (default: 0.5 = top 50%%)"
+    )
+    parser.add_argument(
+        "--mutation-rate",
+        type=float,
+        default=0.1,
+        help="Mutation strength for evolved fighters (default: 0.1 = 10%% weight noise)"
+    )
+    parser.add_argument(
+        "--evolution-frequency",
+        type=int,
+        default=2,
+        help="Evolve population every N generations (default: 2)"
+    )
 
     args = parser.parse_args()
 
@@ -427,7 +472,9 @@ Examples:
         max_ticks=args.max_ticks,
         device=args.device,
         use_vmap=args.use_vmap,
-        debug=args.debug
+        debug=args.debug,
+        record_replays=args.record_replays,
+        replay_frequency=args.replay_frequency
     )
 
     # Run based on mode
@@ -448,7 +495,10 @@ Examples:
         trainer.run_population_training(
             generations=args.generations,
             episodes_per_generation=args.episodes_per_gen,
-            population_size=args.population
+            population_size=args.population,
+            keep_top=args.keep_top,
+            evolution_frequency=args.evolution_frequency,
+            mutation_rate=args.mutation_rate
         )
     else:  # complete
         # Full pipeline
@@ -456,7 +506,10 @@ Examples:
             curriculum_timesteps=args.timesteps,
             population_generations=args.generations,
             population_size=args.population,
-            episodes_per_generation=args.episodes_per_gen
+            episodes_per_generation=args.episodes_per_gen,
+            keep_top=args.keep_top,
+            evolution_frequency=args.evolution_frequency,
+            mutation_rate=args.mutation_rate
         )
 
 

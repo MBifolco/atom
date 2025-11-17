@@ -26,7 +26,7 @@ except ImportError:
     from stable_baselines3 import PPO, SAC  # PyTorch fallback
     _using_sbx = False
 
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv, VecCheckNan
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
@@ -249,7 +249,9 @@ class CurriculumTrainer:
                  verbose: bool = True,
                  device: str = "auto",
                  use_vmap: bool = False,
-                 debug: bool = False):
+                 debug: bool = False,
+                 record_replays: bool = False,
+                 replay_matches_per_opponent: int = 3):
         """
         Initialize the curriculum trainer.
 
@@ -261,6 +263,8 @@ class CurriculumTrainer:
             verbose: Whether to print progress
             device: Device to use for training ("cpu", "cuda", or "auto")
             use_vmap: Use JAX vmap for parallel environments (Level 3/4 optimization)
+            record_replays: Whether to record fight replays for montage
+            replay_matches_per_opponent: Number of evaluation matches per opponent for replay recording
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -270,6 +274,8 @@ class CurriculumTrainer:
         self.device = device
         self.use_vmap = use_vmap
         self.debug = debug
+        self.record_replays = record_replays
+        self.replay_matches_per_opponent = replay_matches_per_opponent
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -285,6 +291,16 @@ class CurriculumTrainer:
         # Model and environments
         self.model = None
         self.envs = None
+
+        # Replay recorder (if enabled)
+        self.replay_recorder = None
+        if self.record_replays:
+            from ..replay_recorder import ReplayRecorder
+            self.replay_recorder = ReplayRecorder(
+                output_dir=str(self.output_dir),
+                max_ticks=max_ticks,
+                verbose=verbose
+            )
 
         # Setup logging
         self._setup_logging()
@@ -475,7 +491,10 @@ class CurriculumTrainer:
             )
 
             # Wrap with adapter for SBX compatibility
-            return VmapEnvAdapter(vmap_env)
+            adapted_env = VmapEnvAdapter(vmap_env)
+
+            # Wrap with NaN checker to catch numerical instabilities
+            return VecCheckNan(adapted_env, raise_exception=True, warn_once=True)
 
         else:
             # Level 1/2: Use DummyVecEnv with multiple opponents
@@ -499,7 +518,10 @@ class CurriculumTrainer:
 
             # ALWAYS use DummyVecEnv for curriculum training
             # SubprocVecEnv has too many pickle/process issues during curriculum progression
-            return DummyVecEnv(env_fns)
+            dummy_env = DummyVecEnv(env_fns)
+
+            # Wrap with NaN checker to catch numerical instabilities
+            return VecCheckNan(dummy_env, raise_exception=True, warn_once=True)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
@@ -524,6 +546,9 @@ class CurriculumTrainer:
                 gae_lambda=0.95,
                 clip_range=0.2,
                 max_grad_norm=0.5,  # Gradient clipping to prevent NaN
+                ent_coef=0.01,  # Entropy coefficient for exploration
+                vf_coef=0.5,  # Value function coefficient
+                normalize_advantage=True,  # Normalize advantages
                 verbose=2 if self.verbose else 0,  # Set to 2 for detailed NN training logs
                 tensorboard_log=str(self.logs_dir / "tensorboard"),
                 device=actual_device
@@ -662,12 +687,15 @@ class CurriculumTrainer:
         recent_wins = sum(self.progress.recent_episodes)
         overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
 
-        # Require BOTH recent AND overall performance to be good
-        # Overall must be within 10% of graduation threshold to prevent lucky streaks
-        overall_threshold = max(0.5, level.graduation_win_rate - 0.15)  # At least 50%, or 15% below requirement
-
+        # Only check recent win rate for graduation
+        # The overall win rate requirement creates an inverted difficulty curve
+        # where early levels become harder due to accumulated losses
         recent_passed = recent_win_rate >= level.graduation_win_rate
-        overall_passed = overall_win_rate >= overall_threshold
+
+        # Optional: Add a minimum overall win rate to prevent extreme cases
+        # But keep it low and consistent across levels
+        min_overall = 0.5  # 50% minimum overall win rate for any level
+        overall_passed = overall_win_rate >= min_overall
 
         # Debug logging for graduation decisions
         will_graduate = recent_passed and overall_passed
@@ -694,6 +722,19 @@ class CurriculumTrainer:
         self.logger.info(f"Episodes: {self.progress.episodes_at_level}")
         self.logger.info(f"Win Rate: {self.progress.wins_at_level / max(1, self.progress.episodes_at_level):.2%}")
         self.logger.info("="*60)
+
+        # Record replays if enabled (BEFORE moving to next level)
+        if self.replay_recorder:
+            try:
+                self.replay_recorder.record_curriculum_stage(
+                    stage_name=current.name,
+                    level_num=self.progress.current_level + 1,  # 1-indexed
+                    model=self.model,
+                    opponent_paths=current.opponents,
+                    num_matches_per_opponent=self.replay_matches_per_opponent
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to record replays for {current.name}: {e}")
 
         # Record graduation
         self.progress.graduated_levels.append(current.name)
@@ -763,6 +804,10 @@ class CurriculumTrainer:
         final_model_path = self.models_dir / "curriculum_graduate.zip"
         self.model.save(final_model_path)
         self.logger.info(f"Final model saved to: {final_model_path}")
+
+        # Save replay index if recording was enabled
+        if self.replay_recorder:
+            self.replay_recorder.save_replay_index()
 
         # Save training report
         self.save_training_report()

@@ -140,7 +140,9 @@ def resume_population_training(
     output_dir: str = None,
     keep_top: float = 0.5,
     mutation_rate: float = 0.1,
-    evolution_frequency: int = 2
+    evolution_frequency: int = 2,
+    record_replays: bool = False,
+    replay_frequency: int = 5
 ):
     """Resume or continue population training from a checkpoint.
 
@@ -230,7 +232,9 @@ def resume_population_training(
         n_parallel_fighters=n_parallel_fighters,
         use_vmap=use_vmap,
         n_vmap_envs=n_envs if use_vmap else 45,
-        n_envs_per_fighter=n_envs if not use_vmap else 1  # Critical: vmap handles parallelization
+        n_envs_per_fighter=n_envs if not use_vmap else 1,  # Critical: vmap handles parallelization
+        record_replays=record_replays,
+        replay_recording_frequency=replay_frequency
     )
 
     # Load the population from checkpoint
@@ -388,6 +392,19 @@ Examples:
         help="Evolve population every N generations (default: 2)"
     )
 
+    parser.add_argument(
+        "--record-replays",
+        action="store_true",
+        help="Record fight replays for creating a training montage (samples bottom/middle/top spectacle)"
+    )
+
+    parser.add_argument(
+        "--replay-frequency",
+        type=int,
+        default=5,
+        help="Record replays every N generations for population training (default: 5)"
+    )
+
     args = parser.parse_args()
 
     # Validate checkpoint exists
@@ -421,7 +438,9 @@ Examples:
         output_dir=args.output_dir,
         keep_top=args.keep_top,
         mutation_rate=args.mutation_rate,
-        evolution_frequency=args.evolution_frequency
+        evolution_frequency=args.evolution_frequency,
+        record_replays=args.record_replays,
+        replay_frequency=args.replay_frequency
     )
 
 
