@@ -22,6 +22,7 @@ class FighterState:
     stamina: float
     max_stamina: float
     stance: str
+    last_hit_tick: int = -999  # Tick of last hit landed/taken (for cooldown)
 
     @classmethod
     def create(cls, name: str, mass: float, position: float, world_config) -> 'FighterState':
@@ -45,7 +46,8 @@ class FighterState:
             max_hp=stats["max_hp"],
             stamina=stats["max_stamina"],
             max_stamina=stats["max_stamina"],
-            stance="neutral"
+            stance="neutral",
+            last_hit_tick=-999
         )
 
     def to_dict(self) -> dict:
@@ -59,5 +61,6 @@ class FighterState:
             "max_hp": self.max_hp,
             "stamina": self.stamina,
             "max_stamina": self.max_stamina,
-            "stance": self.stance
+            "stance": self.stance,
+            "last_hit_tick": self.last_hit_tick
         }

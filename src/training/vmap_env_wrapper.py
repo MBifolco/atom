@@ -123,7 +123,7 @@ class VmapEnvWrapper(gym.Env):
 
         self.action_space = spaces.Box(
             low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 3.99], dtype=np.float32),
+            high=np.array([1.0, 2.99], dtype=np.float32),  # 3 stances (0-2.99)
             dtype=np.float32
         )
 
@@ -140,8 +140,8 @@ class VmapEnvWrapper(gym.Env):
         # Pre-compute stance arrays
         self.stance_reach, self.stance_defense, self.stance_drain = create_stance_arrays(self.config)
 
-        # Stance mapping
-        self.stance_names = ["neutral", "extended", "retracted", "defending"]
+        # Stance mapping (3-stance system)
+        self.stance_names = ["neutral", "extended", "defending"]
 
         # JAX states for all environments
         self.jax_states = None

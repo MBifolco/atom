@@ -1,0 +1,61 @@
+{
+  "generation": 2,
+  "fighters": [
+    {
+      "name": "Alpha",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Beta",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Gamma",
+      "test_results": {
+        "tank": 1.0,
+        "rusher": 0.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.3333333333333333
+    },
+    {
+      "name": "Delta",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 1.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.3333333333333333
+    },
+    {
+      "name": "Echo",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 1.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.3333333333333333
+    },
+    {
+      "name": "Zeta",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0
+      },
+      "avg_win_rate": 0.0
+    }
+  ],
+  "best_score": 0.3333333333333333,
+  "time": 68.25648236274719
+}

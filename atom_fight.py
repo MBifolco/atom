@@ -24,8 +24,25 @@ Examples:
 
 import argparse
 import sys
+import os
 import importlib.util
 from pathlib import Path
+
+# Auto-detect GPU issues and fallback to CPU
+try:
+    import jax
+    # Test GPU availability
+    devices = jax.devices()
+    if any('gpu' in str(d).lower() or 'rocm' in str(d).lower() for d in devices):
+        # Try a simple GPU operation
+        try:
+            test = jax.numpy.array([1.0])
+            _ = test + 1
+        except Exception as e:
+            print(f"⚠️ GPU initialization failed, using CPU mode")
+            os.environ["ATOM_FORCE_CPU"] = "1"
+except Exception:
+    pass  # JAX import happens later
 
 from src.arena import WorldConfig
 from src.orchestrator import MatchOrchestrator
@@ -140,8 +157,8 @@ def main():
     print(f"Duration: {result.total_ticks} ticks ({result.total_ticks * config.dt:.1f}s)")
     print(f"Final HP: {result.final_hp_a:.1f} vs {result.final_hp_b:.1f}")
 
-    collision_count = len([e for e in result.events if e["type"] == "COLLISION"])
-    print(f"Collisions: {collision_count}")
+    hit_count = len([e for e in result.events if e["type"] == "HIT"])
+    print(f"Hits: {hit_count}")
 
     print(f"\nSpectacle Score: {score.overall:.3f}")
     if score.overall >= 0.8:

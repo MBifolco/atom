@@ -14,8 +14,8 @@ import logging
 from datetime import datetime
 import time
 
-# Phase 2: SBX (Stable-Baselines JAX) for 20x training speedup
-from sbx import PPO  # JAX-accelerated PPO
+# Use Stable Baselines3 with PyTorch (JAX is in physics engine)
+from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 from stable_baselines3.common.monitor import Monitor

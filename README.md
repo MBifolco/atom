@@ -12,16 +12,16 @@ A competitive platform where you train AI fighters, not control them directly. E
 
 ```bash
 # Basic fight
-python atom_fight.py fighters/examples/rusher.py fighters/examples/tank.py
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py
 
 # With HTML replay
-python atom_fight.py fighters/examples/rusher.py fighters/examples/tank.py --html replay.html
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py --html replay.html
 
 # Watch in terminal
-python atom_fight.py fighters/examples/rusher.py fighters/examples/tank.py --watch
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py --watch
 
 # Custom configuration
-python atom_fight.py fighters/examples/rusher.py fighters/examples/tank.py \
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py \
     --mass-a 65 --mass-b 80 \
     --html replay.html \
     --save telemetry.json.gz
@@ -49,7 +49,7 @@ def decide(snapshot):
     Returns:
         {"acceleration": float, "stance": str}
             - acceleration: -4.5 to +4.5 m/s²
-            - stance: "neutral", "extended", "retracted", or "defending"
+            - stance: "neutral", "extended", or "defending"
     """
     distance = snapshot["opponent"]["distance"]
     stamina = snapshot["you"]["stamina"]
@@ -65,7 +65,7 @@ def decide(snapshot):
 
 Then run it:
 ```bash
-python atom_fight.py my_fighter.py fighters/examples/tank.py --html my_first_fight.html
+python atom_fight.py my_fighter.py fighters/examples/boxer.py --html my_first_fight.html
 ```
 
 ---

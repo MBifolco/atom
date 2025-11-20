@@ -1,121 +1,220 @@
 """
-Test the Telemetry & Replay Store component.
+Tests for telemetry/replay store system.
 """
 
-from src.arena import WorldConfig
-from src.orchestrator import MatchOrchestrator
+import pytest
+import tempfile
+import json
+import gzip
+from pathlib import Path
 from src.telemetry import ReplayStore
+from src.orchestrator import MatchOrchestrator, MatchResult
+from src.arena import WorldConfig
 
 
-def aggressive_ai(snapshot):
-    """Aggressive AI."""
-    distance = snapshot["opponent"]["distance"]
-    stamina = snapshot["you"]["stamina"]
-
-    if distance < 1.0:
-        return {"acceleration": 0.0, "stance": "extended"}
-    elif stamina > 2.0:
-        return {"acceleration": 4.0, "stance": "neutral"}
-    else:
-        return {"acceleration": 0.0, "stance": "neutral"}
+def simple_test_fighter(state):
+    """Simple fighter for testing (renamed to not be detected as test)."""
+    direction = state["opponent"]["direction"]
+    return {"acceleration": 0.8 * direction, "stance": "extended"}
 
 
-def defensive_ai(snapshot):
-    """Defensive AI."""
-    distance = snapshot["opponent"]["distance"]
-    opp_velocity = snapshot["opponent"]["velocity"]
+class TestReplayStore:
+    """Test replay storage and retrieval."""
 
-    if distance < 2.0 and opp_velocity > 1.0:
-        return {"acceleration": 0.0, "stance": "defending"}
-    elif distance < 1.5:
-        return {"acceleration": 2.0, "stance": "extended"}
-    else:
-        return {"acceleration": 0.0, "stance": "neutral"}
+    def test_replay_store_initialization(self):
+        """Test ReplayStore creates directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            replay_dir = Path(tmpdir) / "replays"
+            store = ReplayStore(str(replay_dir))
 
+            assert store.replay_dir == replay_dir
+            assert replay_dir.exists()
 
-def main():
-    print("=== Telemetry & Replay Store Test ===\n")
+    def test_save_replay_uncompressed(self):
+        """Test saving replay as uncompressed JSON."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
 
-    # 1. Run a match to generate telemetry
-    print("Running match to generate telemetry...")
-    config = WorldConfig()
-    orchestrator = MatchOrchestrator(config, max_ticks=1000, record_telemetry=True)
+            # Create a simple match result
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=20, record_telemetry=True)
 
-    fighter_a_spec = {"name": "Aggressor", "mass": 75.0, "position": 2.0}
-    fighter_b_spec = {"name": "Defender", "mass": 65.0, "position": 10.0}
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "A", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "B", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
 
-    result = orchestrator.run_match(
-        fighter_a_spec,
-        fighter_b_spec,
-        aggressive_ai,
-        defensive_ai,
-        seed=42
-    )
+            # Save replay
+            filepath = store.save(
+                result.telemetry,
+                result,
+                compress=False,
+                filename="test_replay.json"
+            )
 
-    print(f"Match complete: {result.winner} in {result.total_ticks} ticks\n")
+            assert filepath.exists()
+            assert filepath.suffix == ".json"
 
-    # 2. Save replay
-    print("Saving replay...")
-    replay_store = ReplayStore(replay_dir="test_replays")
+            # Verify content
+            with open(filepath) as f:
+                data = json.load(f)
 
-    metadata = {
-        "description": "Test match for telemetry component",
-        "ai_a": "aggressive",
-        "ai_b": "defensive"
-    }
+            assert "version" in data
+            assert "result" in data
+            assert "telemetry" in data
+            assert data["result"]["winner"] == result.winner
 
-    # Save compressed
-    filepath = replay_store.save(
-        result.telemetry,
-        result,
-        metadata=metadata,
-        compress=True
-    )
-    print(f"Saved to: {filepath}\n")
+    def test_save_replay_compressed(self):
+        """Test saving replay as compressed JSON."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
 
-    # 3. List replays
-    print("Available replays:")
-    replays = replay_store.list_replays()
-    for replay in replays:
-        info = replay_store.get_replay_info(replay)
-        print(f"  - {replay}")
-        print(f"    {info['fighter_a']} vs {info['fighter_b']}")
-        print(f"    Winner: {info['winner']}, Duration: {info['total_ticks']} ticks")
-    print()
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=20, record_telemetry=True)
 
-    # 4. Load replay
-    print("Loading replay...")
-    loaded_data = replay_store.load(filepath.name)
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "A", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "B", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
 
-    print(f"Loaded replay version: {loaded_data['version']}")
-    print(f"Timestamp: {loaded_data['timestamp']}")
-    print(f"Winner: {loaded_data['result']['winner']}")
-    print(f"Total ticks: {loaded_data['result']['total_ticks']}")
-    print(f"Telemetry ticks recorded: {len(loaded_data['telemetry']['ticks'])}")
-    print(f"Total events: {len(loaded_data['events'])}")
-    print(f"Metadata: {loaded_data['metadata']}")
-    print()
+            # Save compressed replay
+            filepath = store.save(
+                result.telemetry,
+                result,
+                compress=True,
+                filename="test_replay.json.gz"
+            )
 
-    # 5. Verify telemetry integrity
-    print("Verifying telemetry integrity...")
-    first_tick = loaded_data['telemetry']['ticks'][0]
-    last_tick = loaded_data['telemetry']['ticks'][-1]
+            assert filepath.exists()
+            assert filepath.suffix == ".gz"
 
-    print(f"First tick ({first_tick['tick']}):")
-    print(f"  Fighter A HP: {first_tick['fighter_a']['hp']:.1f}")
-    print(f"  Fighter B HP: {first_tick['fighter_b']['hp']:.1f}")
+            # Verify can decompress and read
+            with gzip.open(filepath, 'rt') as f:
+                data = json.load(f)
 
-    print(f"Last tick ({last_tick['tick']}):")
-    print(f"  Fighter A HP: {last_tick['fighter_a']['hp']:.1f}")
-    print(f"  Fighter B HP: {last_tick['fighter_b']['hp']:.1f}")
+            assert data["result"]["winner"] == result.winner
 
-    # Verify last tick matches result
-    assert abs(last_tick['fighter_a']['hp'] - loaded_data['result']['final_hp_a']) < 0.1
-    assert abs(last_tick['fighter_b']['hp'] - loaded_data['result']['final_hp_b']) < 0.1
-    print("\nTelemetry integrity verified!")
+    def test_save_with_metadata(self):
+        """Test saving replay with additional metadata."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
 
-    print("\n=== Test Complete ===")
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=10, record_telemetry=True)
+
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "A", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "B", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
+
+            metadata = {
+                "tournament": "Test Tournament",
+                "round": 1,
+                "notes": "Test match"
+            }
+
+            filepath = store.save(
+                result.telemetry,
+                result,
+                metadata=metadata,
+                compress=False
+            )
+
+            # Read and verify metadata
+            with open(filepath) as f:
+                data = json.load(f)
+
+            assert data["metadata"]["tournament"] == "Test Tournament"
+            assert data["metadata"]["round"] == 1
+
+    def test_auto_generated_filename(self):
+        """Test auto-generated filename includes fighter names."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
+
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=10, record_telemetry=True)
+
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "Boxer", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "Slugger", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
+
+            # Save with auto-generated filename
+            filepath = store.save(
+                result.telemetry,
+                result,
+                compress=True
+            )
+
+            # Filename should contain fighter names
+            assert "Boxer" in filepath.name or "Slugger" in filepath.name
+            assert "replay_" in filepath.name
+            assert filepath.suffix == ".gz"
+
+    def test_load_replay_uncompressed(self):
+        """Test loading uncompressed replay."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
+
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=10, record_telemetry=True)
+
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "A", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "B", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
+
+            # Save
+            filepath = store.save(result.telemetry, result, compress=False, filename="test.json")
+
+            # Load (convert Path to string)
+            loaded = store.load(str(filepath))
+
+            assert loaded is not None
+            assert "result" in loaded
+            assert loaded["result"]["winner"] == result.winner
+
+    def test_load_replay_compressed(self):
+        """Test loading compressed replay."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = ReplayStore(tmpdir)
+
+            config = WorldConfig()
+            orchestrator = MatchOrchestrator(config, max_ticks=10, record_telemetry=True)
+
+            result = orchestrator.run_match(
+                fighter_a_spec={"name": "A", "mass": 70.0, "position": 3.0},
+                fighter_b_spec={"name": "B", "mass": 70.0, "position": 9.0},
+                decision_func_a=simple_test_fighter,
+                decision_func_b=simple_test_fighter,
+                seed=42
+            )
+
+            # Save compressed
+            filepath = store.save(result.telemetry, result, compress=True, filename="test.json.gz")
+
+            # Load (convert Path to string)
+            loaded = store.load(str(filepath))
+
+            assert loaded is not None
+            assert loaded["result"]["winner"] == result.winner
 
 
 if __name__ == "__main__":
-    main()
+    pytest.main([__file__, "-v"])

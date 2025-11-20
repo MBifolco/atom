@@ -1,0 +1,11 @@
+{
+  "population_size": 8,
+  "generations": 20,
+  "steps_per_generation": 50000,
+  "parallel_envs": 8,
+  "target_win_rate": 0.7,
+  "learning_rate": 0.0005,
+  "cpu_cores": 16,
+  "max_cores_used": 12,
+  "timestamp": "2025-11-04T22:17:27.065690"
+}

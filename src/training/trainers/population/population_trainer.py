@@ -9,7 +9,7 @@ import sys
 import os
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional, Callable, Tuple
+from typing import List, Dict, Optional, Callable, Tuple, Any
 import logging
 from datetime import datetime
 import time
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
 
-from stable_baselines3 import PPO, SAC
+from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -27,6 +27,192 @@ from stable_baselines3.common.monitor import Monitor
 from ....arena import WorldConfig
 from ...gym_env import AtomCombatEnv
 from .elo_tracker import EloTracker
+
+
+# ==============================================================================
+# HELPER FUNCTIONS FOR PARALLEL TRAINING (must be at module level for pickle)
+# ==============================================================================
+
+def _configure_process_threading() -> None:
+    """
+    Configure thread limits for subprocess to prevent CPU oversubscription.
+
+    Must be called BEFORE importing TensorFlow/PyTorch.
+    """
+    import os
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+    os.environ['NUMEXPR_NUM_THREADS'] = '1'
+    os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
+    os.environ['TF_NUM_INTEROP_THREADS'] = '1'
+
+
+def _reconstruct_config(config_dict: Optional[dict]) -> WorldConfig:
+    """Reconstruct WorldConfig from dictionary."""
+    from src.arena import WorldConfig
+
+    if config_dict is None:
+        return WorldConfig()
+    return WorldConfig(**config_dict)
+
+
+def _load_opponent_models_for_training(
+    opponent_data: List[Tuple[str, float, str]],
+    algorithm: str
+) -> List[Tuple[str, float, Any]]:
+    """
+    Load opponent models from paths for training.
+
+    Args:
+        opponent_data: List of (name, mass, model_path) tuples
+        algorithm: "ppo" (only PPO supported)
+
+    Returns:
+        List of (name, mass, model) tuples
+    """
+    from stable_baselines3 import PPO
+
+    opponent_models = []
+    for opp_name, opp_mass, opp_path in opponent_data:
+        opp_model = PPO.load(opp_path, device="cpu")
+        opponent_models.append((opp_name, opp_mass, opp_model))
+
+    return opponent_models
+
+
+def _create_opponent_decide_func(model):
+    """
+    Create a decide function wrapper for a trained PPO model.
+
+    Args:
+        model: Trained SB3 PPO model
+
+    Returns:
+        Decide function compatible with AtomCombatEnv
+    """
+    import numpy as np
+
+    def decide(snapshot):
+        obs = np.array([
+            snapshot["you"]["position"],
+            snapshot["you"]["velocity"],
+            snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
+            snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
+            snapshot["opponent"]["distance"],
+            snapshot["opponent"]["velocity"],
+            snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
+            snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
+            snapshot["arena"]["width"]
+        ], dtype=np.float32)
+
+        action, _ = model.predict(obs, deterministic=False)
+
+        acceleration = float(action[0]) * 4.5
+        stance_idx = int(action[1])
+        stances = ["neutral", "extended", "defending"]
+        stance = stances[min(stance_idx, 2)]
+
+        return {"acceleration": acceleration, "stance": stance}
+
+    return decide
+
+
+def _create_vmap_training_environment(
+    fighter_mass: float,
+    opponent_models: List[Tuple],
+    config: WorldConfig,
+    n_vmap_envs: int,
+    max_ticks: int
+):
+    """
+    Create JAX vmap vectorized environment for GPU training.
+
+    Args:
+        fighter_mass: Mass of the learning fighter
+        opponent_models: List of (name, mass, model) tuples
+        config: WorldConfig instance
+        n_vmap_envs: Number of parallel vmap environments
+        max_ticks: Maximum ticks per episode
+
+    Returns:
+        VmapEnvAdapter wrapped environment
+    """
+    import os
+    from src.training.trainers.curriculum_trainer import VmapEnvAdapter
+    from src.training.vmap_env_wrapper import VmapEnvWrapper
+
+    # Configure JAX memory to prevent OOM
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+    os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.2'
+    os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
+
+    # Extract just the models for vmap
+    opp_models_only = [opp_model for _, _, opp_model in opponent_models]
+
+    vmap_env = VmapEnvWrapper(
+        n_envs=n_vmap_envs,
+        opponent_models=opp_models_only,
+        config=config,
+        max_ticks=max_ticks,
+        fighter_mass=fighter_mass,
+        opponent_mass=fighter_mass,  # Assume same mass for simplicity
+        seed=42
+    )
+
+    return VmapEnvAdapter(vmap_env)
+
+
+def _create_cpu_training_environment(
+    fighter_name: str,
+    fighter_mass: float,
+    opponent_models: List[Tuple],
+    config: WorldConfig,
+    n_envs: int,
+    max_ticks: int,
+    logs_dir: str
+):
+    """
+    Create CPU-based parallel environments using DummyVecEnv.
+
+    Args:
+        fighter_name: Name of the fighter (for logging)
+        fighter_mass: Mass of the learning fighter
+        opponent_models: List of (name, mass, model) tuples
+        config: WorldConfig instance
+        n_envs: Number of parallel environments
+        max_ticks: Maximum ticks per episode
+        logs_dir: Directory for monitor logs
+
+    Returns:
+        DummyVecEnv with Monitor-wrapped environments
+    """
+    from pathlib import Path
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from stable_baselines3.common.monitor import Monitor
+    from src.training.gym_env import AtomCombatEnv
+
+    env_fns = []
+    for i in range(n_envs):
+        opp_name, opp_mass, opp_model = opponent_models[i % len(opponent_models)]
+
+        # Use closure with default arguments to capture values
+        def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass):
+            return Monitor(
+                AtomCombatEnv(
+                    opponent_decision_func=_create_opponent_decide_func(opp_m),
+                    config=config,
+                    max_ticks=max_ticks,
+                    fighter_mass=f_mass,
+                    opponent_mass=o_mass
+                ),
+                str(Path(logs_dir) / f"{fighter_name}_env_{i}")
+            )
+
+        env_fns.append(make_env)
+
+    return DummyVecEnv(env_fns)
 
 
 # ==============================================================================
@@ -61,7 +247,7 @@ def _train_single_fighter_parallel(
         n_envs: Number of parallel environments (CPU mode)
         episodes: Number of episodes to train
         max_ticks: Max ticks per episode
-        algorithm: "ppo" or "sac"
+        algorithm: "ppo" (only PPO supported)
         config_dict: WorldConfig as dictionary
         logs_dir: Directory for logs
         use_vmap: Use JAX vmap for GPU acceleration
@@ -70,120 +256,28 @@ def _train_single_fighter_parallel(
     Returns:
         Dictionary with training statistics
     """
-    # IMPORTANT: Set thread limits BEFORE importing TensorFlow/PyTorch
-    # This prevents each process from using all CPU cores for BLAS/MKL operations
-    import os
-    os.environ['OMP_NUM_THREADS'] = '1'
-    os.environ['MKL_NUM_THREADS'] = '1'
-    os.environ['OPENBLAS_NUM_THREADS'] = '1'
-    os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
-    os.environ['NUMEXPR_NUM_THREADS'] = '1'
-    os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
-    os.environ['TF_NUM_INTEROP_THREADS'] = '1'
+    # Configure threading for subprocess
+    _configure_process_threading()
 
+    # Required imports (after threading config)
     import numpy as np
     from pathlib import Path
-    from stable_baselines3 import PPO, SAC
-    from stable_baselines3.common.vec_env import DummyVecEnv
-    from stable_baselines3.common.monitor import Monitor
+    from stable_baselines3 import PPO
     from src.arena import WorldConfig
-    from src.training.gym_env import AtomCombatEnv
 
-    # Reconstruct WorldConfig
-    if config_dict is None:
-        config = WorldConfig()  # Use default
-    else:
-        config = WorldConfig(**config_dict)
+    # Reconstruct config and load opponents
+    config = _reconstruct_config(config_dict)
+    opponent_models = _load_opponent_models_for_training(opponent_data, algorithm)
 
-    # Load opponent models on CPU to save GPU memory
-    # Opponent inference is fast on CPU (~1-2ms), GPU is reserved for physics
-    opponent_models = []
-    for opp_name, opp_mass, opp_path in opponent_data:
-        if algorithm == "ppo":
-            opp_model = PPO.load(opp_path, device="cpu")
-        else:
-            opp_model = SAC.load(opp_path, device="cpu")
-        opponent_models.append((opp_name, opp_mass, opp_model))
-
-    # Create environments based on mode
+    # Create training environments (vmap for GPU or DummyVecEnv for CPU)
     if use_vmap:
-        # GPU mode: Configure JAX memory to prevent OOM
-        # Note: This is set PER SUBPROCESS, so divide by expected parallel processes
-        import os
-        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-        # Reduce memory fraction for parallel training - each subprocess gets a fraction
-        # With 4 parallel fighters: 0.2/fighter = 80% total GPU usage (safe)
-        # With 2 parallel fighters: 0.35/fighter = 70% total GPU usage
-        # Set memory fraction conservatively (each subprocess doesn't know total count)
-        # For safety, assume up to 4 parallel processes
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.2'  # 20% per process × 4 = 80% total
-        os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'platform'
-
-        # GPU mode: Use VmapEnvWrapper with opponent models
-        from src.training.trainers.curriculum_trainer import VmapEnvAdapter
-        from src.training.vmap_env_wrapper import VmapEnvWrapper
-
-        # Extract just the models for vmap
-        opp_models_only = [opp_model for _, _, opp_model in opponent_models]
-
-        vmap_env = VmapEnvWrapper(
-            n_envs=n_vmap_envs,
-            opponent_models=opp_models_only,
-            config=config,
-            max_ticks=max_ticks,
-            fighter_mass=fighter_mass,
-            opponent_mass=fighter_mass,  # Assume same mass for simplicity
-            seed=42
+        vec_env = _create_vmap_training_environment(
+            fighter_mass, opponent_models, config, n_vmap_envs, max_ticks
         )
-
-        vec_env = VmapEnvAdapter(vmap_env)
     else:
-        # CPU mode: Use DummyVecEnv with decision functions
-        def create_opponent_decide_func(model):
-            def decide(snapshot):
-                obs = np.array([
-                    snapshot["you"]["position"],
-                    snapshot["you"]["velocity"],
-                    snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
-                    snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
-                    snapshot["opponent"]["distance"],
-                    snapshot["opponent"]["velocity"],
-                    snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
-                    snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
-                    snapshot["arena"]["width"]
-                ], dtype=np.float32)
-
-                action, _ = model.predict(obs, deterministic=False)
-
-                acceleration = float(action[0]) * 4.5
-                stance_idx = int(action[1])
-                stances = ["neutral", "extended", "retracted", "defending"]
-                stance = stances[min(stance_idx, 3)]
-
-                return {"acceleration": acceleration, "stance": stance}
-
-            return decide
-
-        env_fns = []
-        for i in range(n_envs):
-            opp_name, opp_mass, opp_model = opponent_models[i % len(opponent_models)]
-
-            # Use closure with default arguments to capture values
-            def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass):
-                return Monitor(
-                    AtomCombatEnv(
-                        opponent_decision_func=create_opponent_decide_func(opp_m),
-                        config=config,
-                        max_ticks=max_ticks,
-                        fighter_mass=f_mass,
-                        opponent_mass=o_mass
-                    ),
-                    str(Path(logs_dir) / f"{fighter_name}_env_{i}")
-                )
-
-            env_fns.append(make_env)
-
-        vec_env = DummyVecEnv(env_fns)
+        vec_env = _create_cpu_training_environment(
+            fighter_name, fighter_mass, opponent_models, config, n_envs, max_ticks, logs_dir
+        )
 
     # Load fighter model
     if algorithm == "ppo":
@@ -368,7 +462,7 @@ class PopulationTrainer:
         Args:
             population_size: Number of fighters in the population
             config: World configuration
-            algorithm: "ppo" or "sac"
+            algorithm: "ppo" (only PPO supported)
             output_dir: Directory for saving models and logs
             n_envs_per_fighter: Parallel environments per fighter (CPU mode)
             max_ticks: Maximum ticks per episode

@@ -9,9 +9,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 # Use relative imports within the src package
-from ..arena import WorldConfig, FighterState, Arena1D
-from ..arena.arena_1d_jax import Arena1DJAX
-from ..arena.arena_1d_jax_jit import Arena1DJAXJit
+from ..arena import WorldConfig, FighterState, Arena1DJAXJit
 from ..protocol.combat_protocol import generate_snapshot
 
 
@@ -32,7 +30,7 @@ class AtomCombatEnv(gym.Env):
 
     Action Space:
         - acceleration: continuous [-1, 1] (scaled to max_acceleration)
-        - stance: discrete [0-3] (neutral, extended, retracted, defending)
+        - stance: discrete [0-2] (neutral, extended, defending)
     """
 
     metadata = {"render_modes": []}
@@ -44,9 +42,7 @@ class AtomCombatEnv(gym.Env):
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
         opponent_mass: float = 70.0,
-        seed: int = None,
-        use_jax: bool = False,
-        use_jax_jit: bool = False
+        seed: int = None
     ):
         """
         Initialize the environment.
@@ -58,8 +54,6 @@ class AtomCombatEnv(gym.Env):
             fighter_mass: Mass of the learning fighter
             opponent_mass: Mass of the opponent
             seed: Random seed
-            use_jax: Use JAX-accelerated physics Phase 1 (default: False)
-            use_jax_jit: Use JAX JIT-compiled physics Phase 3 (default: False, overrides use_jax)
         """
         super().__init__()
 
@@ -69,8 +63,6 @@ class AtomCombatEnv(gym.Env):
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self._seed = seed
-        self.use_jax = use_jax
-        self.use_jax_jit = use_jax_jit
 
         # Define observation space (9 continuous values)
         # Normalized to roughly [-1, 1] or [0, 1] range
@@ -85,12 +77,12 @@ class AtomCombatEnv(gym.Env):
         # PPO works well with continuous action spaces
         self.action_space = spaces.Box(
             low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 3.99], dtype=np.float32),
+            high=np.array([1.0, 2.99], dtype=np.float32),  # Changed from 3.99 to 2.99 for 3 stances
             dtype=np.float32
         )
 
-        # Stance mapping
-        self.stance_names = ["neutral", "extended", "retracted", "defending"]
+        # Stance mapping (3-stance system)
+        self.stance_names = ["neutral", "extended", "defending"]  # Removed retracted
 
         # State
         self.arena = None
@@ -124,13 +116,8 @@ class AtomCombatEnv(gym.Env):
         self.opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
 
         # Create arena (JAX JIT > JAX > Python)
-        if self.use_jax_jit:
-            ArenaClass = Arena1DJAXJit
-        elif self.use_jax:
-            ArenaClass = Arena1DJAX
-        else:
-            ArenaClass = Arena1D
-        self.arena = ArenaClass(self.fighter, self.opponent, self.config, seed=self._seed or 0)
+        # Always use JAX JIT implementation
+        self.arena = Arena1DJAXJit(self.fighter, self.opponent, self.config, seed=self._seed or 0)
 
         self.tick = 0
         self.episode_damage_dealt = 0
@@ -170,7 +157,7 @@ class AtomCombatEnv(gym.Env):
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * self.config.max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 3))  # Clip and convert to int
+        stance_idx = int(np.clip(action[1], 0, 2))  # Clip to 2 for 3 stances (0,1,2)
         stance = self.stance_names[stance_idx]
 
         fighter_action = {"acceleration": acceleration, "stance": stance}
@@ -329,10 +316,7 @@ class AtomCombatEnv(gym.Env):
                 stance_bonus = 0.05
             # Reward defensive stance when recovering stamina
             elif stance == "defending" and stamina_pct < 0.3:
-                stance_bonus = 0.05
-            # Reward retracted stance when countering
-            elif stance == "retracted" and damage_dealt > 0:
-                stance_bonus = 0.15
+                stance_bonus = 0.10  # Increased since defending now regens stamina
 
             reward += stance_bonus
             self.episode_stance_reward += stance_bonus
@@ -408,6 +392,17 @@ class AtomCombatEnv(gym.Env):
             opp_stamina_norm,
             self.config.arena_width
         ], dtype=np.float32)
+
+        # Safety check: Replace any NaN or inf values with valid numbers
+        # This prevents training crashes from numerical instabilities
+        if not np.all(np.isfinite(obs)):
+            # Log the issue (but don't spam)
+            if not hasattr(self, '_nan_warning_shown'):
+                print(f"WARNING: Non-finite observation detected! Fighter HP: {self.fighter.hp}, Opp HP: {self.opponent.hp}")
+                print(f"  Obs: {obs}")
+                self._nan_warning_shown = True
+            # Replace NaN with 0, inf with large number
+            obs = np.nan_to_num(obs, nan=0.0, posinf=1e6, neginf=-1e6)
 
         return obs
 

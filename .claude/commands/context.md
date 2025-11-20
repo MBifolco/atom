@@ -1,0 +1,1 @@
+Read and follow all rules in PERMANENT_CONTEXT.md for the remainder of this session. Acknowledge which rules you've loaded and will follow.

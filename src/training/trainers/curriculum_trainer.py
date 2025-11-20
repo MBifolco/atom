@@ -17,16 +17,10 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 
-# Phase 2: Try SBX (JAX) first, fall back to SB3 (PyTorch)
-# SBX requires JAX < 0.7.0, incompatible with ROCm JAX 0.7.1
-try:
-    from sbx import PPO, SAC  # JAX-accelerated (if available)
-    _using_sbx = True
-except ImportError:
-    from stable_baselines3 import PPO, SAC  # PyTorch fallback
-    _using_sbx = False
+# Use Stable Baselines3 with PyTorch (JAX is in physics engine)
+from stable_baselines3 import PPO
 
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv, VecCheckNan
+from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecCheckNan
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
@@ -256,7 +250,7 @@ class CurriculumTrainer:
         Initialize the curriculum trainer.
 
         Args:
-            algorithm: "ppo" or "sac"
+            algorithm: "ppo" (only PPO supported)
             output_dir: Directory for saving models and logs
             n_envs: Number of parallel environments (or vmap batch size)
             max_ticks: Maximum ticks per episode
@@ -432,7 +426,7 @@ class CurriculumTrainer:
         self.logger.info("="*80)
         self.logger.info("CURRICULUM TRAINING INITIALIZED")
         self.logger.info(f"Algorithm: {self.algorithm}")
-        self.logger.info(f"Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
+        self.logger.info(f"Training Backend: SB3 (PyTorch) with JAX physics")
         self.logger.info(f"GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
         self.logger.info(f"Curriculum Levels: {len(self.curriculum)}")
         self.logger.info("="*80)
