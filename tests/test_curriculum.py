@@ -43,23 +43,19 @@ class TestCurriculumLevel:
         level = CurriculumLevel(
             name="Test Level",
             difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponent_policy=simple_policy_func,
-            opponent_mass=70.0,
-            max_episodes=1000
+            opponents=["opponent1.py", "opponent2.py"]
         )
 
         assert level.name == "Test Level"
         assert level.difficulty == DifficultyLevel.FUNDAMENTALS
-        assert level.opponent_mass == 70.0
-        assert level.max_episodes == 1000
+        assert level.opponents == ["opponent1.py", "opponent2.py"]
 
     def test_curriculum_level_defaults(self):
         """Test curriculum level default values."""
         level = CurriculumLevel(
             name="Test",
             difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponent_policy=simple_policy_func,
-            opponent_mass=70.0
+            opponents=["test.py"]
         )
 
         assert level.min_episodes == 100  # Default
@@ -71,9 +67,7 @@ class TestCurriculumLevel:
         level = CurriculumLevel(
             name="Custom",
             difficulty=DifficultyLevel.ADVANCED,
-            opponent_policy=simple_policy_func,
-            opponent_mass=75.0,
-            max_episodes=2000,
+            opponents=["adv1.py", "adv2.py", "adv3.py"],
             min_episodes=200,
             graduation_win_rate=0.8,
             graduation_episodes=30,
@@ -83,6 +77,7 @@ class TestCurriculumLevel:
         assert level.graduation_win_rate == 0.8
         assert level.graduation_episodes == 30
         assert level.description == "Custom test level"
+        assert len(level.opponents) == 3
 
 
 class TestTrainingProgress:
