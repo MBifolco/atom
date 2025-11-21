@@ -140,6 +140,14 @@ class VmapEnvWrapper(gym.Env):
         # Pre-compute stance arrays
         self.stance_reach, self.stance_defense, self.stance_drain = create_stance_arrays(self.config)
 
+        # Hit/damage parameters
+        self.hit_cooldown_ticks = self.config.hit_cooldown_ticks
+        self.hit_impact_threshold = self.config.hit_impact_threshold
+        self.base_damage = self.config.base_collision_damage
+        self.hit_stamina_cost = self.config.hit_stamina_cost
+        self.block_stamina_cost = self.config.block_stamina_cost
+        self.hit_recoil_multiplier = self.config.hit_recoil_multiplier
+
         # Stance mapping (3-stance system)
         self.stance_names = ["neutral", "extended", "defending"]
 
@@ -387,7 +395,13 @@ class VmapEnvWrapper(gym.Env):
                 self.stamina_neutral_bonus,
                 self.stance_reach,
                 self.stance_defense,
-                self.stance_drain
+                self.stance_drain,
+                self.hit_cooldown_ticks,
+                self.hit_impact_threshold,
+                self.base_damage,
+                self.hit_stamina_cost,
+                self.block_stamina_cost,
+                self.hit_recoil_multiplier
             )
             return new_state
 

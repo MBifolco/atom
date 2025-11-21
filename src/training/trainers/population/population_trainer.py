@@ -58,6 +58,286 @@ def _reconstruct_config(config_dict: Optional[dict]) -> WorldConfig:
     return WorldConfig(**config_dict)
 
 
+def _compute_training_summary(results: List[Dict]) -> Dict[str, Any]:
+    """
+    Compute summary statistics from training results.
+
+    Args:
+        results: List of training result dictionaries with 'mean_reward' and 'episodes' keys
+
+    Returns:
+        Dictionary with summary statistics
+    """
+    if not results:
+        return {"successful": 0, "total": 0}
+
+    successful = [r for r in results if 'mean_reward' in r]
+    summary = {
+        "successful": len(successful),
+        "total": len(results),
+        "success_rate": len(successful) / len(results) if results else 0
+    }
+
+    if successful:
+        mean_rewards = [r['mean_reward'] for r in successful]
+        total_episodes = sum(r.get('episodes', 0) for r in successful)
+        summary.update({
+            "mean_rewards": mean_rewards,
+            "average_reward": sum(mean_rewards) / len(mean_rewards),
+            "best_reward": max(mean_rewards),
+            "worst_reward": min(mean_rewards),
+            "total_episodes": total_episodes
+        })
+
+    return summary
+
+
+def _compute_training_progress(
+    current_timestep: int,
+    total_timesteps: int,
+    elapsed_time: float
+) -> Dict[str, float]:
+    """
+    Compute training progress metrics.
+
+    Args:
+        current_timestep: Current training timestep
+        total_timesteps: Target total timesteps
+        elapsed_time: Elapsed time in seconds
+
+    Returns:
+        Dictionary with progress metrics
+    """
+    progress_pct = min(100, int(current_timestep * 100 / total_timesteps)) if total_timesteps > 0 else 0
+    timesteps_per_sec = current_timestep / elapsed_time if elapsed_time > 0 else 0
+    remaining_timesteps = total_timesteps - current_timestep
+    eta_sec = remaining_timesteps / timesteps_per_sec if timesteps_per_sec > 0 else 0
+
+    return {
+        "progress_pct": progress_pct,
+        "timesteps_per_sec": timesteps_per_sec,
+        "eta_sec": eta_sec
+    }
+
+
+def _apply_weight_mutation(model, mutation_rate: float) -> None:
+    """
+    Apply Gaussian noise mutation to model weights.
+
+    Args:
+        model: A Stable-Baselines3 model (PPO or SAC)
+        mutation_rate: Mutation intensity (0.1 = 10% noise)
+    """
+    import torch
+    with torch.no_grad():
+        for param in model.policy.parameters():
+            noise_scale = mutation_rate * 0.1
+            noise = torch.randn_like(param) * noise_scale
+            param.data.add_(noise)
+
+
+def _calculate_win_rate(wins: int, losses: int, draws: int) -> float:
+    """
+    Calculate win rate from match statistics.
+
+    Args:
+        wins: Number of wins
+        losses: Number of losses
+        draws: Number of draws
+
+    Returns:
+        Win rate as float (0.0 to 1.0)
+    """
+    total_matches = wins + losses + draws
+    if total_matches == 0:
+        return 0.0
+    return (wins + 0.5 * draws) / total_matches
+
+
+def _select_parent_weighted(survivors: List, elo_tracker) -> Any:
+    """
+    Select a parent fighter weighted by ELO rating.
+
+    Args:
+        survivors: List of surviving fighters
+        elo_tracker: ELO tracker instance
+
+    Returns:
+        Selected parent fighter
+    """
+    import random
+    # Simple random selection for now (could be weighted by ELO later)
+    return random.choice(survivors)
+
+
+def _format_training_banner(
+    population_size: int,
+    generations: int,
+    episodes_per_generation: int,
+    evolution_frequency: int,
+    base_model_path: Optional[str] = None
+) -> str:
+    """
+    Format the training banner shown at start.
+
+    Args:
+        population_size: Size of the population
+        generations: Number of generations to train
+        episodes_per_generation: Episodes per generation
+        evolution_frequency: How often to evolve
+        base_model_path: Optional path to base model
+
+    Returns:
+        Formatted banner string
+    """
+    lines = [
+        "",
+        "=" * 80,
+        "STARTING POPULATION TRAINING",
+        "=" * 80,
+        f"Population Size: {population_size}",
+        f"Generations: {generations}",
+        f"Episodes per Generation: {episodes_per_generation}",
+        f"Evolution Frequency: Every {evolution_frequency} generations",
+    ]
+    if base_model_path:
+        lines.append(f"Base Model: {base_model_path}")
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
+
+def _format_generation_header(current_gen: int, total_gens: int) -> str:
+    """
+    Format the generation header.
+
+    Args:
+        current_gen: Current generation number (1-indexed)
+        total_gens: Total number of generations
+
+    Returns:
+        Formatted header string
+    """
+    return f"\n{'='*80}\nGENERATION {current_gen}/{total_gens}\n{'='*80}"
+
+
+def _format_final_report(
+    total_generations: int,
+    total_matches: int,
+    diversity_metrics: Dict[str, float]
+) -> str:
+    """
+    Format the final training report.
+
+    Args:
+        total_generations: Total generations completed
+        total_matches: Total matches run
+        diversity_metrics: Dictionary with elo_range, elo_std, win_rate_std
+
+    Returns:
+        Formatted report string
+    """
+    lines = [
+        "",
+        "=" * 80,
+        "TRAINING COMPLETE",
+        "=" * 80,
+        f"Total Generations: {total_generations}",
+        f"Total Matches: {total_matches}",
+        "",
+        "Population Diversity:",
+        f"  ELO Spread: {diversity_metrics.get('elo_range', 0):.0f}",
+        f"  ELO Std Dev: {diversity_metrics.get('elo_std', 0):.1f}",
+    ]
+    if 'win_rate_std' in diversity_metrics:
+        lines.append(f"  Win Rate Variance: {diversity_metrics['win_rate_std']:.3f}")
+    return "\n".join(lines)
+
+
+def _select_opponents_for_fighter(
+    fighter,
+    pairs: List[Tuple],
+    all_fighters: List,
+    max_opponents: int = 3
+) -> List:
+    """
+    Select opponents for a fighter from matchmaking pairs.
+
+    Args:
+        fighter: The fighter to find opponents for
+        pairs: List of matchmaking pairs (fighter1, fighter2)
+        all_fighters: All fighters in population
+        max_opponents: Maximum number of opponents to return
+
+    Returns:
+        List of opponent fighters
+    """
+    import random
+
+    opponents = []
+    for pair in pairs:
+        if pair[0] == fighter:
+            opponents.append(pair[1])
+        elif pair[1] == fighter:
+            opponents.append(pair[0])
+
+    # If no opponents from pairs, use random selection
+    if not opponents:
+        available = [f for f in all_fighters if f != fighter]
+        opponents = random.sample(available, min(max_opponents, len(available)))
+
+    return opponents
+
+
+def _calculate_batch_eta(
+    completed: int,
+    total: int,
+    elapsed_time: float
+) -> float:
+    """
+    Calculate estimated time remaining for batch processing.
+
+    Args:
+        completed: Number of completed items
+        total: Total number of items
+        elapsed_time: Time elapsed so far in seconds
+
+    Returns:
+        Estimated seconds remaining
+    """
+    if completed == 0:
+        return 0.0
+    avg_time = elapsed_time / completed
+    remaining = total - completed
+    return avg_time * remaining
+
+
+def _format_training_result_line(
+    completed: int,
+    total: int,
+    fighter_name: str,
+    episodes: int,
+    mean_reward: float,
+    elapsed: float
+) -> str:
+    """
+    Format a single training result line.
+
+    Args:
+        completed: Completion number
+        total: Total count
+        fighter_name: Name of the fighter
+        episodes: Number of episodes completed
+        mean_reward: Mean reward achieved
+        elapsed: Time elapsed in seconds
+
+    Returns:
+        Formatted result string
+    """
+    return (f"[{completed}/{total}] {fighter_name}: "
+            f"{episodes} episodes, mean reward: {mean_reward:.1f}, "
+            f"time: {elapsed:.1f}s")
+
+
 def _load_opponent_models_for_training(
     opponent_data: List[Tuple[str, float, str]],
     algorithm: str
@@ -230,7 +510,7 @@ def _train_single_fighter_parallel(
     algorithm: str,
     config_dict: dict,
     logs_dir: str,
-    use_vmap: bool = False,
+    use_vmap: bool = True,  # GPU mode by default
     n_vmap_envs: int = 250
 ) -> Dict:
     """
@@ -451,7 +731,7 @@ class PopulationTrainer:
                  verbose: bool = True,
                  export_threshold: float = 0.5,
                  n_parallel_fighters: int = None,
-                 use_vmap: bool = False,
+                 use_vmap: bool = True,  # GPU mode by default (77x speedup)
                  n_vmap_envs: int = 250,
                  record_replays: bool = False,
                  replay_recording_frequency: int = 5,

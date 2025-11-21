@@ -2,7 +2,7 @@
 Training algorithms for Atom Combat.
 
 Available trainers:
-- ppo: Proximal Policy Optimization (default, best for curriculum)
+- curriculum: Curriculum-based progressive training
 - population: Population-based training for diverse strategies
 """
 
@@ -16,16 +16,16 @@ if str(project_root) not in sys.path:
 
 # Lazy imports to avoid circular dependencies
 __all__ = [
-    'train_fighter_ppo',
-    'train_curriculum_ppo',
+    'CurriculumTrainer',
+    'PopulationTrainer',
 ]
 
 def __getattr__(name):
     """Lazy import to avoid circular dependencies."""
-    if name == 'train_fighter_ppo':
-        from .ppo.trainer import train_fighter as train_fighter_ppo
-        return train_fighter_ppo
-    elif name == 'train_curriculum_ppo':
-        from .ppo.trainer import train_curriculum as train_curriculum_ppo
-        return train_curriculum_ppo
+    if name == 'CurriculumTrainer':
+        from .curriculum_trainer import CurriculumTrainer
+        return CurriculumTrainer
+    elif name == 'PopulationTrainer':
+        from .population.population_trainer import PopulationTrainer
+        return PopulationTrainer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

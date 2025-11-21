@@ -27,13 +27,6 @@ class TestTrainerModules:
 
         assert hasattr(elo_tracker, 'EloTracker')
 
-    def test_import_ppo_trainer(self):
-        """Test PPO trainer module imports."""
-        from src.training.trainers.ppo import trainer
-
-        # Module should load
-        assert trainer is not None
-
 
 
 if __name__ == "__main__":

@@ -702,7 +702,7 @@ class CurriculumTrainer:
             self.logger.info(f"🎓 GRADUATION CHECK {status}")
             self.logger.info(f"   Recent wins: {recent_wins}/{len(self.progress.recent_episodes)}")
             self.logger.info(f"   Recent WR: {recent_win_rate:.2%} (need {level.graduation_win_rate:.1%}) {'✓' if recent_passed else '✗'}")
-            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {overall_threshold:.1%}) {'✓' if overall_passed else '✗'}")
+            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {min_overall:.1%}) {'✓' if overall_passed else '✗'}")
             self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
 
         return will_graduate

@@ -543,3 +543,489 @@ class TestReplayRecorderEdgeCases:
             action = np.array([0.0, 1.7])
             result = recorder._action_to_dict(action)
             assert result["stance"] == "neutral"  # int(1.7) = 1
+
+
+class TestSaveSampledReplays:
+    """Tests for _save_sampled_replays method."""
+
+    def test_skips_when_too_few_matches(self):
+        """Test that sampling is skipped with too few matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(
+                output_dir=tmpdir,
+                min_matches_for_sampling=10,
+                verbose=False
+            )
+
+            # Only 3 matches, need 10
+            matches = [
+                (Mock(), Mock(overall=0.5), "A", "B"),
+                (Mock(), Mock(overall=0.6), "A", "C"),
+                (Mock(), Mock(overall=0.7), "A", "D"),
+            ]
+
+            recorder._save_sampled_replays(
+                matches_with_scores=matches,
+                stage_id="test_stage",
+                stage_type="curriculum"
+            )
+
+            # No replays should be saved
+            assert len(recorder.replay_index) == 0
+
+    def test_saves_three_samples(self):
+        """Test that bottom, middle, and top samples are saved."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('src.training.replay_recorder.save_replay') as mock_save:
+                recorder = ReplayRecorder(
+                    output_dir=tmpdir,
+                    min_matches_for_sampling=5,
+                    verbose=False
+                )
+
+                # Create mock matches with different spectacle scores
+                matches = []
+                for i in range(10):
+                    mock_result = Mock()
+                    mock_result.telemetry = {"ticks": []}
+                    mock_result.winner = "AI"
+
+                    mock_score = Mock()
+                    mock_score.overall = i * 0.1  # 0.0 to 0.9
+                    mock_score.to_dict = Mock(return_value={"overall": i * 0.1})
+
+                    matches.append((mock_result, mock_score, "AI", f"Opp{i}"))
+
+                recorder._save_sampled_replays(
+                    matches_with_scores=matches,
+                    stage_id="test_stage",
+                    stage_type="curriculum"
+                )
+
+                # Should save 3 replays (bottom, middle, top)
+                assert mock_save.call_count == 3
+                assert len(recorder.replay_index) == 3
+
+                # Check ranks
+                ranks = [r.spectacle_rank for r in recorder.replay_index]
+                assert "bottom" in ranks
+                assert "middle" in ranks
+                assert "top" in ranks
+
+    def test_sorts_by_spectacle_score(self):
+        """Test that matches are sorted by spectacle score before sampling."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('src.training.replay_recorder.save_replay'):
+                recorder = ReplayRecorder(
+                    output_dir=tmpdir,
+                    min_matches_for_sampling=5,
+                    verbose=False
+                )
+
+                # Create matches in random order
+                matches = []
+                scores = [0.7, 0.2, 0.9, 0.1, 0.5, 0.8]
+                for i, score in enumerate(scores):
+                    mock_result = Mock()
+                    mock_result.telemetry = {"ticks": []}
+                    mock_result.winner = "AI"
+
+                    mock_score = Mock()
+                    mock_score.overall = score
+                    mock_score.to_dict = Mock(return_value={"overall": score})
+
+                    matches.append((mock_result, mock_score, "AI", f"Opp{i}"))
+
+                recorder._save_sampled_replays(
+                    matches_with_scores=matches,
+                    stage_id="test_stage",
+                    stage_type="curriculum"
+                )
+
+                # Bottom should have low score, top should have high score
+                bottom_replay = next(r for r in recorder.replay_index if r.spectacle_rank == "bottom")
+                top_replay = next(r for r in recorder.replay_index if r.spectacle_rank == "top")
+
+                assert bottom_replay.spectacle_score < 0.3  # Low score
+                assert top_replay.spectacle_score > 0.7  # High score
+
+    def test_creates_correct_metadata(self):
+        """Test that metadata is created correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('src.training.replay_recorder.save_replay') as mock_save:
+                recorder = ReplayRecorder(
+                    output_dir=tmpdir,
+                    min_matches_for_sampling=5,
+                    verbose=False
+                )
+
+                matches = []
+                for i in range(6):
+                    mock_result = Mock()
+                    mock_result.telemetry = {"ticks": []}
+                    mock_result.winner = "Fighter_A"
+
+                    mock_score = Mock()
+                    mock_score.overall = i * 0.15
+                    mock_score.to_dict = Mock(return_value={"overall": i * 0.15})
+
+                    matches.append((mock_result, mock_score, "Fighter_A", "Fighter_B"))
+
+                recorder._save_sampled_replays(
+                    matches_with_scores=matches,
+                    stage_id="population_gen_5",
+                    stage_type="population"
+                )
+
+                # Check that save_replay was called with correct metadata
+                assert mock_save.call_count == 3
+                for call in mock_save.call_args_list:
+                    metadata = call[1]['metadata']
+                    assert metadata['stage'] == "population_gen_5"
+                    assert metadata['stage_type'] == "population"
+                    assert 'spectacle_score' in metadata
+                    assert 'spectacle_rank' in metadata
+
+    def test_verbose_logging(self):
+        """Test that verbose mode logs information."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('src.training.replay_recorder.save_replay'):
+                recorder = ReplayRecorder(
+                    output_dir=tmpdir,
+                    min_matches_for_sampling=5,
+                    verbose=True
+                )
+
+                matches = []
+                for i in range(6):
+                    mock_result = Mock()
+                    mock_result.telemetry = {"ticks": []}
+                    mock_result.winner = "AI"
+
+                    mock_score = Mock()
+                    mock_score.overall = i * 0.15
+                    mock_score.to_dict = Mock(return_value={"overall": i * 0.15})
+
+                    matches.append((mock_result, mock_score, "AI", f"Opp{i}"))
+
+                # Should not raise even with verbose logging
+                recorder._save_sampled_replays(
+                    matches_with_scores=matches,
+                    stage_id="test_stage",
+                    stage_type="curriculum"
+                )
+
+                assert len(recorder.replay_index) == 3
+
+
+class TestRecordCurriculumStage:
+    """Tests for record_curriculum_stage method."""
+
+    def test_creates_correct_stage_id(self):
+        """Test that stage ID is created correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+            recorder._run_curriculum_eval_matches = Mock(return_value=[])
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_curriculum_stage(
+                stage_name="Basic Movement",
+                level_num=2,
+                model=Mock(),
+                opponent_paths=[]
+            )
+
+            # Verify _run_curriculum_eval_matches was called
+            recorder._run_curriculum_eval_matches.assert_called_once()
+
+    def test_handles_empty_matches(self):
+        """Test handling when no matches are recorded."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+            recorder._run_curriculum_eval_matches = Mock(return_value=[])
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_curriculum_stage(
+                stage_name="Test",
+                level_num=1,
+                model=Mock(),
+                opponent_paths=[]
+            )
+
+            # _save_sampled_replays should not be called with empty matches
+            recorder._save_sampled_replays.assert_not_called()
+
+    def test_calls_save_sampled_with_matches(self):
+        """Test that _save_sampled_replays is called when matches exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            mock_matches = [
+                (Mock(), Mock(overall=0.5), "AI", "Opp")
+            ]
+            recorder._run_curriculum_eval_matches = Mock(return_value=mock_matches)
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_curriculum_stage(
+                stage_name="Test Stage",
+                level_num=3,
+                model=Mock(),
+                opponent_paths=["opp1.py"]
+            )
+
+            recorder._save_sampled_replays.assert_called_once()
+            call_args = recorder._save_sampled_replays.call_args
+            assert call_args[1]['stage_id'] == "curriculum_level_3_test_stage"
+            assert call_args[1]['stage_type'] == "curriculum"
+
+    def test_verbose_logging_enabled(self):
+        """Test verbose logging during curriculum recording."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=True)
+            recorder._run_curriculum_eval_matches = Mock(return_value=[])
+
+            # Should not raise
+            recorder.record_curriculum_stage(
+                stage_name="Fundamentals",
+                level_num=1,
+                model=Mock(),
+                opponent_paths=[]
+            )
+
+
+class TestRecordPopulationGeneration:
+    """Tests for record_population_generation method."""
+
+    def test_creates_correct_stage_id(self):
+        """Test that stage ID is created correctly for population."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+            recorder._run_population_eval_matches = Mock(return_value=[])
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_population_generation(
+                generation=10,
+                fighters=[]
+            )
+
+            recorder._run_population_eval_matches.assert_called_once()
+
+    def test_handles_empty_matches(self):
+        """Test handling when no matches are recorded."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+            recorder._run_population_eval_matches = Mock(return_value=[])
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_population_generation(
+                generation=5,
+                fighters=[]
+            )
+
+            recorder._save_sampled_replays.assert_not_called()
+
+    def test_calls_save_sampled_with_matches(self):
+        """Test that _save_sampled_replays is called when matches exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            mock_matches = [
+                (Mock(), Mock(overall=0.5), "Fighter1", "Fighter2")
+            ]
+            recorder._run_population_eval_matches = Mock(return_value=mock_matches)
+            recorder._save_sampled_replays = Mock()
+
+            recorder.record_population_generation(
+                generation=7,
+                fighters=[Mock(), Mock()]
+            )
+
+            recorder._save_sampled_replays.assert_called_once()
+            call_args = recorder._save_sampled_replays.call_args
+            assert call_args[1]['stage_id'] == "population_gen_7"
+            assert call_args[1]['stage_type'] == "population"
+
+    def test_verbose_logging_enabled(self):
+        """Test verbose logging during population recording."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=True)
+            recorder._run_population_eval_matches = Mock(return_value=[])
+
+            # Should not raise
+            recorder.record_population_generation(
+                generation=1,
+                fighters=[]
+            )
+
+
+class TestRunCurriculumEvalMatches:
+    """Tests for _run_curriculum_eval_matches method."""
+
+    def test_returns_empty_for_no_opponents(self):
+        """Test that no opponents returns no matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            result = recorder._run_curriculum_eval_matches(
+                model=Mock(),
+                opponent_paths=[],
+                num_matches_per_opponent=3,
+                stage_name="Test"
+            )
+
+            assert result == []
+
+    def test_handles_invalid_opponent_path(self):
+        """Test handling of invalid opponent path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            # Invalid path should be skipped
+            result = recorder._run_curriculum_eval_matches(
+                model=Mock(),
+                opponent_paths=["/nonexistent/path/opponent.py"],
+                num_matches_per_opponent=3,
+                stage_name="Test"
+            )
+
+            assert result == []
+
+    def test_loads_and_runs_opponent(self):
+        """Test loading opponent and running matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a dummy opponent file
+            opp_file = Path(tmpdir) / "test_opp.py"
+            opp_file.write_text('''
+def decide(state):
+    return {"stance": "neutral", "acceleration": 0}
+''')
+
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            # Mock the orchestrator's run_match
+            mock_result = Mock()
+            mock_result.telemetry = {"ticks": []}
+            mock_result.winner = "AI"
+            recorder.orchestrator.run_match = Mock(return_value=mock_result)
+
+            # Mock spectacle evaluator
+            mock_spectacle = Mock()
+            mock_spectacle.overall = 0.5
+            recorder.spectacle_evaluator.evaluate = Mock(return_value=mock_spectacle)
+
+            # Mock model predict
+            mock_model = Mock()
+            mock_model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+
+            result = recorder._run_curriculum_eval_matches(
+                model=mock_model,
+                opponent_paths=[str(opp_file)],
+                num_matches_per_opponent=2,
+                stage_name="Test"
+            )
+
+            assert len(result) == 2
+            assert recorder.orchestrator.run_match.call_count == 2
+
+
+class TestRunPopulationEvalMatches:
+    """Tests for _run_population_eval_matches method."""
+
+    def test_returns_empty_for_single_fighter(self):
+        """Test that single fighter returns no matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            # Single fighter - no pairs possible
+            fighter = Mock()
+            fighter.name = "Fighter1"
+            fighter.mass = 70.0
+
+            result = recorder._run_population_eval_matches(
+                fighters=[fighter],
+                num_matches_per_pair=2,
+                generation=1
+            )
+
+            assert result == []
+
+    def test_returns_empty_for_no_fighters(self):
+        """Test that no fighters returns no matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            result = recorder._run_population_eval_matches(
+                fighters=[],
+                num_matches_per_pair=2,
+                generation=1
+            )
+
+            assert result == []
+
+    def test_runs_matches_for_fighter_pairs(self):
+        """Test running matches for multiple fighter pairs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            # Mock the orchestrator's run_match
+            mock_result = Mock()
+            mock_result.telemetry = {"ticks": []}
+            mock_result.winner = "Fighter1"
+            recorder.orchestrator.run_match = Mock(return_value=mock_result)
+
+            # Mock spectacle evaluator
+            mock_spectacle = Mock()
+            mock_spectacle.overall = 0.5
+            recorder.spectacle_evaluator.evaluate = Mock(return_value=mock_spectacle)
+
+            # Create mock fighters
+            fighters = []
+            for i in range(3):
+                fighter = Mock()
+                fighter.name = f"Fighter{i}"
+                fighter.mass = 70.0
+                fighter.model = Mock()
+                fighter.model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+                fighters.append(fighter)
+
+            result = recorder._run_population_eval_matches(
+                fighters=fighters,
+                num_matches_per_pair=1,
+                generation=5
+            )
+
+            # 3 fighters = 3 pairs (0-1, 0-2, 1-2), 1 match each = 3 matches
+            assert len(result) == 3
+            assert recorder.orchestrator.run_match.call_count == 3
+
+    def test_correct_number_of_matches_per_pair(self):
+        """Test that correct number of matches run per pair."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            recorder = ReplayRecorder(output_dir=tmpdir, verbose=False)
+
+            mock_result = Mock()
+            mock_result.telemetry = {"ticks": []}
+            mock_result.winner = "Fighter1"
+            recorder.orchestrator.run_match = Mock(return_value=mock_result)
+
+            mock_spectacle = Mock()
+            mock_spectacle.overall = 0.5
+            recorder.spectacle_evaluator.evaluate = Mock(return_value=mock_spectacle)
+
+            fighters = []
+            for i in range(2):
+                fighter = Mock()
+                fighter.name = f"Fighter{i}"
+                fighter.mass = 70.0
+                fighter.model = Mock()
+                fighter.model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+                fighters.append(fighter)
+
+            result = recorder._run_population_eval_matches(
+                fighters=fighters,
+                num_matches_per_pair=3,
+                generation=1
+            )
+
+            # 2 fighters = 1 pair, 3 matches each = 3 matches
+            assert len(result) == 3

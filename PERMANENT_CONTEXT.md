@@ -2,8 +2,11 @@
 - Become familiar with the Atom Combat concept by reading: /home/biff/eng/atom/docs/original_vision/concept.md
 - Do not add documentation to the root directory - only update the readme if relevant otherwise add documentation to the readme of the correct module/directory or in the docs directory
 - Do not add scripts to the root directory unless they are to be run frequently as part of expected use of the application
+- ALWAYS Use test driven development - write tests first - then code to pass
 - ALWAYS write small methods/functions
 - ALWAYS refactor for reusability rather than duplicate code
+- Use the atom pyenv 
+- Run at start setup_gpu.sh
 
 ## Testing
 - Write tests after you fix a bug to ensure its covered
