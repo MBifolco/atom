@@ -264,7 +264,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([0.5, 1])  # acceleration 0.5, stance 1 (neutral)
+            action = np.array([0.5, 0])  # acceleration 0.5, stance 0 (neutral)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 0.5
@@ -278,7 +278,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([1.0, 2])  # acceleration 1.0, stance 2 (extended)
+            action = np.array([1.0, 1])  # acceleration 1.0, stance 1 (extended)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 1.0
@@ -292,25 +292,11 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([-0.5, 3])  # acceleration -0.5, stance 3 (defending)
+            action = np.array([-0.5, 2])  # acceleration -0.5, stance 2 (defending)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == -0.5
             assert result["stance"] == "defending"
-
-    def test_action_to_dict_retracted_stance(self):
-        """Test action conversion with retracted stance."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            recorder = ReplayRecorder(
-                output_dir=tmpdir,
-                verbose=False
-            )
-
-            action = np.array([0.0, 0])  # acceleration 0, stance 0 (retracted)
-            result = recorder._action_to_dict(action)
-
-            assert result["acceleration"] == 0.0
-            assert result["stance"] == "retracted"
 
     def test_action_to_dict_clips_acceleration(self):
         """Test that acceleration is clipped to [-1, 1]."""
@@ -341,12 +327,12 @@ class TestReplayRecorderActionConversion:
             # Test over max
             action = np.array([0.0, 10])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "defending"  # Index 3
+            assert result["stance"] == "defending"  # Index 2 (max)
 
             # Test under min
             action = np.array([0.0, -5])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "retracted"  # Index 0
+            assert result["stance"] == "neutral"  # Index 0 (min)
 
 
 class TestReplayRecorderIndex:
@@ -542,7 +528,7 @@ class TestReplayRecorderEdgeCases:
             # Float stance should be converted to int
             action = np.array([0.0, 1.7])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "neutral"  # int(1.7) = 1
+            assert result["stance"] == "extended"  # int(1.7) = 1 (extended)
 
 
 class TestSaveSampledReplays:

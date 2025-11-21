@@ -703,10 +703,14 @@ class Arena1DJAXJit:
         # Stance drain (from array)
         drain = stance_drain[action["stance"]]
 
-        # Regen (bonus for neutral stance)
+        # Regen (bonus for neutral stance, extra bonus for resting)
         regen = stamina_base_regen
         is_neutral = (action["stance"] == STANCE_NEUTRAL)
         regen = jnp.where(is_neutral, regen * stamina_neutral_bonus, regen)
+
+        # Extra regen when resting (low velocity) - simulates catching breath
+        is_resting = jnp.abs(fighter.velocity) < 0.5
+        regen = jnp.where(is_resting, regen * 1.5, regen)
 
         # Apply delta
         delta = -accel_cost - drain + regen
@@ -716,10 +720,10 @@ class Arena1DJAXJit:
             fighter.max_stamina
         )
 
-        # If stamina hits zero, reduce velocity
+        # If stamina hits zero, reduce velocity (less harsh)
         new_velocity = jnp.where(
             new_stamina == 0.0,
-            fighter.velocity * 0.5,
+            fighter.velocity * 0.75,  # Reduced from 0.5 to 0.75
             fighter.velocity
         )
 

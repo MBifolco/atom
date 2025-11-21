@@ -391,12 +391,12 @@ class ReplayRecorder:
         """Convert RL model action to decision dict."""
         # Match the action space from AtomCombatEnv
         # action[0]: acceleration (-1 to 1)
-        # action[1]: stance (0=retracted, 1=neutral, 2=extended, 3=defending)
+        # action[1]: stance (0=neutral, 1=extended, 2=defending)
 
         acceleration = float(np.clip(action[0], -1.0, 1.0))
 
-        stance_idx = int(np.clip(action[1], 0, 3))
-        stance_map = ["retracted", "neutral", "extended", "defending"]
+        stance_idx = int(np.clip(action[1], 0, 2))
+        stance_map = ["neutral", "extended", "defending"]
         stance = stance_map[stance_idx]
 
         return {

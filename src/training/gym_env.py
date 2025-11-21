@@ -64,11 +64,13 @@ class AtomCombatEnv(gym.Env):
         self.opponent_mass = opponent_mass
         self._seed = seed
 
-        # Define observation space (9 continuous values)
-        # Normalized to roughly [-1, 1] or [0, 1] range
+        # Define observation space (enhanced with 13 values)
+        # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
+        #  opp_hp_norm, opp_stamina_norm, arena_width,
+        #  wall_dist_left, wall_dist_right, opp_stance_int, recent_damage_dealt]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -204,10 +206,10 @@ class AtomCombatEnv(gym.Env):
         if terminated:
             # Someone died - determine winner
             if fighter_hp_pct > opponent_hp_pct:
-                # WIN: Base bonus + time bonus + HP differential bonus + efficiency bonus
-                time_bonus = max(0, (self.max_ticks - self.tick) / 20)  # Up to +50 for quick wins
-                hp_diff = fighter_hp_pct - opponent_hp_pct  # 0.0 to 1.0 (100% margin)
-                hp_bonus = hp_diff * 100  # Up to +100 for perfect win (100% HP vs 0%)
+                # WIN: Reduced magnitude rewards
+                time_bonus = max(0, (self.max_ticks - self.tick) / 40)  # Up to +25 for quick wins
+                hp_diff = fighter_hp_pct - opponent_hp_pct  # 0.0 to 1.0
+                hp_bonus = hp_diff * 50  # Up to +50 for perfect win
 
                 # Stamina efficiency bonus (up to +25 for stamina-efficient wins)
                 stamina_efficiency = 0
@@ -215,16 +217,15 @@ class AtomCombatEnv(gym.Env):
                     damage_per_stamina = self.episode_damage_dealt / max(self.stamina_used, 1)
                     stamina_efficiency = min(25, damage_per_stamina * 5)
 
-                reward = 200.0 + time_bonus + hp_bonus + stamina_efficiency
+                reward = 100.0 + time_bonus + hp_bonus + stamina_efficiency  # Max ~200, typical ~125
             elif fighter_hp_pct == opponent_hp_pct:
-                # TIE: Both died simultaneously - PENALTY
-                # Strongly discourages mutual destruction, encourages survival
-                reward = -50.0
+                # TIE: Both died simultaneously - moderate penalty
+                reward = -25.0
             else:
-                # LOSS: Penalty scales with how badly you lost
+                # LOSS: Reduced penalty magnitude
                 hp_diff = opponent_hp_pct - fighter_hp_pct  # 0.0 to 1.0
-                hp_penalty = hp_diff * 100  # Up to -100 for getting dominated
-                reward = -200.0 - hp_penalty
+                hp_penalty = hp_diff * 50  # Up to -50 for getting dominated
+                reward = -100.0 - hp_penalty  # -100 to -150
             self.episode_terminal_reward = reward
         elif truncated:
             # Timeout - compare HP percentage
@@ -321,15 +322,15 @@ class AtomCombatEnv(gym.Env):
             reward += stance_bonus
             self.episode_stance_reward += stance_bonus
 
-            # 5. Inaction penalty (distance-aware) - STRONG ANTI-AVOIDANCE
-            # Heavy penalty for complete inaction to prevent passive/avoidance strategies
+            # 5. Inaction penalty (distance-aware) - reduced to prevent overwhelming signal
+            # Light penalty for complete inaction to discourage passive strategies
             if damage_dealt == 0 and damage_taken == 0:
                 if distance < arena_width * 0.2:  # Very close
-                    inaction_penalty = -0.5  # Strong penalty for not engaging at close range
+                    inaction_penalty = -0.1  # Light penalty for not engaging at close range
                 elif distance < arena_width * 0.4:  # Medium range
-                    inaction_penalty = -0.3  # Moderate penalty
+                    inaction_penalty = -0.05  # Very light penalty
                 else:  # Far away
-                    inaction_penalty = -0.1  # Light penalty for keeping distance
+                    inaction_penalty = -0.02  # Minimal penalty for keeping distance
                 reward += inaction_penalty
                 self.episode_inaction_penalty += inaction_penalty
 
@@ -365,7 +366,7 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array."""
+        """Get current observation as numpy array (enhanced)."""
         # Normalize HP and stamina to [0, 1]
         you_hp_norm = self.fighter.hp / self.fighter.max_hp
         you_stamina_norm = self.fighter.stamina / self.fighter.max_stamina
@@ -381,6 +382,16 @@ class AtomCombatEnv(gym.Env):
         else:
             rel_velocity = self.fighter.velocity - self.opponent.velocity
 
+        # Wall distances
+        wall_dist_left = self.fighter.position
+        wall_dist_right = self.config.arena_width - self.fighter.position
+
+        # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
+        opp_stance_int = self.stance_names.index(self.opponent.stance) if hasattr(self.opponent, 'stance') else 0
+
+        # Recent damage dealt (last 5 ticks average)
+        recent_damage = self.episode_damage_dealt / max(self.tick, 1) * 5 if self.tick > 0 else 0
+
         obs = np.array([
             self.fighter.position,
             self.fighter.velocity,
@@ -390,7 +401,11 @@ class AtomCombatEnv(gym.Env):
             rel_velocity,
             opp_hp_norm,
             opp_stamina_norm,
-            self.config.arena_width
+            self.config.arena_width,
+            wall_dist_left,
+            wall_dist_right,
+            opp_stance_int,
+            recent_damage
         ], dtype=np.float32)
 
         # Safety check: Replace any NaN or inf values with valid numbers

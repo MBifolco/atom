@@ -114,10 +114,10 @@ class VmapEnvWrapper(gym.Env):
             self.use_multi_opponent = False
             self.use_opponent_models = False
 
-        # Define observation/action spaces (same as AtomCombatEnv)
+        # Define observation/action spaces (enhanced to match AtomCombatEnv)
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -409,7 +409,7 @@ class VmapEnvWrapper(gym.Env):
         return vmap(single_step)(states, actions_a, actions_b)
 
     def _get_observations(self):
-        """Extract observations from JAX states."""
+        """Extract enhanced observations from JAX states."""
         # Extract fighter and opponent states
         fighter_pos = np.array(self.jax_states.fighter_a.position)
         fighter_vel = np.array(self.jax_states.fighter_a.velocity)
@@ -424,10 +424,18 @@ class VmapEnvWrapper(gym.Env):
         opponent_stamina = np.array(self.jax_states.fighter_b.stamina)
         opponent_max_hp = np.array(self.jax_states.fighter_b.max_hp)
         opponent_max_stamina = np.array(self.jax_states.fighter_b.max_stamina)
+        opponent_stance = np.array(self.jax_states.fighter_b.stance)  # Integer stance
 
         # Compute relative metrics
         distance = np.abs(opponent_pos - fighter_pos)
         relative_velocity = opponent_vel - fighter_vel
+
+        # Wall distances
+        wall_dist_left = fighter_pos
+        wall_dist_right = self.arena_width - fighter_pos
+
+        # Recent damage dealt (average damage rate)
+        recent_damage = self.episode_damage_dealt / np.maximum(self.tick_counts, 1) * 5
 
         # Normalize
         hp_norm = fighter_hp / fighter_max_hp
@@ -435,7 +443,7 @@ class VmapEnvWrapper(gym.Env):
         opp_hp_norm = opponent_hp / opponent_max_hp
         opp_stamina_norm = opponent_stamina / opponent_max_stamina
 
-        # Stack observations
+        # Stack observations (now 13 values)
         obs = np.stack([
             fighter_pos,
             fighter_vel,
@@ -445,7 +453,11 @@ class VmapEnvWrapper(gym.Env):
             relative_velocity,
             opp_hp_norm,
             opp_stamina_norm,
-            np.full(self.n_envs, self.arena_width)
+            np.full(self.n_envs, self.arena_width),
+            wall_dist_left,
+            wall_dist_right,
+            opponent_stance,  # Already an integer (0-2)
+            recent_damage
         ], axis=1).astype(np.float32)
 
         return obs

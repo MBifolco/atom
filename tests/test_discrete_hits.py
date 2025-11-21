@@ -328,9 +328,11 @@ class TestStanceSystem:
         assert results["extended"] < results["neutral"], \
             f"Extended should drain more than neutral: {results['extended']} vs {results['neutral']}"
 
-        # Defending should gain stamina (negative drain = extra regen)
-        assert results["defending"] > results["neutral"], \
-            f"Defending should regen more than neutral: {results['defending']} vs {results['neutral']}"
+        # Defending should have less regen than neutral (no neutral bonus)
+        assert results["defending"] < results["neutral"], \
+            f"Defending should have less regen than neutral (no bonus): {results['defending']} vs {results['neutral']}"
+        assert results["defending"] > 0, \
+            f"Defending should still have positive base regen: {results['defending']}"
 
 
 class TestBoxingArchetypes:

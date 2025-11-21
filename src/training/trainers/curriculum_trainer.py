@@ -314,7 +314,6 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/stationary_neutral.py"),
                 str(test_dummy_dir / "atomic/stationary_extended.py"),
                 str(test_dummy_dir / "atomic/stationary_defending.py"),
-                str(test_dummy_dir / "atomic/stationary_retracted.py"),
             ],
             min_episodes=200,
             graduation_win_rate=0.9,  # Should easily beat stationary targets

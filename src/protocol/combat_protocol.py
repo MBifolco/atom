@@ -33,7 +33,7 @@ class Action:
     What a fighter can do each tick.
     """
     acceleration: float  # -MAX_ACCELERATION to +MAX_ACCELERATION
-    stance: str  # "neutral", "extended", "retracted", "defending"
+    stance: str  # "neutral", "extended", "defending"
 
     def to_dict(self) -> Dict[str, Any]:
         return {

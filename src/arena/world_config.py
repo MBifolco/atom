@@ -62,7 +62,7 @@ class WorldConfig:
     stances: Dict[str, StanceConfig] = field(default_factory=lambda: {
         "neutral": StanceConfig(reach=0.2768, width=0.4428, drain=0.0, defense=1.0612),
         "extended": StanceConfig(reach=0.8189, width=0.1681, drain=0.08, defense=0.8872),  # Vulnerable when attacking
-        "defending": StanceConfig(reach=0.3811, width=0.5421, drain=-0.10, defense=1.50),  # GAINS stamina while defending
+        "defending": StanceConfig(reach=0.3811, width=0.5421, drain=0.0, defense=1.50),  # No stamina change while defending
     })
 
     def calculate_fighter_stats(self, mass: float) -> dict:
