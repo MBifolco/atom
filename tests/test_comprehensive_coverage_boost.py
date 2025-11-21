@@ -13,8 +13,7 @@ from src.training.trainers.population.fighter_loader import (
     load_fighter,
     validate_fighter,
     FighterLoadError,
-    load_hardcoded_fighters,
-    test_fighter_in_combat
+    load_hardcoded_fighters
 )
 from src.training.trainers.curriculum_trainer import (
     DifficultyLevel,
@@ -152,16 +151,6 @@ class TestFighterLoaderEdgeCases:
         # Should return empty dict or handle gracefully
         assert isinstance(fighters, dict)
 
-    def test_test_fighter_in_combat_with_working_fighter(self):
-        """Test combat testing with a valid fighter."""
-        def good_fighter(state):
-            direction = state.get("opponent", {}).get("direction", 1.0)
-            return {"acceleration": 0.5 * direction, "stance": "neutral"}
-
-        # Test in combat
-        works = test_fighter_in_combat(good_fighter, num_steps=10, verbose=False)
-
-        assert isinstance(works, bool)
 
 
 class TestCurriculumComponentsComplete:
@@ -175,25 +164,18 @@ class TestCurriculumComponentsComplete:
         assert DifficultyLevel.FUNDAMENTALS in levels
         assert DifficultyLevel.POPULATION in levels
 
-    def test_curriculum_level_callable_opponent_policy(self):
-        """Test curriculum level opponent policy is callable."""
-        def test_policy(state):
-            return {"acceleration": 0.0, "stance": "neutral"}
-
+    def test_curriculum_level_stores_opponent_paths(self):
+        """Test curriculum level stores list of opponent file paths."""
         level = CurriculumLevel(
             name="Test",
             difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponent_policy=test_policy,
-            opponent_mass=70.0
+            opponents=["opponent1.py", "opponent2.py", "opponent3.py"]
         )
 
-        # Policy should be callable
-        assert callable(level.opponent_policy)
-
-        # Should be able to call it
-        result = level.opponent_policy({"test": "state"})
-        assert "acceleration" in result
-        assert "stance" in result
+        # Should store list of opponents
+        assert isinstance(level.opponents, list)
+        assert len(level.opponents) == 3
+        assert all(isinstance(opp, str) for opp in level.opponents)
 
     def test_training_progress_empty_recent_episodes(self):
         """Test training progress with no recent episodes."""

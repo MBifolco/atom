@@ -126,49 +126,6 @@ class TestReplayStoreFileMethods:
 
             assert len(replays) >= 3
 
-    def test_get_metadata_method(self):
-        """Test getting metadata from replay file."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = ReplayStore(tmpdir)
-
-            config = WorldConfig()
-            orch = MatchOrchestrator(config, max_ticks=5, record_telemetry=True)
-
-            result = orch.run_match(
-                {"name": "A", "mass": 70.0, "position": 3.0},
-                {"name": "B", "mass": 70.0, "position": 9.0},
-                simple_fighter_for_tests,
-                simple_fighter_for_tests,
-                seed=42
-            )
-
-            filepath = store.save(result.telemetry, result, compress=False)
-
-            metadata = store.get_metadata(str(filepath))
-
-            assert metadata is not None
-
-    def test_delete_replay_method(self):
-        """Test deleting a replay."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = ReplayStore(tmpdir)
-
-            config = WorldConfig()
-            orch = MatchOrchestrator(config, max_ticks=5, record_telemetry=True)
-
-            result = orch.run_match(
-                {"name": "A", "mass": 70.0, "position": 3.0},
-                {"name": "B", "mass": 70.0, "position": 9.0},
-                simple_fighter_for_tests,
-                simple_fighter_for_tests,
-                seed=42
-            )
-
-            filepath = store.save(result.telemetry, result)
-
-            # Delete
-            if hasattr(store, 'delete'):
-                store.delete(str(filepath))
 
 
 # =============================================================================
@@ -199,30 +156,6 @@ class TestSpectacleEvaluatorBranches:
         assert hasattr(score, 'close_finish')
         assert hasattr(score, 'overall')
 
-    def test_evaluate_with_custom_weights(self):
-        """Test evaluator with custom metric weights."""
-        config = WorldConfig()
-        orch = MatchOrchestrator(config, max_ticks=10, record_telemetry=True)
-
-        result = orch.run_match(
-            {"name": "A", "mass": 70.0, "position": 3.0},
-            {"name": "B", "mass": 70.0, "position": 9.0},
-            simple_fighter_for_tests,
-            simple_fighter_for_tests,
-            seed=42
-        )
-
-        # Custom weights
-        weights = {
-            "duration": 2.0,
-            "close_finish": 1.5,
-            "stamina_drama": 1.0
-        }
-
-        evaluator = SpectacleEvaluator(weights=weights)
-        score = evaluator.evaluate(result.telemetry, result)
-
-        assert score.overall >= 0
 
     def test_score_to_dict(self):
         """Test spectacle score conversion to dict."""

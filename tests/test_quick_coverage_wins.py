@@ -138,9 +138,7 @@ class TestCurriculumLevelComplete:
         level = CurriculumLevel(
             name="Complete Level",
             difficulty=DifficultyLevel.INTERMEDIATE,
-            opponent_policy=TestCurriculumLevelComplete.simple_opponent,
-            opponent_mass=75.0,
-            max_episodes=3000,
+            opponents=["opp1.py", "opp2.py"],
             min_episodes=300,
             graduation_win_rate=0.75,
             graduation_episodes=25,
@@ -150,8 +148,7 @@ class TestCurriculumLevelComplete:
         assert all([
             level.name == "Complete Level",
             level.difficulty == DifficultyLevel.INTERMEDIATE,
-            level.opponent_mass == 75.0,
-            level.max_episodes == 3000,
+            len(level.opponents) == 2,
             level.min_episodes == 300,
             level.graduation_win_rate == 0.75,
             level.graduation_episodes == 25,

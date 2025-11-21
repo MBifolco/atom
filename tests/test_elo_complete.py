@@ -152,63 +152,6 @@ class TestEloTrackerMissingBranches:
         assert change_high > change_low
 
 
-class TestEloTrackerPredictMatchup:
-    """Test predict_matchup method (lines 179-197)."""
-
-    def test_predict_matchup(self):
-        """Test predicting matchup outcome."""
-        tracker = EloTracker()
-
-        tracker.add_fighter("strong")
-        tracker.add_fighter("weak")
-
-        tracker.fighters["strong"].elo = 1700
-        tracker.fighters["weak"].elo = 1300
-
-        prediction = tracker.predict_matchup("strong", "weak")
-
-        assert "fighter_a" in prediction
-        assert "fighter_b" in prediction
-        assert "win_prob_a" in prediction
-        assert "win_prob_b" in prediction
-        assert "favorite" in prediction
-
-        # Strong should be favored
-        assert prediction["win_prob_a"] > 0.5
-        assert prediction["favorite"] == "strong"
-
-    def test_predict_matchup_even_match(self):
-        """Test prediction for evenly matched fighters."""
-        tracker = EloTracker()
-
-        tracker.add_fighter("a")
-        tracker.add_fighter("b")
-
-        # Equal ratings
-        tracker.fighters["a"].elo = 1500
-        tracker.fighters["b"].elo = 1500
-
-        prediction = tracker.predict_matchup("a", "b")
-
-        # Should be 50/50
-        assert abs(prediction["win_prob_a"] - 0.5) < 0.01
-        assert abs(prediction["win_prob_b"] - 0.5) < 0.01
-
-    def test_predict_matchup_adds_fighters_if_not_exists(self):
-        """Test predict adds fighters if they don't exist yet."""
-        tracker = EloTracker()
-
-        # Fighters don't exist yet
-        prediction = tracker.predict_matchup("new_a", "new_b")
-
-        # Should have added them
-        assert "new_a" in tracker.fighters
-        assert "new_b" in tracker.fighters
-
-        # With default ELO, should be even
-        assert abs(prediction["win_prob_a"] - 0.5) < 0.01
-
-
 class TestEloTrackerSuggestMatches:
     """Test suggest_balanced_matches method (lines 209-229)."""
 

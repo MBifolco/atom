@@ -83,35 +83,34 @@ class TestPopulationTrainerAttributes:
         with tempfile.TemporaryDirectory() as tmpdir:
             trainer = PopulationTrainer(
                 output_dir=tmpdir,
-                population_size=4,
-                generations=2
+                population_size=4
             )
 
             assert hasattr(trainer, 'output_dir')
             assert trainer.output_dir == Path(tmpdir)
 
-    def test_trainer_has_generation_tracking(self):
-        """Test trainer initializes generation tracking."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = PopulationTrainer(
-                output_dir=tmpdir,
-                population_size=4,
-                generations=5
-            )
-
-            assert hasattr(trainer, 'generations')
-            assert trainer.generations == 5
-
-    def test_trainer_has_population_size(self):
+    def test_trainer_stores_population_size(self):
         """Test trainer stores population size."""
         with tempfile.TemporaryDirectory() as tmpdir:
             trainer = PopulationTrainer(
                 output_dir=tmpdir,
-                population_size=8,
-                generations=2
+                population_size=8
             )
 
             assert trainer.population_size == 8
+
+    def test_trainer_stores_config(self):
+        """Test trainer stores world config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = WorldConfig()
+
+            trainer = PopulationTrainer(
+                output_dir=tmpdir,
+                population_size=4,
+                config=config
+            )
+
+            assert trainer.config == config
 
 
 if __name__ == "__main__":

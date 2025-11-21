@@ -15,7 +15,7 @@ from src.training.trainers.population.population_trainer import (
     PopulationFighter,
     PopulationCallback
 )
-from src.training.trainers.population.elo_tracker import EloTracker
+from src.training.trainers.population.elo_tracker import EloTracker, FighterStats
 
 
 class TestVmapEnvAdapterMethods:
@@ -93,12 +93,10 @@ class TestCurriculumLevelVariations:
         level = CurriculumLevel(
             name="Minimal",
             difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponent_policy=TestCurriculumLevelVariations.simple_policy,
-            opponent_mass=70.0
+            opponents=["test.py"]
         )
 
         # Should have defaults
-        assert level.max_episodes > 0
         assert level.min_episodes > 0
         assert 0 < level.graduation_win_rate <= 1.0
 
@@ -107,8 +105,7 @@ class TestCurriculumLevelVariations:
         level = CurriculumLevel(
             name="Hard",
             difficulty=DifficultyLevel.EXPERT,
-            opponent_policy=TestCurriculumLevelVariations.simple_policy,
-            opponent_mass=80.0,
+            opponents=["expert.py"],
             graduation_win_rate=0.90,
             graduation_episodes=50
         )
@@ -121,26 +118,23 @@ class TestCurriculumLevelVariations:
         level = CurriculumLevel(
             name="Described",
             difficulty=DifficultyLevel.INTERMEDIATE,
-            opponent_policy=TestCurriculumLevelVariations.simple_policy,
-            opponent_mass=70.0,
+            opponents=["test.py"],
             description="This is a test level with a description"
         )
 
         assert level.description == "This is a test level with a description"
 
-    def test_curriculum_level_different_masses(self):
-        """Test levels with different opponent masses."""
-        masses = [45.0, 55.0, 65.0, 75.0, 85.0]
+    def test_curriculum_level_with_multiple_opponents(self):
+        """Test levels with multiple opponent files."""
+        opponents = ["opp1.py", "opp2.py", "opp3.py", "opp4.py", "opp5.py"]
 
-        for mass in masses:
-            level = CurriculumLevel(
-                name=f"Mass{mass}",
-                difficulty=DifficultyLevel.FUNDAMENTALS,
-                opponent_policy=TestCurriculumLevelVariations.simple_policy,
-                opponent_mass=mass
-            )
+        level = CurriculumLevel(
+            name="MultiOpponents",
+            difficulty=DifficultyLevel.FUNDAMENTALS,
+            opponents=opponents
+        )
 
-            assert level.opponent_mass == mass
+        assert len(level.opponents) == 5
 
 
 class TestTrainingProgressVariations:

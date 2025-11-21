@@ -18,16 +18,22 @@ class TestCurriculumCallback:
 
     def test_callback_is_base_callback(self):
         """Test curriculum callback extends BaseCallback."""
-        callback = CurriculumCallback(progress=None, update_interval=100)
+        class MockTrainer:
+            algorithm = "ppo"
+
+        callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
         assert isinstance(callback, BaseCallback)
 
     def test_callback_initialization(self):
-        """Test callback initializes with progress tracker."""
-        callback = CurriculumCallback(progress=None, update_interval=50)
+        """Test callback initializes with curriculum trainer."""
+        class MockTrainer:
+            algorithm = "ppo"
 
-        assert callback.update_interval == 50
-        assert callback.last_update == 0
+        callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=1)
+
+        assert callback.curriculum_trainer is not None
+        assert callback.verbose == 1
 
 
 class TestVmapEnvAdapterMethods:

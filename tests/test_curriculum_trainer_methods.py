@@ -92,18 +92,15 @@ class TestCurriculumLevelStructure:
         assert level.graduation_episodes == 30
 
     def test_level_stores_episode_limits(self):
-        """Test level stores minimum and maximum episode limits."""
+        """Test level stores minimum episode limits."""
         level = CurriculumLevel(
             name="Episode Limits",
             difficulty=DifficultyLevel.EXPERT,
             opponents=["expert.py"],
-            min_episodes=500,
-            max_episodes=5000
+            min_episodes=500
         )
 
         assert level.min_episodes == 500
-        assert level.max_episodes == 5000
-        assert level.max_episodes > level.min_episodes
 
     def test_level_optional_description(self):
         """Test level description is optional with default."""
