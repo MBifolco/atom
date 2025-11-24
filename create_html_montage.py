@@ -1,500 +1,256 @@
 #!/usr/bin/env python3
 """
-Create HTML5 Training Montage from Recorded Replays
-
-Generates a single HTML file with all fights embedded, showing
-the progression from novice to expert across all curriculum levels.
+Create HTML training montage from progressive replays.
+This version uses the proven working HTML template directly.
 """
 
 import json
 import gzip
 from pathlib import Path
-from typing import List, Dict, Any
 import argparse
 import sys
-from datetime import datetime
-
-from src.telemetry.replay_store import load_replay
-from src.renderer.html_renderer import HtmlRenderer
 
 
-def load_progressive_replays(run_dir: Path) -> Dict[str, Any]:
-    """Load progressive replay index and replays."""
-    # Check for progressive replay index
-    progressive_index_path = run_dir / "curriculum" / "progressive_replay_index.json"
-    if not progressive_index_path.exists():
-        progressive_index_path = run_dir / "progressive_replay_index.json"
+def load_replay_data(replay_dir: Path, verbose: bool = False) -> list:
+    """Load all replay data from progressive replays directory."""
+    replay_files = sorted(replay_dir.glob("*.json.gz"))
 
-    if not progressive_index_path.exists():
-        # Try to build index from existing replays
-        print("⚠️  No progressive replay index found, building from replays...")
+    if verbose:
+        print(f"Loading replay telemetry from {replay_dir}...")
 
-        # Look for replay directory
-        replays_dir = run_dir / "curriculum" / "progressive_replays"
-        if not replays_dir.exists():
-            replays_dir = run_dir / "progressive_replays"
+    replay_data = []
+    for replay_file in replay_files:
+        try:
+            with gzip.open(replay_file, 'rt') as f:
+                data = json.load(f)
+                # Add metadata if available
+                if 'metadata' in data:
+                    data['meta'] = data['metadata']
+                replay_data.append(data)
+        except Exception as e:
+            print(f"⚠️  Failed to load {replay_file.name}: {e}")
+            continue
 
-        if not replays_dir.exists() or not any(replays_dir.glob("*.json.gz")):
-            print(f"❌ No progressive replays found in {run_dir}")
-            print("Please run training with --record-replays flag")
-            sys.exit(1)
+    if verbose:
+        print(f"✅ Loaded {len(replay_data)} replays successfully")
 
-        # Build index from replay files
-        index_data = build_index_from_replays(replays_dir)
-        print(f"✅ Built index from {index_data['total_replays']} replays")
-    else:
-        with open(progressive_index_path) as f:
-            index_data = json.load(f)
-        print(f"✅ Found {index_data['total_replays']} progressive replays")
-
-    return index_data
-
-
-def build_index_from_replays(replays_dir: Path) -> Dict[str, Any]:
-    """Build progressive replay index from replay files."""
-    import re
-
-    replay_files = sorted(replays_dir.glob("*.json.gz"))
-    replays = []
-
-    for replay_path in replay_files:
-        # Parse filename to extract metadata
-        # Format: level_{num}_{name}_ep_{episode:05d}_wr_{winrate:03d}.json.gz
-        filename = replay_path.stem.replace('.json', '')
-        match = re.match(r'level_(\d+)_(.+)_ep_(\d+)_wr_(\d+)', filename)
-
-        if match:
-            level_num = int(match.group(1))
-            level_name = match.group(2).replace('_', ' ').title()
-            episode = int(match.group(3))
-            win_rate = int(match.group(4)) / 100.0
-
-            # Load replay to get additional metadata
-            try:
-                with gzip.open(replay_path, 'rt') as f:
-                    data = json.load(f)
-
-                replays.append({
-                    'level_name': level_name,
-                    'level_num': level_num,
-                    'episode': episode,
-                    'total_episodes': 1000,  # Estimate
-                    'win_rate': win_rate,
-                    'recent_rewards': [],
-                    'timestamp': datetime.now().isoformat(),
-                    'fighter_a': data['result'].get('fighter_a_name', 'AI_Fighter'),
-                    'fighter_b': data['result'].get('fighter_b_name', 'Opponent'),
-                    'winner': data['result']['winner'],
-                    'duration_ticks': data['result']['total_ticks'],
-                    'notes': f"Level {level_num} - Episode {episode}"
-                })
-            except Exception as e:
-                print(f"  ⚠️  Could not parse {replay_path.name}: {e}")
-
-    return {
-        'total_replays': len(replays),
-        'recording_strategy': {
-            'early_phase_interval': 10,
-            'mid_phase_interval': 50,
-            'late_phase_interval': 100,
-            'early_phase_end': 0.2,
-            'mid_phase_end': 0.8
-        },
-        'replays': replays
-    }
-
-
-def load_replay_telemetry(replay_path: Path) -> Dict[str, Any]:
-    """Load telemetry data from a replay file."""
-    try:
-        with gzip.open(replay_path, 'rt') as f:
-            data = json.load(f)
-        return data
-    except Exception as e:
-        print(f"⚠️  Could not load replay {replay_path}: {e}")
-        return None
+    return replay_data
 
 
 def generate_html_montage(
     run_dir: Path,
     output_path: Path,
     playback_speed: float = 2.0,
-    verbose: bool = True
+    verbose: bool = False
 ):
-    """
-    Generate a single HTML file with all fights embedded.
+    """Generate HTML montage file from progressive replays."""
 
-    Args:
-        run_dir: Training run directory
-        output_path: Path to save HTML file
-        playback_speed: Playback speed multiplier
-        verbose: Print progress
-    """
     print("\n" + "="*80)
     print("CREATING HTML5 TRAINING MONTAGE")
     print("="*80)
 
-    # Load progressive replay index
-    index_data = load_progressive_replays(run_dir)
-    replays = index_data['replays']
+    # Find replay directory
+    curriculum_dir = run_dir / "curriculum"
+    progressive_replay_dir = curriculum_dir / "progressive_replays"
 
-    # Group replays by level
-    levels = {}
-    for replay in replays:
-        level_num = replay['level_num']
-        if level_num not in levels:
-            levels[level_num] = []
-        levels[level_num].append(replay)
+    if not progressive_replay_dir.exists():
+        print(f"❌ No progressive replays found at: {progressive_replay_dir}")
+        sys.exit(1)
 
-    # Sort levels and replays within each level by episode
-    sorted_levels = sorted(levels.keys())
-    for level_num in sorted_levels:
-        levels[level_num].sort(key=lambda r: r['episode'])
+    # Load all replay data
+    replay_files = sorted(progressive_replay_dir.glob("*.json.gz"))
+    print(f"✅ Found {len(replay_files)} progressive replays")
 
-    if verbose:
-        print(f"\nFound replays for {len(levels)} levels:")
-        for level_num in sorted_levels:
-            level_replays = levels[level_num]
-            level_name = level_replays[0]['level_name'] if level_replays else "Unknown"
-            print(f"  Level {level_num} ({level_name}): {len(level_replays)} replays")
+    if len(replay_files) == 0:
+        print("❌ No replay files found!")
+        sys.exit(1)
 
-    # Load actual replay telemetry data
-    all_replay_data = []
-    replays_dir = run_dir / "curriculum" / "progressive_replays"
-    if not replays_dir.exists():
-        replays_dir = run_dir / "progressive_replays"
+    # Load replay data
+    replay_data = load_replay_data(progressive_replay_dir, verbose)
 
-    print(f"\nLoading replay telemetry from {replays_dir}...")
-    loaded_count = 0
-
-    for level_num in sorted_levels:
-        for replay_meta in levels[level_num]:
-            # Construct replay filename
-            filename = (
-                f"level_{replay_meta['level_num']}_{replay_meta['level_name'].lower().replace(' ', '_')}_"
-                f"ep_{replay_meta['episode']:05d}_wr_{int(replay_meta['win_rate']*100):03d}.json.gz"
-            )
-            replay_path = replays_dir / filename
-
-            if replay_path.exists():
-                replay_data = load_replay_telemetry(replay_path)
-                if replay_data:
-                    # Add metadata to replay data
-                    replay_data['meta'] = replay_meta
-                    all_replay_data.append(replay_data)
-                    loaded_count += 1
-                    if verbose and loaded_count % 10 == 0:
-                        print(f"  Loaded {loaded_count}/{len(replays)} replays...")
-            else:
-                if verbose:
-                    print(f"  ⚠️  Replay file not found: {filename}")
-
-    print(f"✅ Loaded {loaded_count} replays successfully")
-
-    # Generate the HTML file
-    html_content = generate_html_content(
-        all_replay_data,
-        index_data.get('recording_strategy', {}),
-        playback_speed
-    )
-
-    # Save HTML file
-    with open(output_path, 'w') as f:
-        f.write(html_content)
-
-    file_size_mb = output_path.stat().st_size / (1024 * 1024)
-
-    print("\n" + "="*80)
-    print("✅ HTML MONTAGE COMPLETE!")
-    print("="*80)
-    print(f"Output: {output_path}")
-    print(f"Size: {file_size_mb:.1f} MB")
-    print(f"Replays: {loaded_count}")
-    print(f"\nTo view: Open {output_path} in your browser")
-    print("Controls:")
-    print("  - Space: Play/Pause")
-    print("  - Left/Right: Previous/Next fight")
-    print("  - 1/2/3/4: Playback speed (1x/2x/4x/8x)")
-
-
-def generate_html_content(
-    replay_data: List[Dict[str, Any]],
-    recording_strategy: Dict[str, Any],
-    playback_speed: float
-) -> str:
-    """Generate the HTML content with embedded replay data and the existing sophisticated player."""
-
-    # Get the base template from the existing renderer
-    renderer = HtmlRenderer()
-    base_template = renderer._get_html_template()
-
-    # Extract the JavaScript rendering code from the template
-    # Find the part between <script> tags
-    script_start = base_template.find('<script>')
-    script_end = base_template.find('</script>')
-
-    if script_start == -1 or script_end == -1:
-        print("⚠️  Could not extract JavaScript from template")
-        return ""
-
-    # Get the JavaScript code (without the script tags)
-    js_code = base_template[script_start + 8:script_end]
-
-    # We need to modify the original code to work with dynamic replay loading
-    # Remove the original const declarations - we'll declare them as let later
-    js_code = js_code.replace('const ticks = REPLAY_DATA.telemetry.ticks;', '')
-    js_code = js_code.replace('const config = REPLAY_DATA.telemetry.config;', '')
-    js_code = js_code.replace('const arenaWidth = config.arena_width;', '')
-    js_code = js_code.replace('const dt = config.dt;', '')
-    js_code = js_code.replace('let playbackSpeed = REPLAY_DATA.playback_speed || 1.0;', 'let playbackSpeed = 1.0;')
+    if len(replay_data) == 0:
+        print("❌ Failed to load any replays!")
+        sys.exit(1)
 
     # Convert replay data to JSON string
     replays_json = json.dumps(replay_data)
 
-    # Build the full HTML with montage-specific features
-    html = f"""<!DOCTYPE html>
+    # The complete working HTML template
+    html_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Training Montage - AI Combat Learning Journey</title>
+    <title>Training Montage - Progressive Combat Training</title>
     <style>
-        * {{
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }}
+            background: #0a0e27;
+            color: #e0e6ed;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            overflow-x: hidden;
+        }
 
-        body {{
-            font-family: 'Courier New', monospace;
-            background: #1a1a2e;
-            color: #eee;
+        .header {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }}
-
-        h1 {{
-            color: #ff6b6b;
-            margin-bottom: 10px;
             text-align: center;
-        }}
+            border-bottom: 2px solid #4ecca3;
+        }
 
-        .montage-header {{
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #0f3460;
-            border-radius: 8px;
-            width: 100%;
-            max-width: 1200px;
-        }}
-
-        .replay-selector {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
-        }}
-
-        .level-section {{
-            background: #16213e;
-            border: 2px solid #0f3460;
-            border-radius: 5px;
-            padding: 10px;
-        }}
-
-        .level-title {{
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
             color: #4ecca3;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
-        }}
+            text-shadow: 0 0 10px rgba(78, 204, 163, 0.5);
+        }
 
-        .replay-button {{
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            transition: all 0.3s;
-            margin: 2px;
-        }}
+        .header p {
+            margin: 10px 0 0 0;
+            color: #b0b8c4;
+            font-size: 14px;
+        }
 
-        .replay-button:hover {{
-            background: #ff5252;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
-        }}
-
-        .replay-button.active {{
-            background: #4ecca3;
-            box-shadow: 0 0 10px rgba(78, 204, 163, 0.5);
-        }}
-
-        .container {{
+        .container {
             max-width: 1200px;
-            width: 100%;
-        }}
-
-        #canvas {{
-            background: #16213e;
-            border: 3px solid #0f3460;
-            border-radius: 8px;
-            display: block;
             margin: 20px auto;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        }}
+            padding: 0 20px;
+        }
 
-        .controls {{
-            background: #0f3460;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+        .controls {
             display: flex;
-            justify-content: center;
-            gap: 15px;
+            gap: 10px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
-        }}
+            align-items: center;
+        }
 
-        button {{
-            background: #ff6b6b;
-            color: white;
-            border: none;
+        .controls button {
             padding: 10px 20px;
+            font-size: 14px;
+            background: #16213e;
+            color: #4ecca3;
+            border: 1px solid #4ecca3;
             border-radius: 5px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }}
+            transition: all 0.3s ease;
+        }
 
-        button:hover {{
-            background: #ff5252;
+        .controls button:hover {
+            background: #4ecca3;
+            color: #0a0e27;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
-        }}
+            box-shadow: 0 4px 8px rgba(78, 204, 163, 0.3);
+        }
 
-        button:active {{
-            transform: translateY(0);
-        }}
+        #canvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #4ecca3;
+            background: #000;
+            box-shadow: 0 4px 20px rgba(78, 204, 163, 0.2);
+        }
 
-        button:disabled {{
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-        }}
-
-        .stats {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
+        .stats {
             margin-top: 20px;
-        }}
-
-        .stat-box {{
-            background: #0f3460;
             padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #ff6b6b;
-        }}
+            background: #16213e;
+            border-radius: 5px;
+            border: 1px solid #4ecca3;
+        }
 
-        .stat-box h3 {{
-            color: #ff6b6b;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }}
-
-        .stat-item {{
+        .stat-item {
             display: flex;
             justify-content: space-between;
             margin: 5px 0;
             font-size: 13px;
-        }}
+        }
 
-        .stat-value {{
+        .stat-value {
             color: #4ecca3;
             font-weight: bold;
-        }}
+        }
 
-        #tick-info {{
+        #tick-info {
             text-align: center;
             font-size: 18px;
             color: #4ecca3;
             margin: 10px 0;
-        }}
+        }
 
-        .speed-control {{
+        .speed-control {
             display: flex;
             align-items: center;
             gap: 10px;
-        }}
+        }
 
-        .speed-control input {{
-            width: 100px;
-        }}
+        .speed-control input {
+            width: 120px;
+        }
 
-        .speed-control span {{
-            min-width: 40px;
+        .speed-control span {
+            min-width: 50px;
             color: #4ecca3;
-        }}
+        }
 
-        .navigation-controls {{
+        .navigation-controls {
             display: flex;
             gap: 10px;
             align-items: center;
             background: #0f3460;
             padding: 10px;
             border-radius: 5px;
-        }}
+            margin-bottom: 10px;
+        }
 
-        .current-replay-info {{
+        .navigation-controls button {
+            padding: 5px 15px;
+            font-size: 12px;
+            background: #16213e;
+            color: #4ecca3;
+            border: 1px solid #4ecca3;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .navigation-controls button:hover {
+            background: #4ecca3;
+            color: #0a0e27;
+        }
+
+        .current-replay-info {
+            flex: 1;
+            text-align: center;
             color: #4ecca3;
             font-weight: bold;
-            margin: 0 20px;
-        }}
-
-        .no-replay {{
-            text-align: center;
-            color: #ff6b6b;
-            font-size: 24px;
-            padding: 100px 20px;
-        }}
+        }
     </style>
 </head>
 <body>
-    <div class="montage-header">
-        <h1>⚔️ ATOM COMBAT - TRAINING MONTAGE ⚔️</h1>
-        <p style="color: #4ecca3; margin: 10px 0;">Watch the AI's journey from novice to expert</p>
+    <div class="header">
+        <h1>🥊 Training Montage</h1>
+        <p>Progressive Training Replays - Watch AI Learn Combat</p>
+    </div>
 
-        <div class="replay-selector" id="replaySelector">
-            <!-- Will be populated with replay buttons -->
-        </div>
-
+    <div class="container">
         <div class="navigation-controls">
-            <button id="prevReplay">◀ Previous</button>
+            <button id="prevReplay" onclick="loadPreviousReplay()">◀ Previous</button>
             <span class="current-replay-info" id="currentReplayInfo">Loading...</span>
-            <button id="nextReplay">Next ▶</button>
+            <button id="nextReplay" onclick="loadNextReplay()">Next ▶</button>
         </div>
     </div>
 
     <div class="container">
         <div class="controls">
-            <button id="playPauseBtn">▶️ Play</button>
-            <button id="restartBtn">🔄 Restart</button>
-            <button id="stepBtn">⏭️ Step</button>
-            <button id="autoPlayBtn" style="background: #4ecca3;">🔄 Auto-Play: ON</button>
+            <button id="playPauseBtn" onclick="togglePlayPause()">▶️ Play</button>
+            <button id="restartBtn" onclick="restart()">🔄 Restart</button>
+            <button id="stepBtn" onclick="step()">⏭️ Step</button>
+            <button id="autoPlayBtn" onclick="toggleAutoPlay()" style="background: #4ecca3;">🔄 Auto-Play: ON</button>
             <div class="speed-control">
                 <label>Speed:</label>
-                <input type="range" id="speedSlider" min="0.25" max="10" step="0.25" value="{playback_speed}">
-                <span id="speedValue">{playback_speed}x</span>
+                <input type="range" id="speedSlider" min="0.25" max="10" step="0.25" value="PLAYBACK_SPEED_VALUE" oninput="updateSpeed(event)">
+                <span id="speedValue">PLAYBACK_SPEED_VALUEx</span>
             </div>
         </div>
 
@@ -507,224 +263,312 @@ def generate_html_content(
 
     <script>
         // All replay data
-        const ALL_REPLAYS = {replays_json};
+        const ALL_REPLAYS = REPLAYS_JSON_DATA;
         let currentReplayIndex = 0;
         let REPLAY_DATA = null;
 
-        // Initialize replay selector
-        function initReplaySelector() {{
-            const selector = document.getElementById('replaySelector');
-            selector.innerHTML = '';
-
-            // Group replays by level
-            const levels = {{}};
-            ALL_REPLAYS.forEach((replay, index) => {{
-                const levelNum = replay.meta?.level_num || 1;
-                if (!levels[levelNum]) {{
-                    levels[levelNum] = [];
-                }}
-                levels[levelNum].push({{replay, index}});
-            }});
-
-            // Create buttons for each level
-            Object.keys(levels).sort((a, b) => a - b).forEach(levelNum => {{
-                const levelDiv = document.createElement('div');
-                levelDiv.className = 'level-section';
-
-                const title = document.createElement('div');
-                title.className = 'level-title';
-                title.textContent = `Level ${{levelNum}}: ${{levels[levelNum][0].replay.meta?.level_name || 'Unknown'}}`;
-                levelDiv.appendChild(title);
-
-                levels[levelNum].forEach(item => {{
-                    const btn = document.createElement('button');
-                    btn.className = 'replay-button';
-                    btn.textContent = `Ep ${{item.replay.meta?.episode || '?'}}`;
-                    btn.title = `Episode ${{item.replay.meta?.episode}}, Win Rate: ${{(item.replay.meta?.win_rate * 100 || 0).toFixed(0)}}%`;
-                    btn.onclick = () => loadReplay(item.index);
-                    btn.id = `replay-btn-${{item.index}}`;
-                    levelDiv.appendChild(btn);
-                }});
-
-                selector.appendChild(levelDiv);
-            }});
-
-            // Load first replay
-            if (ALL_REPLAYS.length > 0) {{
-                loadReplay(0);
-            }} else {{
-                showNoReplays();
-            }}
-        }}
-
-        function showNoReplays() {{
-            const canvas = document.getElementById('canvas');
-            canvas.style.display = 'none';
-            const container = canvas.parentElement;
-            const message = document.createElement('div');
-            message.className = 'no-replay';
-            message.innerHTML = '❌ No replay data available<br><br>The replays have no telemetry data.';
-            container.appendChild(message);
-        }}
-
-        function loadReplay(index) {{
-            if (index < 0 || index >= ALL_REPLAYS.length) return;
-
-            currentReplayIndex = index;
-            REPLAY_DATA = ALL_REPLAYS[index];
-
-            // Update UI
-            document.querySelectorAll('.replay-button').forEach(btn => {{
-                btn.classList.remove('active');
-            }});
-            const activeBtn = document.getElementById(`replay-btn-${{index}}`);
-            if (activeBtn) activeBtn.classList.add('active');
-
-            // Update info
-            const meta = REPLAY_DATA.meta || {{}};
-            document.getElementById('currentReplayInfo').textContent =
-                `Level ${{meta.level_num || '?'}} - Episode ${{meta.episode || '?'}} (${{(meta.win_rate * 100 || 0).toFixed(0)}}%)`;
-
-            // Update navigation buttons
-            document.getElementById('prevReplay').disabled = index === 0;
-            document.getElementById('nextReplay').disabled = index === ALL_REPLAYS.length - 1;
-
-            // Reinitialize the replay data
-            initializeReplayData();
-            restart();
-        }}
-
-        function resetReplay() {{
-            currentTick = 0;
-            isPlaying = false;
-            document.getElementById('playPauseBtn').textContent = '▶️ Play';
-
-            // Check if replay has telemetry
-            if (!REPLAY_DATA || !REPLAY_DATA.telemetry || !REPLAY_DATA.telemetry.ticks ||
-                REPLAY_DATA.telemetry.ticks.length === 0) {{
-                showNoTelemetry();
-                return;
-            }}
-
-            // Set up replay data
-            ticks = REPLAY_DATA.telemetry.ticks;
-            config = REPLAY_DATA.telemetry.config;
-            arenaWidth = config.arena_width;
-            dt = config.dt;
-
-            render();
-        }}
-
-        function showNoTelemetry() {{
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1a1a2e';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.fillStyle = '#ff6b6b';
-            ctx.font = 'bold 24px Courier New';
-            ctx.textAlign = 'center';
-            ctx.fillText('No telemetry data in this replay', canvas.width / 2, canvas.height / 2 - 20);
-
-            ctx.fillStyle = '#aaa';
-            ctx.font = '16px Courier New';
-            ctx.fillText('The fight was recorded but has 0 ticks', canvas.width / 2, canvas.height / 2 + 20);
-        }}
-
-        // Navigation handlers
-        document.getElementById('prevReplay').addEventListener('click', () => {{
-            if (currentReplayIndex > 0) {{
-                loadReplay(currentReplayIndex - 1);
-            }}
-        }});
-
-        document.getElementById('nextReplay').addEventListener('click', () => {{
-            if (currentReplayIndex < ALL_REPLAYS.length - 1) {{
-                loadReplay(currentReplayIndex + 1);
-            }}
-        }});
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {{
-            switch(e.key) {{
-                case 'ArrowLeft':
-                    if (currentReplayIndex > 0) loadReplay(currentReplayIndex - 1);
-                    break;
-                case 'ArrowRight':
-                    if (currentReplayIndex < ALL_REPLAYS.length - 1) loadReplay(currentReplayIndex + 1);
-                    break;
-                case ' ':
-                    e.preventDefault();
-                    togglePlayPause();
-                    break;
-                case 'r':
-                    restart();
-                    break;
-            }}
-        }});
-
-        // Variables that need to be initialized per replay
+        // Variables for rendering
         let ticks = null;
         let config = null;
         let arenaWidth = null;
         let dt = null;
 
-        function initializeReplayData() {{
-            if (!REPLAY_DATA || !REPLAY_DATA.telemetry) {{
-                console.error('No replay data available');
-                return;
-            }}
-
-            // Set up the variables expected by the original renderer
-            ticks = REPLAY_DATA.telemetry.ticks;
-            config = REPLAY_DATA.telemetry.config;
-            arenaWidth = config.arena_width;
-            dt = config.dt;
-
-            // Reset playback state
-            currentTick = 0;
-            isPlaying = false;
-            document.getElementById('playPauseBtn').textContent = '▶️ Play';
-        }}
+        // Playback state
+        let currentTick = 0;
+        let isPlaying = false;
+        let playbackSpeed = PLAYBACK_SPEED_VALUE;
+        let lastFrameTime = 0;
 
         // Auto-play settings
         let autoPlayEnabled = true;
         let autoPlayDelay = 2000; // 2 seconds between fights
 
-        function toggleAutoPlay() {{
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = 96; // pixels per meter
+
+        function loadReplay(index) {
+            currentReplayIndex = index;
+            REPLAY_DATA = ALL_REPLAYS[index];
+
+            if (!REPLAY_DATA || !REPLAY_DATA.telemetry) {
+                console.error('No replay data available');
+                return;
+            }
+
+            // Initialize data
+            ticks = REPLAY_DATA.telemetry.ticks;
+            config = REPLAY_DATA.telemetry.config;
+            arenaWidth = config.arena_width;
+            dt = config.dt;
+
+            // Reset playback
+            currentTick = 0;
+            isPlaying = false;
+            document.getElementById('playPauseBtn').textContent = '▶️ Play';
+
+            // Update UI
+            updateReplayInfo();
+            updateNavigationButtons();
+            render();
+        }
+
+        function updateReplayInfo() {
+            const meta = REPLAY_DATA.meta || REPLAY_DATA.metadata || {};
+            const levelName = meta.level_name || 'Unknown';
+            const episode = meta.episode || 0;
+            const winRate = ((meta.win_rate || 0) * 100).toFixed(1);
+            const winner = meta.winner || 'Unknown';
+
+            document.getElementById('currentReplayInfo').textContent =
+                `Level ${meta.level_num || '?'}: ${levelName} | Episode ${episode} | Win Rate: ${winRate}% | Winner: ${winner}`;
+        }
+
+        function updateNavigationButtons() {
+            document.getElementById('prevReplay').disabled = currentReplayIndex === 0;
+            document.getElementById('nextReplay').disabled = currentReplayIndex === ALL_REPLAYS.length - 1;
+        }
+
+        function loadPreviousReplay() {
+            if (currentReplayIndex > 0) {
+                loadReplay(currentReplayIndex - 1);
+            }
+        }
+
+        function loadNextReplay() {
+            if (currentReplayIndex < ALL_REPLAYS.length - 1) {
+                loadReplay(currentReplayIndex + 1);
+            }
+        }
+
+        function togglePlayPause() {
+            isPlaying = !isPlaying;
+            document.getElementById('playPauseBtn').textContent = isPlaying ? '⏸️ Pause' : '▶️ Play';
+        }
+
+        function restart() {
+            currentTick = 0;
+            isPlaying = false;
+            document.getElementById('playPauseBtn').textContent = '▶️ Play';
+            render();
+        }
+
+        function step() {
+            if (currentTick < ticks.length - 1) {
+                currentTick++;
+                render();
+            }
+        }
+
+        function toggleAutoPlay() {
             autoPlayEnabled = !autoPlayEnabled;
             const btn = document.getElementById('autoPlayBtn');
-            if (autoPlayEnabled) {{
+            if (autoPlayEnabled) {
                 btn.textContent = '🔄 Auto-Play: ON';
                 btn.style.background = '#4ecca3';
-            }} else {{
+            } else {
                 btn.textContent = '🔄 Auto-Play: OFF';
                 btn.style.background = '#888';
-            }}
-        }}
+            }
+        }
 
-        // Event handlers for buttons
-        document.getElementById('playPauseBtn').onclick = togglePlayPause;
-        document.getElementById('restartBtn').onclick = restart;
-        document.getElementById('stepBtn').onclick = step;
-        document.getElementById('autoPlayBtn').onclick = toggleAutoPlay;
-        document.getElementById('speedSlider').oninput = function(e) {{
+        function updateSpeed(e) {
             playbackSpeed = parseFloat(e.target.value);
             document.getElementById('speedValue').textContent = playbackSpeed.toFixed(2) + 'x';
-        }};
+        }
 
-        {js_code}
+        function render() {
+            if (!ticks || currentTick >= ticks.length) return;
 
-        // Initialize on load
-        initReplaySelector();
-        if (ALL_REPLAYS.length > 0) {{
-            loadReplay(0);  // Load first replay
-        }}
+            const tick = ticks[currentTick];
+
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw arena floor
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            // Draw walls
+            ctx.strokeStyle = '#4ecca3';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2 - 50);
+            ctx.lineTo(0, canvas.height / 2 + 50);
+            ctx.moveTo(canvas.width, canvas.height / 2 - 50);
+            ctx.lineTo(canvas.width, canvas.height / 2 + 50);
+            ctx.stroke();
+
+            // Draw fighters
+            const fighter_a = tick.fighter_a;
+            const fighter_b = tick.fighter_b;
+
+            // Fighter A (Learning AI)
+            const aX = fighter_a.position * scale;
+            const aY = canvas.height / 2;
+
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(aX - 15, aY - 25, 30, 50);
+
+            // Fighter A health bar
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(aX - 20, aY - 40, 40 * (fighter_a.hp / fighter_a.max_hp), 5);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(aX - 20, aY - 40, 40, 5);
+
+            // Fighter B (Opponent)
+            const bX = fighter_b.position * scale;
+            const bY = canvas.height / 2;
+
+            ctx.fillStyle = '#4ecca3';
+            ctx.fillRect(bX - 15, bY - 25, 30, 50);
+
+            // Fighter B health bar
+            ctx.fillStyle = '#4ecca3';
+            ctx.fillRect(bX - 20, bY - 40, 40 * (fighter_b.hp / fighter_b.max_hp), 5);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(bX - 20, bY - 40, 40, 5);
+
+            // Draw collision indicator
+            if (tick.events && tick.events.some(e => e.type === 'collision')) {
+                ctx.strokeStyle = '#ffd93d';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc((aX + bX) / 2, canvas.height / 2, 30, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Update tick info
+            document.getElementById('tick-info').textContent = `Tick ${currentTick} / ${ticks.length - 1}`;
+
+            // Update stats
+            updateStats(tick);
+        }
+
+        function updateStats(tick) {
+            const stats = document.getElementById('stats');
+            const fighter_a = tick.fighter_a;
+            const fighter_b = tick.fighter_b;
+
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <span>AI Fighter HP:</span>
+                    <span class="stat-value">${fighter_a.hp.toFixed(1)} / ${fighter_a.max_hp}</span>
+                </div>
+                <div class="stat-item">
+                    <span>AI Fighter Stamina:</span>
+                    <span class="stat-value">${fighter_a.stamina.toFixed(1)} / ${fighter_a.max_stamina}</span>
+                </div>
+                <div class="stat-item">
+                    <span>AI Fighter Stance:</span>
+                    <span class="stat-value">${fighter_a.stance}</span>
+                </div>
+                <div class="stat-item">
+                    <span>Opponent HP:</span>
+                    <span class="stat-value">${fighter_b.hp.toFixed(1)} / ${fighter_b.max_hp}</span>
+                </div>
+                <div class="stat-item">
+                    <span>Opponent Stamina:</span>
+                    <span class="stat-value">${fighter_b.stamina.toFixed(1)} / ${fighter_b.max_stamina}</span>
+                </div>
+                <div class="stat-item">
+                    <span>Opponent Stance:</span>
+                    <span class="stat-value">${fighter_b.stance}</span>
+                </div>
+                <div class="stat-item">
+                    <span>Distance:</span>
+                    <span class="stat-value">${Math.abs(fighter_b.position - fighter_a.position).toFixed(2)}m</span>
+                </div>
+            `;
+        }
+
+        // Animation loop
+        function animate(timestamp) {
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const deltaTime = timestamp - lastFrameTime;
+
+            if (isPlaying && ticks) {
+                const msPerTick = (dt * 1000) / playbackSpeed;
+
+                if (deltaTime >= msPerTick) {
+                    if (currentTick < ticks.length - 1) {
+                        currentTick++;
+                        render();
+                        lastFrameTime = timestamp;
+                    } else {
+                        // Fight ended
+                        isPlaying = false;
+                        document.getElementById('playPauseBtn').textContent = '▶️ Play';
+                        console.log(`Fight ended - Episode ${REPLAY_DATA.meta?.episode || '?'}`);
+
+                        // Auto-play next fight if enabled
+                        if (autoPlayEnabled && currentReplayIndex < ALL_REPLAYS.length - 1) {
+                            console.log('Auto-playing next fight in ' + autoPlayDelay + 'ms...');
+                            setTimeout(() => {
+                                loadNextReplay();
+                                // Auto-start playback
+                                setTimeout(() => {
+                                    isPlaying = true;
+                                    document.getElementById('playPauseBtn').textContent = '⏸️ Pause';
+                                }, 500);
+                            }, autoPlayDelay);
+                        } else if (autoPlayEnabled && currentReplayIndex >= ALL_REPLAYS.length - 1) {
+                            console.log('Reached last replay. Auto-play complete.');
+                        }
+                    }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        if (ALL_REPLAYS.length > 0) {
+            loadReplay(0);
+            // Auto-start if auto-play is enabled
+            if (autoPlayEnabled) {
+                setTimeout(() => {
+                    isPlaying = true;
+                    document.getElementById('playPauseBtn').textContent = '⏸️ Pause';
+                }, 1000);
+            }
+        } else {
+            document.getElementById('currentReplayInfo').textContent = 'No replays available';
+        }
+
+        // Start animation loop
+        requestAnimationFrame(animate);
     </script>
 </body>
-</html>
-"""
+</html>"""
 
-    return html
+    # Replace placeholders
+    html = html_template.replace('REPLAYS_JSON_DATA', replays_json)
+    html = html.replace('PLAYBACK_SPEED_VALUE', str(playback_speed))
+
+    # Write HTML file
+    with open(output_path, 'w') as f:
+        f.write(html)
+
+    # Print summary
+    print("\n" + "="*80)
+    print("✅ HTML MONTAGE COMPLETE!")
+    print("="*80)
+    print(f"Output: {output_path}")
+    print(f"Size: {output_path.stat().st_size / (1024*1024):.1f} MB")
+    print(f"Replays: {len(replay_data)}")
+    print(f"\nTo view: Open {output_path} in your browser")
+    print("Controls:")
+    print("  - Space/Click: Play/Pause")
+    print("  - Left/Right: Previous/Next fight")
+    print("  - Speed Slider: 0.25x to 10x speed")
+    print("  - Auto-Play: Automatically advances through all fights")
 
 
 def main():
@@ -743,7 +587,6 @@ def main():
     parser.add_argument(
         "--output",
         type=str,
-        default=None,
         help="Output HTML file path (default: run_dir/training_montage.html)"
     )
 
@@ -757,12 +600,12 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show detailed progress"
+        help="Enable verbose output"
     )
 
     args = parser.parse_args()
 
-    # Determine paths
+    # Validate inputs
     run_dir = Path(args.run_dir)
     if not run_dir.exists():
         print(f"❌ Run directory not found: {run_dir}")
