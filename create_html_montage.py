@@ -490,9 +490,10 @@ def generate_html_content(
             <button id="playPauseBtn">▶️ Play</button>
             <button id="restartBtn">🔄 Restart</button>
             <button id="stepBtn">⏭️ Step</button>
+            <button id="autoPlayBtn" style="background: #4ecca3;">🔄 Auto-Play: ON</button>
             <div class="speed-control">
                 <label>Speed:</label>
-                <input type="range" id="speedSlider" min="0.25" max="5" step="0.25" value="{playback_speed}">
+                <input type="range" id="speedSlider" min="0.25" max="10" step="0.25" value="{playback_speed}">
                 <span id="speedValue">{playback_speed}x</span>
             </div>
         </div>
@@ -684,6 +685,32 @@ def generate_html_content(
             isPlaying = false;
             document.getElementById('playPauseBtn').textContent = '▶️ Play';
         }}
+
+        // Auto-play settings
+        let autoPlayEnabled = true;
+        let autoPlayDelay = 2000; // 2 seconds between fights
+
+        function toggleAutoPlay() {{
+            autoPlayEnabled = !autoPlayEnabled;
+            const btn = document.getElementById('autoPlayBtn');
+            if (autoPlayEnabled) {{
+                btn.textContent = '🔄 Auto-Play: ON';
+                btn.style.background = '#4ecca3';
+            }} else {{
+                btn.textContent = '🔄 Auto-Play: OFF';
+                btn.style.background = '#888';
+            }}
+        }}
+
+        // Event handlers for buttons
+        document.getElementById('playPauseBtn').onclick = togglePlayPause;
+        document.getElementById('restartBtn').onclick = restart;
+        document.getElementById('stepBtn').onclick = step;
+        document.getElementById('autoPlayBtn').onclick = toggleAutoPlay;
+        document.getElementById('speedSlider').oninput = function(e) {{
+            playbackSpeed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = playbackSpeed.toFixed(2) + 'x';
+        }};
 
         {js_code}
 
