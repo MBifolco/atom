@@ -15,7 +15,7 @@ from datetime import datetime
 import time
 import random
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait, FIRST_COMPLETED
 import multiprocessing
 
 from stable_baselines3 import PPO
@@ -1158,66 +1158,94 @@ class PopulationTrainer:
         executor = None
         try:
             with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
-                # Submit all tasks
+                # Process tasks in batches to avoid memory issues
                 future_to_fighter = {}
                 future_to_start_time = {}
-                for task in training_tasks:
-                    future = executor.submit(_train_single_fighter_parallel, *task)
-                    fighter_name = task[0]
-                    future_to_fighter[future] = fighter_name
-                    future_to_start_time[future] = time.time()
-                    if self.verbose:
-                        print(f"    ⏳ Starting: {fighter_name}")
-                    self.logger.info(f"Starting training: {fighter_name}")
+                task_queue = list(training_tasks)  # Create a queue of tasks
+                active_futures = set()
+
+                # Submit initial batch (up to n_parallel_fighters tasks)
+                for _ in range(min(self.n_parallel_fighters, len(task_queue))):
+                    if task_queue:
+                        task = task_queue.pop(0)
+                        future = executor.submit(_train_single_fighter_parallel, *task)
+                        fighter_name = task[0]
+                        future_to_fighter[future] = fighter_name
+                        future_to_start_time[future] = time.time()
+                        active_futures.add(future)
+                        if self.verbose:
+                            print(f"    ⏳ Starting: {fighter_name}")
+                        self.logger.info(f"Starting training: {fighter_name}")
 
                 # Collect results as they complete
                 completed_count = 0
-                total_fighters = len(future_to_fighter)
+                total_fighters = len(training_tasks)
 
                 if self.verbose:
                     print()
                     print(f"  ⏱️  Training in progress (started {total_fighters} fighters)...")
                     print()
 
-                for future in as_completed(future_to_fighter):
-                    fighter_name = future_to_fighter[future]
-                    completed_count += 1
-                    elapsed = time.time() - future_to_start_time[future]
+                # Process futures as they complete, including newly submitted ones
+                while active_futures:
+                    # Wait for the next future to complete
+                    done, pending = wait(
+                        active_futures,
+                        return_when=FIRST_COMPLETED
+                    )
 
-                    try:
-                        result = future.result(timeout=300)  # 5 minute timeout per fighter
-                        results.append(result)
-                        if self.verbose:
-                            print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
-                                  f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
-                                  f"time: {elapsed:.1f}s")
-                        self.logger.info(f"Completed training [{completed_count}/{total_fighters}] {fighter_name}: "
-                                        f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
-                                        f"time: {elapsed:.1f}s")
+                    for future in done:
+                        fighter_name = future_to_fighter[future]
+                        completed_count += 1
+                        elapsed = time.time() - future_to_start_time[future]
+                        active_futures.remove(future)
 
-                        # Show remaining fighters every 2 completions
-                        if completed_count % 2 == 0 and completed_count < total_fighters:
-                            remaining = total_fighters - completed_count
-                            overall_elapsed = time.time() - training_start_time
-                            avg_time = overall_elapsed / completed_count
-                            eta = avg_time * remaining
-                            print(f"       💭 {remaining} fighters still training... (ETA: {int(eta)}s)")
-                            print()
+                        try:
+                            result = future.result(timeout=300)  # 5 minute timeout per fighter
+                            results.append(result)
+                            if self.verbose:
+                                print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
+                                      f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
+                                      f"time: {elapsed:.1f}s")
+                            self.logger.info(f"Completed training [{completed_count}/{total_fighters}] {fighter_name}: "
+                                            f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
+                                            f"time: {elapsed:.1f}s")
 
-                    except TimeoutError:
-                        self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
-                        if self.verbose:
-                            print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
-                    except Exception as e:
-                        import traceback
-                        error_msg = str(e) if str(e) else repr(e)
-                        tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                        self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
-                        if self.verbose:
-                            if not error_msg or error_msg == "":
-                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
-                            else:
-                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
+                            # Show remaining fighters every 2 completions
+                            if completed_count % 2 == 0 and completed_count < total_fighters:
+                                remaining = total_fighters - completed_count
+                                overall_elapsed = time.time() - training_start_time
+                                avg_time = overall_elapsed / completed_count
+                                eta = avg_time * remaining
+                                print(f"       💭 {remaining} fighters still training... (ETA: {int(eta)}s)")
+                                print()
+
+                        except TimeoutError:
+                            self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
+                            if self.verbose:
+                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
+                        except Exception as e:
+                            import traceback
+                            error_msg = str(e) if str(e) else repr(e)
+                            tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                            self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
+                            if self.verbose:
+                                if not error_msg or error_msg == "":
+                                    print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
+                                else:
+                                    print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
+
+                        # Submit next task if available
+                        if task_queue:
+                            task = task_queue.pop(0)
+                            future = executor.submit(_train_single_fighter_parallel, *task)
+                            new_fighter_name = task[0]
+                            future_to_fighter[future] = new_fighter_name
+                            future_to_start_time[future] = time.time()
+                            active_futures.add(future)
+                            if self.verbose:
+                                print(f"    ⏳ Starting: {new_fighter_name}")
+                            self.logger.info(f"Starting training: {new_fighter_name}")
 
         except KeyboardInterrupt:
             if self.verbose:
