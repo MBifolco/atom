@@ -747,7 +747,7 @@ class CurriculumTrainer:
                 gamma=0.99,
                 gae_lambda=0.95,
                 clip_range=0.2,
-                max_grad_norm=1.0,  # Increased gradient clipping to prevent NaN while allowing learning
+                max_grad_norm=0.5,  # Gradient clipping to prevent NaN
                 ent_coef=0.01,  # Entropy coefficient for exploration
                 vf_coef=0.5,  # Value function coefficient
                 normalize_advantage=True,  # Normalize advantages
@@ -958,18 +958,6 @@ class CurriculumTrainer:
         self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
         self.logger.info(f"   Wins at level: {self.progress.wins_at_level}")
         self.logger.info(f"   Recent episodes buffer: {len(self.progress.recent_episodes)} episodes")
-
-        # Reduce learning rate as we progress to prevent value function explosion
-        # This helps prevent NaN issues in later stages when rewards are high
-        if self.model is not None:
-            current_level = self.progress.current_level
-            # Start at 3e-4, reduce by factor of 2 for each level after level 2
-            if current_level >= 2:
-                new_lr = 3e-4 / (2 ** (current_level - 2))
-                # Don't go below 1e-5
-                new_lr = max(new_lr, 1e-5)
-                self.model.learning_rate = new_lr
-                self.logger.info(f"📉 Reduced learning rate to {new_lr:.2e} for stability")
 
         # Check if completed curriculum
         if self.progress.current_level >= len(self.curriculum):
