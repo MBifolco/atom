@@ -53,6 +53,7 @@ class ProgressiveTrainer:
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
+                 n_envs: int = None,
                  max_ticks: int = 250,
                  device: str = "auto",
                  use_vmap: bool = False,
@@ -67,7 +68,8 @@ class ProgressiveTrainer:
             algorithm: RL algorithm to use ("ppo" or "sac")
             output_dir: Directory for all outputs
             verbose: Whether to print progress
-            n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
+            n_parallel_fighters: Number of fighters to train in parallel in population mode (default: 2 for GPU, cpu_count-1 for CPU)
+            n_envs: Number of parallel environments for PPO/SAC training (default: 8 for CPU, 250 for GPU)
             max_ticks: Maximum ticks per episode (default: 250)
             device: Device to use for training ("cpu", "cuda", or "auto")
             use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
@@ -78,6 +80,7 @@ class ProgressiveTrainer:
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.n_parallel_fighters = n_parallel_fighters
+        self.n_envs = n_envs
         self.max_ticks = max_ticks
         self.device = device
         self.use_vmap = use_vmap
@@ -106,14 +109,17 @@ class ProgressiveTrainer:
 
         Args:
             timesteps: Total training timesteps
-            n_envs: Number of parallel environments (default: 8 for CPU, 250 for GPU)
+            n_envs: Number of parallel environments (default: from init or 8 for CPU, 250 for GPU)
 
         Returns:
             Path to the trained model
         """
-        # Set default n_envs based on vmap usage
+        # Use instance n_envs if not overridden, otherwise set default based on vmap usage
         if n_envs is None:
-            n_envs = 250 if self.use_vmap else 8
+            if self.n_envs is not None:
+                n_envs = self.n_envs
+            else:
+                n_envs = 250 if self.use_vmap else 8
 
         if self.verbose:
             print("\n" + "="*80)
@@ -424,7 +430,13 @@ Examples:
         "--cores",
         type=int,
         default=None,
-        help="Number of CPU cores to use for parallel fighter training (default: cpu_count - 1)"
+        help="Number of CPU cores to use for PPO parallel environments (default: 8)"
+    )
+    parser.add_argument(
+        "--n-parallel-fighters",
+        type=int,
+        default=None,
+        help="Number of fighters to train in parallel in population mode (default: 2 for GPU, cpu_count-1 for CPU)"
     )
     parser.add_argument(
         "--episodes-per-gen",
@@ -505,7 +517,8 @@ Examples:
         algorithm=args.algorithm,
         output_dir=output_dir,
         verbose=True,
-        n_parallel_fighters=args.cores,
+        n_parallel_fighters=args.n_parallel_fighters,
+        n_envs=args.cores,
         max_ticks=args.max_ticks,
         device=args.device,
         use_vmap=args.use_vmap,
