@@ -97,7 +97,7 @@ class TestVmapEnvWrapperInit:
             opponent_decision_func=dummy_opponent
         )
 
-        assert env.observation_space.shape == (9,)
+        assert env.observation_space.shape == (13,)
 
     def test_action_space_shape(self):
         """Test action space is correctly configured."""
@@ -140,7 +140,7 @@ class TestVmapEnvWrapperReset:
 
         obs, info = env.reset()
 
-        assert obs.shape == (8, 9)
+        assert obs.shape == (8, 13)
         assert isinstance(info, dict)
 
     def test_reset_initializes_tick_counts(self):
@@ -270,7 +270,7 @@ class TestVmapEnvWrapperStep:
         actions = np.zeros((4, 2), dtype=np.float32)
         obs, rewards, dones, truncated, infos = env.step(actions)
 
-        assert obs.shape == (4, 9)
+        assert obs.shape == (4, 13)
         assert rewards.shape == (4,)
         assert dones.shape == (4,)
         assert truncated.shape == (4,)
@@ -317,7 +317,7 @@ class TestVmapEnvWrapperStep:
         ], dtype=np.float32)
 
         obs, rewards, dones, truncated, infos = env.step(actions)
-        assert obs.shape == (3, 9)
+        assert obs.shape == (3, 13)
 
     def test_step_truncation_at_max_ticks(self):
         """Test step truncates at max_ticks."""
@@ -383,7 +383,7 @@ class TestVmapEnvWrapperStep:
 
         for _ in range(20):
             obs, rewards, dones, truncated, infos = env.step(actions)
-            assert obs.shape == (4, 9)
+            assert obs.shape == (4, 13)
             assert not np.any(np.isnan(obs))
 
 
@@ -403,7 +403,7 @@ class TestVmapEnvWrapperObservations:
         env.reset()
         obs = env._get_observations()
 
-        assert obs.shape == (4, 9)
+        assert obs.shape == (4, 13)
         assert obs.dtype == np.float32
 
     def test_observations_contain_expected_values(self):
@@ -609,7 +609,7 @@ class TestVmapEnvWrapperMultipleSteps:
 
         for i in range(50):
             obs, rewards, dones, truncated, infos = env.step(actions)
-            assert obs.shape == (4, 9)
+            assert obs.shape == (4, 13)
             assert not np.any(np.isnan(obs))
 
     def test_auto_reset_on_done(self):
@@ -680,11 +680,11 @@ class TestVmapEnvWrapperEdgeCases:
         )
 
         obs, _ = env.reset()
-        assert obs.shape == (1, 9)
+        assert obs.shape == (1, 13)
 
         actions = np.zeros((1, 2), dtype=np.float32)
         obs, rewards, dones, truncated, infos = env.step(actions)
-        assert obs.shape == (1, 9)
+        assert obs.shape == (1, 13)
 
     def test_large_number_of_envs(self):
         """Test with larger number of environments."""
@@ -697,7 +697,7 @@ class TestVmapEnvWrapperEdgeCases:
         )
 
         obs, _ = env.reset()
-        assert obs.shape == (32, 9)
+        assert obs.shape == (32, 13)
 
     def test_extreme_actions(self):
         """Test with extreme action values."""
@@ -718,7 +718,7 @@ class TestVmapEnvWrapperEdgeCases:
         ], dtype=np.float32)
 
         obs, rewards, dones, truncated, infos = env.step(actions)
-        assert obs.shape == (2, 9)
+        assert obs.shape == (2, 13)
         assert not np.any(np.isnan(obs))
 
 

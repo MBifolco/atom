@@ -83,7 +83,7 @@ class TestIntegration:
         )
 
         obs, info = env.reset()
-        assert obs.shape == (9,)  # Check observation shape
+        assert obs.shape == (13,)  # Check enhanced observation shape
 
         done = False
         truncated = False

@@ -35,12 +35,12 @@ class TestWorldConfig:
         assert set(config.stances.keys()) == {"neutral", "extended", "defending"}
 
     def test_defending_stance_regenerates(self):
-        """Verify defending stance has negative drain (regeneration)."""
+        """Verify defending stance has zero drain (no stamina penalty)."""
         config = WorldConfig()
         defending_stance = config.stances["defending"]
 
-        assert defending_stance.drain < 0, \
-            f"Defending stance should have negative drain (regen), got {defending_stance.drain}"
+        assert defending_stance.drain == 0, \
+            f"Defending stance should have zero drain (no penalty), got {defending_stance.drain}"
 
     def test_stance_defense_values(self):
         """Test stance defense multipliers are reasonable."""
@@ -98,7 +98,7 @@ class TestWorldConfig:
             assert loaded_config.hit_impact_threshold == config.hit_impact_threshold
             assert loaded_config.hit_recoil_multiplier == config.hit_recoil_multiplier
             assert len(loaded_config.stances) == 3
-            assert loaded_config.stances["defending"].drain < 0
+            assert loaded_config.stances["defending"].drain == 0
 
         finally:
             os.unlink(temp_file)

@@ -58,7 +58,8 @@ class ProgressiveTrainer:
                  use_vmap: bool = False,
                  debug: bool = False,
                  record_replays: bool = False,
-                 replay_frequency: int = 5):
+                 replay_frequency: int = 5,
+                 override_episodes_per_level: int = None):
         """
         Initialize the progressive trainer.
 
@@ -83,6 +84,7 @@ class ProgressiveTrainer:
         self.debug = debug
         self.record_replays = record_replays
         self.replay_frequency = replay_frequency
+        self.override_episodes_per_level = override_episodes_per_level
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +141,8 @@ class ProgressiveTrainer:
             device=self.device,
             use_vmap=self.use_vmap,
             debug=self.debug,
-            record_replays=self.record_replays
+            record_replays=self.record_replays,
+            override_episodes_per_level=self.override_episodes_per_level
         )
 
         # Train through curriculum
@@ -147,6 +150,34 @@ class ProgressiveTrainer:
 
         # Get the trained model path
         model_path = self.curriculum_dir / "models" / "curriculum_graduate.zip"
+
+        # Clean up curriculum trainer resources to free GPU memory
+        if hasattr(self.curriculum_trainer, 'model') and self.curriculum_trainer.model is not None:
+            # Delete the model to free memory
+            del self.curriculum_trainer.model
+            self.curriculum_trainer.model = None
+
+        if hasattr(self.curriculum_trainer, 'envs') and self.curriculum_trainer.envs is not None:
+            # Close environments
+            try:
+                self.curriculum_trainer.envs.close()
+            except:
+                pass
+            del self.curriculum_trainer.envs
+            self.curriculum_trainer.envs = None
+
+        # Force garbage collection and clear GPU cache if available
+        import gc
+        gc.collect()
+
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                if self.verbose:
+                    print("  💾 Cleared GPU memory after curriculum training")
+        except:
+            pass
 
         if self.verbose:
             print(f"\n✅ Curriculum training complete!")
@@ -436,6 +467,12 @@ Examples:
         help="Record replays every N generations for population training (default: 5)"
     )
     parser.add_argument(
+        "--override-episodes-per-level",
+        type=int,
+        default=None,
+        help="Force graduation after N episodes (for testing). None for normal graduation."
+    )
+    parser.add_argument(
         "--keep-top",
         type=float,
         default=0.5,
@@ -474,7 +511,8 @@ Examples:
         use_vmap=args.use_vmap,
         debug=args.debug,
         record_replays=args.record_replays,
-        replay_frequency=args.replay_frequency
+        replay_frequency=args.replay_frequency,
+        override_episodes_per_level=args.override_episodes_per_level
     )
 
     # Run based on mode

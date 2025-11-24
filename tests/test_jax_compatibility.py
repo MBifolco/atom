@@ -109,8 +109,8 @@ class TestJAXCompatibility:
         assert defense.shape == (3,)
         assert drain.shape == (3,)
 
-        # Check defending stance has negative drain (index 2)
-        assert drain[2] < 0, f"Defending stance (index 2) should have negative drain: {drain[2]}"
+        # Check defending stance has zero drain (index 2) - no stamina penalty
+        assert drain[2] == 0, f"Defending stance (index 2) should have zero drain: {drain[2]}"
 
     def test_discrete_hit_functions_are_pure(self):
         """Test that discrete hit helper functions are pure (no side effects)."""

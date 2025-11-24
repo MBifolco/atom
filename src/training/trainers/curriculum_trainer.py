@@ -204,6 +204,26 @@ class CurriculumCallback(BaseCallback):
                 # Track reward breakdown if available
                 if "reward_breakdown" in info:
                     self.recent_reward_components.append(info["reward_breakdown"])
+
+                # Progressive replay recording
+                if hasattr(self.curriculum_trainer, 'progressive_recorder') and self.curriculum_trainer.progressive_recorder is not None:
+                    episode_num = len(self.episode_rewards)
+                    # Use a high number for total_episodes to prevent the "last episode" logic from triggering
+                    # The actual graduation happens at variable times, so we use episode-based intervals
+                    total_episodes = max(10000, episode_num * 2)  # Always well above current episode
+
+                    # Check if we should record this episode
+                    if self.curriculum_trainer.progressive_recorder.should_record(episode_num, total_episodes):
+                        # Actually record an evaluation replay
+                        try:
+                            if self.curriculum_trainer.verbose:
+                                self.curriculum_trainer.logger.info(f"  💾 Recording replay for episode {episode_num}...")
+                            self._record_evaluation_replay(episode_num, total_episodes)
+                        except Exception as e:
+                            if self.curriculum_trainer.verbose:
+                                import traceback
+                                self.curriculum_trainer.logger.error(f"  ❌ Failed to record replay: {e}")
+                                self.curriculum_trainer.logger.error(f"  Traceback: {traceback.format_exc()}")
                     if len(self.recent_reward_components) > 100:
                         self.recent_reward_components.pop(0)
 
@@ -220,6 +240,170 @@ class CurriculumCallback(BaseCallback):
                         return False
 
         return True
+
+    def _record_evaluation_replay(self, episode_num: int, total_episodes: int):
+        """Run a separate evaluation match with telemetry for replay recording."""
+        import numpy as np
+        import importlib.util
+        from pathlib import Path
+        from ...orchestrator.match_orchestrator import MatchOrchestrator, MatchResult
+        from ...arena import WorldConfig
+
+        # Get current level and opponent
+        level = self.curriculum_trainer.get_current_level()
+
+        # Check if model is available
+        if self.curriculum_trainer.model is None:
+            if self.curriculum_trainer.verbose:
+                print("  ⚠️  Model not initialized yet, using random agent for replay")
+            # Use random agent if model not ready
+            def ai_decide(snapshot):
+                # Random action
+                import random
+                return {
+                    "acceleration": random.choice([-1.0, 0.0, 1.0]),
+                    "stance": random.choice(["neutral", "extended", "defending"])
+                }
+        else:
+            # Create a decision function from the current model
+            def ai_decide(snapshot):
+                # Extract observation from snapshot
+                # Note: Snapshot has different structure than gym env observation
+                you = snapshot["you"]
+                opponent = snapshot["opponent"]
+                arena = snapshot["arena"]
+
+                # Normalize values
+                you_hp_norm = you["hp"] / you["max_hp"]
+                you_stamina_norm = you["stamina"] / you["max_stamina"]
+                opp_hp_norm = opponent["hp"] / opponent["max_hp"]
+                opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
+
+                # Wall distances
+                wall_dist_left = you["position"]
+                wall_dist_right = arena["width"] - you["position"]
+
+                # Map stance hint to integer (for opponent)
+                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
+                opp_stance_int = stance_map.get(opponent["stance_hint"], 0)
+
+                # Create observation array matching gym_env enhanced format (13 values)
+                obs = np.array([
+                    you["position"],           # 0: position
+                    you["velocity"],            # 1: velocity
+                    you_hp_norm,                # 2: hp normalized
+                    you_stamina_norm,           # 3: stamina normalized
+                    opponent["distance"],       # 4: distance to opponent
+                    opponent["velocity"],       # 5: relative velocity
+                    opp_hp_norm,                # 6: opponent hp normalized
+                    opp_stamina_norm,           # 7: opponent stamina normalized
+                    arena["width"],             # 8: arena width
+                    wall_dist_left,             # 9: distance to left wall
+                    wall_dist_right,            # 10: distance to right wall
+                    opp_stance_int,             # 11: opponent stance as int
+                    0.0                         # 12: recent damage dealt (not available)
+                ], dtype=np.float32)
+
+                try:
+                    # Get action from model
+                    action, _ = self.curriculum_trainer.model.predict(
+                        np.array([obs]),  # Model expects batch dimension
+                        deterministic=False  # Use stochastic for varied replays
+                    )
+
+                    # Handle batch dimension - action is shape (1, 2) so take first element
+                    if action.ndim > 1:
+                        action = action[0]
+
+                    # Convert continuous Box action to decision dict
+                    # action[0] is acceleration normalized (-1 to 1)
+                    # action[1] is stance selector (0.0-2.99, int cast to 0-2)
+                    acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
+                    acceleration = acceleration_normalized * config.max_acceleration
+
+                    stance_idx = int(np.clip(action[1], 0, 2))
+                    stances = ["neutral", "extended", "defending"]
+                    stance = stances[stance_idx]
+
+                    return {
+                        "acceleration": acceleration,
+                        "stance": stance
+                    }
+                except Exception as e:
+                    # Fallback to neutral if prediction fails
+                    if self.curriculum_trainer.verbose:
+                        print(f"  ⚠️  Model prediction failed: {e}")
+                    return {"acceleration": 0.0, "stance": "neutral"}
+
+        # Get opponent fighter - pick first one from level
+        opponent_path = level.opponents[0] if level.opponents else None
+        opponent_name = "Dummy"
+        opponent_decide = None
+
+        if opponent_path and Path(opponent_path).exists():
+            # Load opponent from file
+            opponent_name = Path(opponent_path).stem
+            spec = importlib.util.spec_from_file_location(opponent_name, opponent_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, 'decide'):
+                opponent_decide = module.decide
+
+        if opponent_decide is None:
+            # Fallback to dummy fighter
+            def opponent_decide(snapshot):
+                return {"acceleration": 0.0, "stance": "neutral"}
+
+        # Create world config and orchestrator
+        config = WorldConfig()
+        orchestrator = MatchOrchestrator(config, max_ticks=self.curriculum_trainer.max_ticks, record_telemetry=True)
+
+        # Define fighter specs
+        fighter_a_spec = {"name": "AI_Fighter", "mass": 70.0, "position": 2.0}
+        fighter_b_spec = {"name": opponent_name, "mass": 70.0, "position": 10.0}
+
+        try:
+            # Run match with random seed for variety
+            import random
+            match_seed = random.randint(0, 1000000)
+            result = orchestrator.run_match(
+                fighter_a_spec,
+                fighter_b_spec,
+                ai_decide,
+                opponent_decide,
+                seed=match_seed
+            )
+
+            # Verify we got telemetry
+            if result.telemetry is None or len(result.telemetry.get('ticks', [])) == 0:
+                if self.curriculum_trainer.verbose:
+                    print(f"  ⚠️  Match produced no telemetry! Winner: {result.winner}, Ticks: {result.total_ticks}")
+                return  # Skip recording if no telemetry
+
+            # Calculate win rate
+            recent_wins = self.episode_wins[-100:] if len(self.episode_wins) > 100 else self.episode_wins
+            win_rate = sum(recent_wins) / len(recent_wins) if recent_wins else 0.0
+
+            # Get recent rewards
+            recent_rewards = self.episode_rewards[-20:] if len(self.episode_rewards) > 20 else self.episode_rewards
+
+            # Record the replay
+            self.curriculum_trainer.progressive_recorder.record_episode_replay(
+                telemetry=result.telemetry,
+                match_result=result,
+                level_name=level.name,
+                level_num=self.curriculum_trainer.progress.current_level + 1,  # 1-indexed
+                episode=episode_num,
+                total_episodes=total_episodes,
+                win_rate=win_rate,
+                recent_rewards=recent_rewards,
+                fighter_a_name="AI_Fighter",
+                fighter_b_name=opponent_name
+            )
+        except Exception as e:
+            print(f"  ❌ Failed to record progressive replay: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 class CurriculumTrainer:
@@ -245,7 +429,8 @@ class CurriculumTrainer:
                  use_vmap: bool = False,
                  debug: bool = False,
                  record_replays: bool = False,
-                 replay_matches_per_opponent: int = 3):
+                 replay_matches_per_opponent: int = 3,
+                 override_episodes_per_level: int = None):
         """
         Initialize the curriculum trainer.
 
@@ -259,6 +444,7 @@ class CurriculumTrainer:
             use_vmap: Use JAX vmap for parallel environments (Level 3/4 optimization)
             record_replays: Whether to record fight replays for montage
             replay_matches_per_opponent: Number of evaluation matches per opponent for replay recording
+            override_episodes_per_level: Force graduation after N episodes (for testing). None for normal graduation.
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -270,6 +456,11 @@ class CurriculumTrainer:
         self.debug = debug
         self.record_replays = record_replays
         self.replay_matches_per_opponent = replay_matches_per_opponent
+        self.override_episodes_per_level = override_episodes_per_level
+
+        # Validate override
+        if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
+            raise ValueError("override_episodes_per_level must be positive")
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -296,8 +487,22 @@ class CurriculumTrainer:
                 verbose=verbose
             )
 
+        # Progressive replay recorder for tracking learning progression
+        self.progressive_recorder = None
+        if self.record_replays:
+            from ..progressive_replay_recorder import ProgressiveReplayRecorder
+            self.progressive_recorder = ProgressiveReplayRecorder(
+                output_dir=str(self.output_dir),
+                max_ticks=max_ticks,
+                verbose=verbose
+            )
+
         # Setup logging
         self._setup_logging()
+
+        # Log override setting
+        if self.override_episodes_per_level is not None and self.verbose:
+            self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
         """Build the training curriculum."""
@@ -666,6 +871,10 @@ class CurriculumTrainer:
         if self.progress.current_level >= len(self.curriculum):
             return False
 
+        # Override graduation for faster testing
+        if self.override_episodes_per_level is not None:
+            return self.progress.episodes_at_level >= self.override_episodes_per_level
+
         level = self.get_current_level()
 
         # Check minimum episodes
@@ -728,6 +937,8 @@ class CurriculumTrainer:
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to record replays for {current.name}: {e}")
+                import traceback
+                self.logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Record graduation
         self.progress.graduated_levels.append(current.name)
@@ -801,6 +1012,10 @@ class CurriculumTrainer:
         # Save replay index if recording was enabled
         if self.replay_recorder:
             self.replay_recorder.save_replay_index()
+
+        # Save progressive replay index
+        if self.progressive_recorder:
+            self.progressive_recorder.save_progressive_index()
 
         # Save training report
         self.save_training_report()

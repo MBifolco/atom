@@ -240,7 +240,7 @@ class TestStanceSelection:
         action = np.array([0.0, 0.0], dtype=np.float32)  # Neutral
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
 
     def test_extended_stance_selection(self):
         """Test selecting extended stance (1)."""
@@ -251,7 +251,7 @@ class TestStanceSelection:
         action = np.array([0.0, 1.0], dtype=np.float32)  # Extended
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
 
     def test_defending_stance_selection(self):
         """Test selecting defending stance (2)."""
@@ -262,7 +262,7 @@ class TestStanceSelection:
         action = np.array([0.0, 2.0], dtype=np.float32)  # Defending
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
 
     def test_stance_clamping(self):
         """Test that out-of-range stance values are handled."""
@@ -274,7 +274,7 @@ class TestStanceSelection:
         action = np.array([0.0, 5.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
 
 
 class TestAccelerationHandling:
@@ -290,7 +290,7 @@ class TestAccelerationHandling:
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
         assert isinstance(reward, float)
 
     def test_negative_acceleration(self):
@@ -303,7 +303,7 @@ class TestAccelerationHandling:
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
         assert isinstance(reward, float)
 
     def test_zero_acceleration(self):
@@ -315,7 +315,7 @@ class TestAccelerationHandling:
         action = np.array([0.0, 0.0], dtype=np.float32)
         obs, _, _, _, _ = env.step(action)
 
-        assert obs.shape == (9,)
+        assert obs.shape == (13,)
 
 
 class TestEpisodeDamageTracking:
@@ -358,7 +358,7 @@ class TestMultipleEpisodes:
 
         for episode in range(5):
             obs, _ = env.reset()
-            assert obs.shape == (9,)
+            assert obs.shape == (13,)
 
             for _ in range(25):
                 action = env.action_space.sample()

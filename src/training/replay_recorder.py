@@ -191,12 +191,27 @@ class ReplayRecorder:
 
             # Load opponent function
             try:
+                if not Path(opp_path).exists():
+                    self.logger.warning(f"Opponent file not found: {opp_path}")
+                    continue
+
                 spec = importlib.util.spec_from_file_location("opponent", opp_path)
+                if spec is None:
+                    self.logger.warning(f"Failed to create spec for {opp_path}")
+                    continue
+
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
+
+                if not hasattr(module, 'decide'):
+                    self.logger.warning(f"No decide function in {opp_path}")
+                    continue
+
                 opponent_func = module.decide
             except Exception as e:
                 self.logger.warning(f"Failed to load opponent {opp_path}: {e}")
+                import traceback
+                self.logger.debug(traceback.format_exc())
                 continue
 
             # Run matches
@@ -205,7 +220,11 @@ class ReplayRecorder:
                 def model_decide(snapshot):
                     # Convert snapshot to observation format
                     obs = self._snapshot_to_obs(snapshot)
-                    action, _ = model.predict(obs, deterministic=True)
+                    if model is None or not hasattr(model, 'predict'):
+                        # Fallback to random action if model unavailable
+                        action = np.array([0.0, 0])  # No movement, neutral stance
+                    else:
+                        action, _ = model.predict(obs, deterministic=True)
                     return self._action_to_dict(action)
 
                 # Run match
@@ -361,9 +380,8 @@ class ReplayRecorder:
             self.logger.info(f"Saved {len(samples)} replays for {stage_id}")
 
     def _snapshot_to_obs(self, snapshot: Dict[str, Any]) -> np.ndarray:
-        """Convert snapshot to observation vector for RL model."""
-        # Match the EXACT observation space from AtomCombatEnv._get_observation()
-        # Note: snapshot uses "you" not "self", and has different structure
+        """Convert snapshot to enhanced observation vector for RL model."""
+        # Match the enhanced observation space (13 values)
         you_hp_norm = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
         you_stamina_norm = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
         opp_hp_norm = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
@@ -372,8 +390,20 @@ class ReplayRecorder:
         distance = snapshot["opponent"]["distance"]
         rel_velocity = snapshot["opponent"]["velocity"]  # Already relative in snapshot
 
-        # Get arena width from config (default 10.0)
+        # Get arena width from config
         arena_width = self.config.arena_width if hasattr(self.config, 'arena_width') else 10.0
+
+        # Wall distances
+        wall_dist_left = snapshot["you"]["position"]
+        wall_dist_right = arena_width - snapshot["you"]["position"]
+
+        # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
+        opp_stance_hint = snapshot["opponent"].get("stance_hint", "neutral")
+        stance_map = {"neutral": 0, "extended": 1, "defending": 2}
+        opp_stance_int = stance_map.get(opp_stance_hint, 0)
+
+        # Recent damage (placeholder - would need tracking)
+        recent_damage = 0.0
 
         return np.array([
             snapshot["you"]["position"],  # 0: position
@@ -384,7 +414,11 @@ class ReplayRecorder:
             rel_velocity,                  # 5: rel_velocity
             opp_hp_norm,                   # 6: opp_hp_norm
             opp_stamina_norm,              # 7: opp_stamina_norm
-            arena_width                    # 8: arena_width
+            arena_width,                   # 8: arena_width
+            wall_dist_left,                # 9: wall_dist_left
+            wall_dist_right,               # 10: wall_dist_right
+            opp_stance_int,                # 11: opp_stance
+            recent_damage                  # 12: recent_damage
         ], dtype=np.float32)
 
     def _action_to_dict(self, action: np.ndarray) -> Dict[str, Any]:

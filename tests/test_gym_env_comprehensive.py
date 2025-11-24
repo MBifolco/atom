@@ -418,7 +418,7 @@ class TestTerminationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
-        assert reward == -50.0  # Tie penalty
+        assert reward == -25.0  # Tie penalty (reduced from -50)
 
 
 class TestTruncationRewards:

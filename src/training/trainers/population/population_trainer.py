@@ -982,17 +982,41 @@ class PopulationTrainer:
     def _get_fighter_decision_func(self, fighter: PopulationFighter) -> Callable:
         """Create a decision function for a trained fighter."""
         def decide(snapshot):
-            # Convert snapshot to observation
+            # Convert snapshot to enhanced observation (13 values)
+            you_hp_norm = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
+            you_stamina_norm = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
+            opp_hp_norm = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
+            opp_stamina_norm = snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"]
+
+            # Arena width
+            arena_width = snapshot["arena"]["width"]
+
+            # Wall distances
+            wall_dist_left = snapshot["you"]["position"]
+            wall_dist_right = arena_width - snapshot["you"]["position"]
+
+            # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
+            opp_stance_hint = snapshot["opponent"].get("stance_hint", "neutral")
+            stance_map = {"neutral": 0, "extended": 1, "defending": 2}
+            opp_stance_int = stance_map.get(opp_stance_hint, 0)
+
+            # Recent damage (placeholder - would need tracking)
+            recent_damage = 0.0
+
             obs = np.array([
-                snapshot["you"]["position"],
-                snapshot["you"]["velocity"],
-                snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
-                snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
-                snapshot["opponent"]["distance"],
-                snapshot["opponent"]["velocity"],
-                snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
-                snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
-                snapshot["arena"]["width"]
+                snapshot["you"]["position"],        # 0: position
+                snapshot["you"]["velocity"],        # 1: velocity
+                you_hp_norm,                        # 2: hp_norm
+                you_stamina_norm,                   # 3: stamina_norm
+                snapshot["opponent"]["distance"],   # 4: distance
+                snapshot["opponent"]["velocity"],   # 5: rel_velocity
+                opp_hp_norm,                        # 6: opp_hp_norm
+                opp_stamina_norm,                   # 7: opp_stamina_norm
+                arena_width,                        # 8: arena_width
+                wall_dist_left,                     # 9: wall_dist_left
+                wall_dist_right,                    # 10: wall_dist_right
+                opp_stance_int,                     # 11: opp_stance
+                recent_damage                       # 12: recent_damage
             ], dtype=np.float32)
 
             # Get action from model
@@ -1001,8 +1025,8 @@ class PopulationTrainer:
             # Convert continuous action to game action
             acceleration = float(action[0]) * 4.5  # Scale from [-1, 1] to [-4.5, 4.5]
             stance_idx = int(action[1])
-            stances = ["neutral", "extended", "retracted", "defending"]
-            stance = stances[min(stance_idx, 3)]
+            stances = ["neutral", "extended", "defending"]  # Only 3 stances now
+            stance = stances[min(stance_idx, 2)]  # Clamp to 0-2
 
             return {"acceleration": acceleration, "stance": stance}
 
