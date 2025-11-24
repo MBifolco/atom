@@ -90,14 +90,14 @@ class TestProgressiveReplayIntegration:
             # Episode 1 should record (first episode)
             assert trainer.progressive_recorder.should_record(1, 1000)
 
-            # Episode 10 should record (early phase interval)
-            assert trainer.progressive_recorder.should_record(10, 1000)
+            # Episode 25 should record (early phase interval)
+            assert trainer.progressive_recorder.should_record(25, 1000)
 
             # Episode 15 should not record
             assert not trainer.progressive_recorder.should_record(15, 1000)
 
-            # Episode 20 should record
-            assert trainer.progressive_recorder.should_record(20, 1000)
+            # Episode 50 should record
+            assert trainer.progressive_recorder.should_record(50, 1000)
 
     @patch('src.orchestrator.match_orchestrator.MatchOrchestrator')
     def test_record_evaluation_replay_runs(self, mock_orchestrator, mock_curriculum_trainer):
@@ -188,13 +188,13 @@ class TestProgressiveReplayIntegration:
             calls = callback._record_evaluation_replay.call_args_list
             episode_nums = [call[0][0] for call in calls]
 
-            # Should have recorded: 1, 10, 20, 30, 40, 50
+            # Should have recorded: 1, 25, 50 (every 25 episodes in early phase)
             assert 1 in episode_nums  # First episode
-            assert 10 in episode_nums  # Early phase
-            assert 20 in episode_nums  # Early phase
-            assert 30 in episode_nums  # Early phase
-            assert 40 in episode_nums  # Early phase
+            assert 25 in episode_nums  # Early phase
             assert 50 in episode_nums  # Early phase
+            assert 10 not in episode_nums  # Should not record at 10
+            assert 20 not in episode_nums  # Should not record at 20
+            assert 30 not in episode_nums  # Should not record at 30
 
     def test_recording_handles_errors_gracefully(self, mock_curriculum_trainer):
         """Test that recording errors don't crash training."""
@@ -239,7 +239,7 @@ class TestProgressiveReplayIntegration:
             )
 
             # Simulate recording some replays
-            for i in [1, 10, 20]:
+            for i in [1, 25, 50]:
                 # Create valid telemetry with at least one tick
                 telemetry = {"ticks": [{"tick": 0, "fighter_a": {"hp": 100}, "fighter_b": {"hp": 100}}]}
 
@@ -278,11 +278,11 @@ class TestProgressiveReplayIntegration:
 
             # Check replays are in order
             episodes = [r["episode"] for r in index_data["replays"]]
-            assert episodes == [1, 10, 20]
+            assert episodes == [1, 25, 50]
 
             # Check recording strategy is saved
             assert "recording_strategy" in index_data
-            assert index_data["recording_strategy"]["early_phase_interval"] == 10
+            assert index_data["recording_strategy"]["early_phase_interval"] == 25
 
 
 if __name__ == "__main__":

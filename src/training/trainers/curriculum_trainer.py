@@ -249,6 +249,9 @@ class CurriculumCallback(BaseCallback):
         from ...orchestrator.match_orchestrator import MatchOrchestrator, MatchResult
         from ...arena import WorldConfig
 
+        # Create world config early (needed for max_acceleration)
+        config = WorldConfig()
+
         # Get current level and opponent
         level = self.curriculum_trainer.get_current_level()
 
@@ -333,6 +336,8 @@ class CurriculumCallback(BaseCallback):
                     # Fallback to neutral if prediction fails
                     if self.curriculum_trainer.verbose:
                         print(f"  ⚠️  Model prediction failed: {e}")
+                        import traceback
+                        traceback.print_exc()
                     return {"acceleration": 0.0, "stance": "neutral"}
 
         # Get opponent fighter - pick first one from level
@@ -354,8 +359,7 @@ class CurriculumCallback(BaseCallback):
             def opponent_decide(snapshot):
                 return {"acceleration": 0.0, "stance": "neutral"}
 
-        # Create world config and orchestrator
-        config = WorldConfig()
+        # Create orchestrator (config already created at top of function)
         orchestrator = MatchOrchestrator(config, max_ticks=self.curriculum_trainer.max_ticks, record_telemetry=True)
 
         # Define fighter specs

@@ -27,7 +27,7 @@ class TestProgressiveReplayRecorder:
             assert recorder.output_dir == Path(tmpdir)
             assert recorder.replays_dir.exists()
             assert recorder.max_ticks == 100
-            assert recorder.early_phase_interval == 10
+            assert recorder.early_phase_interval == 25
             assert recorder.mid_phase_interval == 50
             assert recorder.late_phase_interval == 100
 
@@ -41,25 +41,25 @@ class TestProgressiveReplayRecorder:
             # Always record first episode
             assert recorder.should_record(1, total_episodes)
 
-            # Always record last episode
-            assert recorder.should_record(999, total_episodes)
-
-            # Early phase (0-20%): every 10 episodes
-            assert recorder.should_record(10, total_episodes)  # Yes
-            assert recorder.should_record(20, total_episodes)  # Yes
+            # Episode-based recording (not phase-based anymore)
+            # Early (< 200): every 25 episodes
+            assert recorder.should_record(25, total_episodes)  # Yes
+            assert recorder.should_record(50, total_episodes)  # Yes
+            assert recorder.should_record(75, total_episodes)  # Yes
+            assert not recorder.should_record(10, total_episodes)  # No
             assert not recorder.should_record(15, total_episodes)  # No
-            assert not recorder.should_record(25, total_episodes)  # No
+            assert not recorder.should_record(30, total_episodes)  # No
 
-            # Mid phase (20-80%): every 50 episodes
-            assert recorder.should_record(250, total_episodes)  # Yes (episode 250)
+            # Mid (200-999): every 50 episodes
+            assert recorder.should_record(250, total_episodes)  # Yes
             assert recorder.should_record(300, total_episodes)  # Yes
             assert not recorder.should_record(275, total_episodes)  # No
             assert not recorder.should_record(325, total_episodes)  # No
 
-            # Late phase (80-100%): every 100 episodes
-            assert recorder.should_record(900, total_episodes)  # Yes
-            assert not recorder.should_record(850, total_episodes)  # No
-            assert not recorder.should_record(875, total_episodes)  # No
+            # Late (1000+): every 100 episodes
+            assert recorder.should_record(1000, total_episodes)  # Yes
+            assert recorder.should_record(1100, total_episodes)  # Yes
+            assert not recorder.should_record(1050, total_episodes)  # No
 
             # Force record
             assert recorder.should_record(123, total_episodes, force_record=True)
@@ -211,21 +211,21 @@ class TestProgressiveReplayRecorder:
                     recorded.append(episode)
 
             # Should record reasonable number of episodes
-            assert 15 <= len(recorded) <= 40  # More recordings than expected due to first/last always recorded
+            assert 15 <= len(recorded) <= 30  # Updated for new intervals
 
-            # Check distribution across phases
-            early_phase = [e for e in recorded if e <= 200]
-            mid_phase = [e for e in recorded if 200 < e <= 800]
-            late_phase = [e for e in recorded if e > 800]
+            # Check distribution using episode-based phases (not percentage)
+            early_phase = [e for e in recorded if e < 200]  # < 200: every 25
+            mid_phase = [e for e in recorded if 200 <= e < 1000]  # 200-999: every 50
+            late_phase = [e for e in recorded if e >= 1000]  # 1000+: every 100
 
-            # Early phase should have more recordings (every 10)
-            assert len(early_phase) >= 10
+            # Early phase should have recordings every 25 (1, 25, 50, 75, 100, 125, 150, 175)
+            assert 8 <= len(early_phase) <= 9  # Including episode 1
 
-            # Mid phase should have moderate recordings (every 50)
-            assert 5 <= len(mid_phase) <= 15
+            # Mid phase should have recordings every 50 (200, 250, 300, ..., 950)
+            assert 15 <= len(mid_phase) <= 17
 
-            # Late phase should have fewer recordings (every 100)
-            assert len(late_phase) <= 5
+            # Late phase - we only go to 1000, so just episode 1000
+            assert len(late_phase) <= 1
 
 
 if __name__ == "__main__":
