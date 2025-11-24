@@ -569,17 +569,17 @@ class CurriculumTrainer:
             description="Learn spacing control, resource management, and wall combat"
         ))
 
-        # Level 4: Advanced (behavioral fighters)
+        # Level 4: Advanced (stance switchers and complex movement)
         curriculum.append(CurriculumLevel(
             name="Advanced",
             difficulty=DifficultyLevel.ADVANCED,
             opponents=[
-                str(test_dummy_dir / "behavioral/perfect_defender.py"),
-                str(test_dummy_dir / "behavioral/burst_attacker.py"),
-                str(test_dummy_dir / "behavioral/perfect_kiter.py"),
-                str(test_dummy_dir / "behavioral/stamina_optimizer.py"),
-                str(test_dummy_dir / "behavioral/wall_fighter.py"),
-                str(test_dummy_dir / "behavioral/adaptive_fighter.py"),
+                str(test_dummy_dir / "atomic/aggressive_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/balanced_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/defensive_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/forward_charger.py"),
+                str(test_dummy_dir / "atomic/oscillator.py"),
+                str(test_dummy_dir / "atomic/retreater.py"),
             ],
             min_episodes=500,
             graduation_win_rate=0.83,  # Staying near 85% standards
@@ -587,18 +587,16 @@ class CurriculumTrainer:
             description="Learn complex strategies and counter-strategies"
         ))
 
-        # Level 5: Expert (hardcoded fighters)
+        # Level 5: Expert (example fighters)
         curriculum.append(CurriculumLevel(
             name="Expert",
             difficulty=DifficultyLevel.EXPERT,
             opponents=[
-                str(example_dir / "tank.py"),
-                str(example_dir / "rusher.py"),
-                str(example_dir / "balanced.py"),
-                str(example_dir / "grappler.py"),
-                str(example_dir / "zoner.py"),
-                str(example_dir / "dodger.py"),
-                str(example_dir / "berserker.py"),
+                str(example_dir / "boxer.py"),
+                str(example_dir / "counter_puncher.py"),
+                str(example_dir / "out_fighter.py"),
+                str(example_dir / "slugger.py"),
+                str(example_dir / "swarmer.py"),
             ],
             min_episodes=600,
             graduation_win_rate=0.80,  # Excellence required even at final level
