@@ -422,6 +422,12 @@ def generate_html_montage(
             ctx.strokeStyle = '#fff';
             ctx.strokeRect(aX - 20, aY - 40, 40, 5);
 
+            // Fighter A stamina bar (above health)
+            ctx.fillStyle = '#ffd93d';
+            ctx.fillRect(aX - 20, aY - 48, 40 * (fighter_a.stamina / fighter_a.max_stamina), 5);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(aX - 20, aY - 48, 40, 5);
+
             // Fighter B (Opponent)
             const bX = fighter_b.position * scale;
             const bY = canvas.height / 2;
@@ -434,6 +440,12 @@ def generate_html_montage(
             ctx.fillRect(bX - 20, bY - 40, 40 * (fighter_b.hp / fighter_b.max_hp), 5);
             ctx.strokeStyle = '#fff';
             ctx.strokeRect(bX - 20, bY - 40, 40, 5);
+
+            // Fighter B stamina bar (above health)
+            ctx.fillStyle = '#ffd93d';
+            ctx.fillRect(bX - 20, bY - 48, 40 * (fighter_b.stamina / fighter_b.max_stamina), 5);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(bX - 20, bY - 48, 40, 5);
 
             // Draw collision indicator
             if (tick.events && tick.events.some(e => e.type === 'collision')) {
