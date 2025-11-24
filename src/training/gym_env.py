@@ -363,6 +363,10 @@ class AtomCombatEnv(gym.Env):
             } if (terminated or truncated) else None
         }
 
+        # Clip rewards to prevent training instability and NaN issues
+        # This helps with value function stability in later training stages
+        reward = np.clip(reward, -100.0, 100.0)
+
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
