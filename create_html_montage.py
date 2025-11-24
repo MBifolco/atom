@@ -241,8 +241,7 @@ def generate_html_content(
     js_code = base_template[script_start + 8:script_end]
 
     # We need to modify the original code to work with dynamic replay loading
-    # Replace the REPLAY_DATA references with a check
-    js_code = js_code.replace('// REPLAY_DATA_PLACEHOLDER', 'let REPLAY_DATA = null;')
+    # Replace const declarations with let to allow reassignment
     js_code = js_code.replace('const ticks = REPLAY_DATA.telemetry.ticks;', 'let ticks = null;')
     js_code = js_code.replace('const config = REPLAY_DATA.telemetry.config;', 'let config = null;')
     js_code = js_code.replace('const arenaWidth = config.arena_width;', 'let arenaWidth = null;')
