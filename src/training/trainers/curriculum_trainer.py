@@ -583,14 +583,12 @@ class CurriculumTrainer:
             difficulty=DifficultyLevel.INTERMEDIATE,
             opponents=[
                 str(test_dummy_dir / "atomic/distance_keeper_1m.py"),
-                str(test_dummy_dir / "atomic/distance_keeper_3m.py"),
-                str(test_dummy_dir / "atomic/distance_keeper_5m.py"),
-                str(test_dummy_dir / "atomic/stamina_waster.py"),
-                str(test_dummy_dir / "atomic/stamina_cycler.py"),
                 str(test_dummy_dir / "atomic/stamina_efficient.py"),
                 str(test_dummy_dir / "atomic/charge_on_approach.py"),
-                str(test_dummy_dir / "atomic/wall_hugger_left.py"),
-                str(test_dummy_dir / "atomic/wall_hugger_right.py"),
+                # Using some Level 2 opponents as substitutes for missing files
+                str(test_dummy_dir / "atomic/forward_mover.py"),
+                str(test_dummy_dir / "atomic/backward_mover.py"),
+                str(test_dummy_dir / "atomic/sideways_mover_smooth.py"),
             ],
             min_episodes=400,
             graduation_win_rate=0.85,  # Maintained high standards
@@ -786,24 +784,18 @@ class CurriculumTrainer:
             if self.verbose:
                 print(f"Initializing PPO with device: {actual_device} (forced CPU for MlpPolicy)")
 
-            self.model = PPO(
-                "MlpPolicy",
+            # Use stable PPO configuration
+            from ..utils.stable_ppo import create_stable_ppo
+
+            self.model = create_stable_ppo(
                 self.envs,
-                learning_rate=1e-4,  # Lowered from 3e-4 for more stability
-                n_steps=2048,
-                batch_size=64,
-                n_epochs=10,
-                gamma=0.99,
-                gae_lambda=0.95,
-                clip_range=0.2,
-                max_grad_norm=0.5,  # Gradient clipping to prevent NaN
-                ent_coef=0.01,  # Entropy coefficient for exploration
-                vf_coef=0.5,  # Value function coefficient
-                normalize_advantage=True,  # Normalize advantages
-                verbose=2 if self.verbose else 0,  # Set to 2 for detailed NN training logs
-                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                learning_rate=5e-5,  # Even lower for stability
                 device=actual_device
             )
+
+            # Override some settings for our use case
+            self.model.verbose = 2 if self.verbose else 0
+            self.model.tensorboard_log = str(self.logs_dir / "tensorboard")
         elif self.algorithm == "sac":
             # Same CPU optimization for SAC with MlpPolicy
             actual_device = "cpu" if self.device == "auto" else self.device
@@ -1124,53 +1116,84 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
-        # Train with NaN error handling
-        try:
-            self.model.learn(
-                total_timesteps=total_timesteps,
-                callback=callback,
-                progress_bar=self.verbose
-            )
-        except ValueError as e:
-            if "nan" in str(e).lower() or "invalid values" in str(e):
-                self.logger.error("=" * 80)
-                self.logger.error("NaN ERROR DETECTED DURING TRAINING!")
-                self.logger.error("=" * 80)
-                self.logger.error(f"Error: {e}")
-                self.logger.error(f"Current level: {self.progress.current_level}")
-                self.logger.error(f"Total steps: {callback.n_calls}")
-                self.logger.error(f"Episodes completed: {len(callback.episode_rewards)}")
+        # Save checkpoint periodically for recovery
+        checkpoint_interval = 100000  # Save every 100k steps
+        last_checkpoint = None
 
-                # Log recent episode stats
-                if len(callback.episode_rewards) > 0:
-                    recent_rewards = callback.episode_rewards[-10:]
-                    self.logger.error(f"Last 10 episode rewards: {recent_rewards}")
-                    self.logger.error(f"Mean: {np.mean(recent_rewards):.2f}, Std: {np.std(recent_rewards):.2f}")
+        # Train with NaN error handling and recovery
+        remaining_timesteps = total_timesteps
+        start_timestep = 0
+        nan_retries = 0
+        max_retries = 3
 
-                # Check NaN detector summary
-                if hasattr(self, 'nan_detector'):
-                    summary = self.nan_detector.get_summary()
-                    self.logger.error(f"NaN detector summary: {summary}")
+        while remaining_timesteps > 0 and nan_retries < max_retries:
+            try:
+                # Save checkpoint before training
+                if start_timestep % checkpoint_interval == 0:
+                    checkpoint_path = self.models_dir / f"checkpoint_{start_timestep}.zip"
+                    if self.model:
+                        self.model.save(checkpoint_path)
+                        last_checkpoint = checkpoint_path
+                        if self.verbose:
+                            self.logger.info(f"Checkpoint saved: {checkpoint_path}")
 
-                # Save debug information
-                debug_info = {
-                    "error": str(e),
-                    "level": self.progress.current_level,
-                    "total_steps": callback.n_calls,
-                    "episodes": len(callback.episode_rewards),
-                    "recent_rewards": callback.episode_rewards[-50:] if len(callback.episode_rewards) > 0 else [],
-                    "nan_detector_summary": self.nan_detector.get_summary() if hasattr(self, 'nan_detector') else None
-                }
+                self.model.learn(
+                    total_timesteps=remaining_timesteps,
+                    callback=callback,
+                    progress_bar=self.verbose,
+                    reset_num_timesteps=False  # Continue from where we left off
+                )
+                break  # Success, exit loop
 
-                debug_path = self.logs_dir / f"nan_error_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                with open(debug_path, 'w') as f:
-                    json.dump(debug_info, f, indent=2)
+            except ValueError as e:
+                if "nan" in str(e).lower() or "invalid values" in str(e):
+                    nan_retries += 1
+                    self.logger.error("=" * 80)
+                    self.logger.error(f"NaN ERROR DETECTED (Retry {nan_retries}/{max_retries})")
+                    self.logger.error("=" * 80)
+                    self.logger.error(f"Error: {e}")
+                    self.logger.error(f"Current level: {self.progress.current_level}")
+                    self.logger.error(f"Total steps: {callback.n_calls}")
 
-                self.logger.error(f"Debug info saved to: {debug_path}")
-                self.logger.error("Check nan_debug/ folder for detailed logs")
-                raise
-            else:
-                raise
+                    # Try to recover
+                    if nan_retries < max_retries and last_checkpoint:
+                        self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint}")
+
+                        # Reload from checkpoint with reduced learning rate
+                        from stable_baselines3 import PPO
+                        self.model = PPO.load(last_checkpoint, env=self.envs)
+
+                        # Reduce learning rate
+                        new_lr = self.model.learning_rate * 0.5
+                        self.model.learning_rate = new_lr
+                        self.logger.info(f"Reduced learning rate to: {new_lr}")
+
+                        # Update remaining timesteps
+                        completed_steps = callback.n_calls
+                        remaining_timesteps = total_timesteps - completed_steps
+                        start_timestep = completed_steps
+
+                        self.logger.info(f"Resuming training from step {completed_steps}")
+                        continue  # Try again with reduced learning rate
+
+                    # Save debug info before failing
+                    debug_info = {
+                        "error": str(e),
+                        "level": self.progress.current_level,
+                        "total_steps": callback.n_calls,
+                        "episodes": len(callback.episode_rewards),
+                        "recent_rewards": callback.episode_rewards[-50:] if len(callback.episode_rewards) > 0 else [],
+                        "nan_retries": nan_retries
+                    }
+
+                    debug_path = self.logs_dir / f"nan_error_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    with open(debug_path, 'w') as f:
+                        json.dump(debug_info, f, indent=2)
+
+                    self.logger.error(f"Debug info saved to: {debug_path}")
+                    raise RuntimeError(f"Training failed due to NaN after {nan_retries} retries")
+                else:
+                    raise
 
         # Close environments
         if self.envs:

@@ -88,8 +88,6 @@ class AtomCombatEnv(gym.Env):
 
         # State
         self.arena = None
-        self.fighter = None
-        self.opponent = None
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
@@ -106,6 +104,20 @@ class AtomCombatEnv(gym.Env):
         self.episode_stamina_reward = 0
         self.episode_stance_reward = 0
 
+    @property
+    def fighter(self):
+        """Get current fighter state from arena."""
+        if self.arena is None:
+            return None
+        return self.arena.state.fighter_a
+
+    @property
+    def opponent(self):
+        """Get current opponent state from arena."""
+        if self.arena is None:
+            return None
+        return self.arena.state.fighter_b
+
     def reset(self, seed=None, options=None):
         """Reset the environment for a new episode."""
         super().reset(seed=seed)
@@ -113,13 +125,13 @@ class AtomCombatEnv(gym.Env):
         if seed is not None:
             self._seed = seed
 
-        # Create fighters
-        self.fighter = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
-        self.opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
+        # Create initial fighters
+        fighter_init = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
+        opponent_init = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
 
         # Create arena (JAX JIT > JAX > Python)
         # Always use JAX JIT implementation
-        self.arena = Arena1DJAXJit(self.fighter, self.opponent, self.config, seed=self._seed or 0)
+        self.arena = Arena1DJAXJit(fighter_init, opponent_init, self.config, seed=self._seed or 0)
 
         self.tick = 0
         self.episode_damage_dealt = 0
@@ -387,7 +399,14 @@ class AtomCombatEnv(gym.Env):
         wall_dist_right = self.config.arena_width - self.fighter.position
 
         # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
-        opp_stance_int = self.stance_names.index(self.opponent.stance) if hasattr(self.opponent, 'stance') else 0
+        # Handle both string stance (Python Fighter) and int stance (JAX Fighter)
+        if hasattr(self.opponent, 'stance'):
+            if isinstance(self.opponent.stance, str):
+                opp_stance_int = self.stance_names.index(self.opponent.stance)
+            else:
+                opp_stance_int = int(self.opponent.stance)  # Already an int from JAX
+        else:
+            opp_stance_int = 0
 
         # Recent damage dealt (last 5 ticks average)
         recent_damage = self.episode_damage_dealt / max(self.tick, 1) * 5 if self.tick > 0 else 0
