@@ -708,22 +708,44 @@ class CurriculumTrainer:
                     for i, path in enumerate(opponent_paths):
                         print(f"     {i+1}. {Path(path).stem}")
 
-            vmap_env = VmapEnvWrapper(
-                n_envs=self.n_envs,
-                opponent_paths=opponent_paths,  # Pass list of paths instead of single func
-                config=WorldConfig(),
-                max_ticks=self.max_ticks,
-                fighter_mass=70.0,
-                opponent_mass=70.0,
-                seed=42,
-                debug=self.debug
-            )
+            # Flush output before creating vmap environment
+            if self.verbose:
+                print(f"\n⏳ Initializing JAX vmap environment (this may take 30-60 seconds for JIT compilation)...", flush=True)
+                import sys
+                sys.stdout.flush()
 
-            # Wrap with adapter for SBX compatibility
-            adapted_env = VmapEnvAdapter(vmap_env)
+            try:
+                vmap_env = VmapEnvWrapper(
+                    n_envs=self.n_envs,
+                    opponent_paths=opponent_paths,  # Pass list of paths instead of single func
+                    config=WorldConfig(),
+                    max_ticks=self.max_ticks,
+                    fighter_mass=70.0,
+                    opponent_mass=70.0,
+                    seed=42,
+                    debug=True  # Enable debug logging to diagnose hangs
+                )
 
-            # Wrap with NaN checker to catch numerical instabilities
-            return VecCheckNan(adapted_env, raise_exception=True, warn_once=True)
+                if self.verbose:
+                    print("✅ JAX vmap environment created successfully!", flush=True)
+                    sys.stdout.flush()
+
+                # Wrap with adapter for SBX compatibility
+                adapted_env = VmapEnvAdapter(vmap_env)
+
+                if self.verbose:
+                    print("✅ Environment adapter created!", flush=True)
+                    sys.stdout.flush()
+
+                # Wrap with NaN checker to catch numerical instabilities
+                return VecCheckNan(adapted_env, raise_exception=True, warn_once=True)
+
+            except Exception as e:
+                print(f"\n❌ ERROR creating vmap environment: {e}", flush=True)
+                print("Stack trace:", flush=True)
+                import traceback
+                traceback.print_exc()
+                raise
 
         else:
             # Level 1/2: Use DummyVecEnv with multiple opponents

@@ -82,6 +82,12 @@ class VmapEnvWrapper(gym.Env):
         """
         super().__init__()
 
+        # Add logging for debugging
+        import sys
+        if debug:
+            print(f"[VmapEnvWrapper] Initializing with {n_envs} environments...", flush=True)
+            sys.stdout.flush()
+
         self.n_envs = n_envs
         self.config = config or WorldConfig()
         self.max_ticks = max_ticks
@@ -91,6 +97,10 @@ class VmapEnvWrapper(gym.Env):
         self.debug = debug
 
         # Setup opponent system
+        if debug:
+            print(f"[VmapEnvWrapper] Setting up opponent system...", flush=True)
+            sys.stdout.flush()
+
         if opponent_models is not None and len(opponent_models) > 0:
             # Population training: Use trained models
             self.opponent_models = opponent_models
@@ -100,8 +110,14 @@ class VmapEnvWrapper(gym.Env):
             self.use_opponent_models = True
         elif opponent_paths is not None and len(opponent_paths) > 0:
             # Curriculum training: Use JAX test dummies
+            if debug:
+                print(f"[VmapEnvWrapper] Creating multi-opponent function for {len(opponent_paths)} opponents...", flush=True)
+                sys.stdout.flush()
             from .opponents_jax import create_multi_opponent_func
             self.opponent_decide = create_multi_opponent_func(opponent_paths, self.config)
+            if debug:
+                print(f"[VmapEnvWrapper] Multi-opponent function created!", flush=True)
+                sys.stdout.flush()
             self.opponent_paths = opponent_paths
             self.opponent_models = None
             self.use_multi_opponent = True
@@ -176,7 +192,13 @@ class VmapEnvWrapper(gym.Env):
         self.episode_inaction_penalty = None
 
         # Initialize environments
+        if debug:
+            print(f"[VmapEnvWrapper] Calling reset() to initialize environments...", flush=True)
+            sys.stdout.flush()
         self.reset()
+        if debug:
+            print(f"[VmapEnvWrapper] Initialization complete!", flush=True)
+            sys.stdout.flush()
 
     def reset(self, seed=None, options=None):
         """
@@ -186,10 +208,19 @@ class VmapEnvWrapper(gym.Env):
             obs: [n_envs, obs_dim] numpy array
             info: dict
         """
+        if self.debug:
+            import sys
+            print(f"[VmapEnvWrapper.reset] Starting reset for {self.n_envs} environments...", flush=True)
+            sys.stdout.flush()
+
         if seed is not None:
             self.seed_base = seed
 
         # Create initial states for all envs (match gym_env.py)
+        if self.debug:
+            print(f"[VmapEnvWrapper.reset] Creating initial fighter states...", flush=True)
+            sys.stdout.flush()
+
         fighter = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
         opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
 
@@ -197,13 +228,25 @@ class VmapEnvWrapper(gym.Env):
         jax_opponent = FighterStateJAX.from_fighter_state(opponent)
 
         # Create batch of initial states
+        if self.debug:
+            print(f"[VmapEnvWrapper.reset] Creating batch of {self.n_envs} initial states...", flush=True)
+            sys.stdout.flush()
+
         initial_states = []
         for i in range(self.n_envs):
             state = ArenaStateJAX(jax_fighter, jax_opponent, 0)
             initial_states.append(state)
 
         # Stack into batch using tree.map (JAX 0.6+ API)
+        if self.debug:
+            print(f"[VmapEnvWrapper.reset] Stacking states using JAX tree.map (may JIT compile)...", flush=True)
+            sys.stdout.flush()
+
         self.jax_states = jax.tree.map(lambda *xs: jnp.stack(xs), *initial_states)
+
+        if self.debug:
+            print(f"[VmapEnvWrapper.reset] JAX states stacked successfully!", flush=True)
+            sys.stdout.flush()
 
         # Reset tick counts and episode rewards
         self.tick_counts = np.zeros(self.n_envs, dtype=np.int32)
