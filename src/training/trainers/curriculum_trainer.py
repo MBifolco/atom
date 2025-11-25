@@ -30,6 +30,7 @@ import importlib.util
 # Level 3: JAX vmap support
 from ..vmap_env_wrapper import VmapEnvWrapper
 from ...arena import WorldConfig
+from ..utils.nan_detector import NaNDetector
 
 
 class VmapEnvAdapter(VecEnv):
@@ -191,6 +192,28 @@ class CurriculumCallback(BaseCallback):
                 print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
+        # Check for NaN in observations, actions, and rewards
+        if hasattr(self.curriculum_trainer, 'nan_detector'):
+            detector = self.curriculum_trainer.nan_detector
+
+            # Check observations
+            obs = self.locals.get("obs_tensor", None)
+            if obs is not None:
+                if detector.check_observations(obs, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in observations at step {self.n_calls}!")
+
+            # Check actions
+            actions = self.locals.get("actions", None)
+            if actions is not None:
+                if detector.check_actions(actions, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in actions at step {self.n_calls}!")
+
+            # Check rewards
+            rewards = self.locals.get("rewards", None)
+            if rewards is not None:
+                if detector.check_rewards(rewards, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in rewards at step {self.n_calls}!")
+
         for info in self.locals.get("infos", []):
             if "episode" in info:
                 # Track episode completion
@@ -501,6 +524,12 @@ class CurriculumTrainer:
                 verbose=verbose
             )
 
+        # Initialize NaN detector for debugging
+        self.nan_detector = NaNDetector(
+            log_dir=str(self.logs_dir / "nan_debug"),
+            verbose=True
+        )
+
         # Setup logging
         self._setup_logging()
 
@@ -738,7 +767,7 @@ class CurriculumTrainer:
             self.model = PPO(
                 "MlpPolicy",
                 self.envs,
-                learning_rate=3e-4,
+                learning_rate=1e-4,  # Lowered from 3e-4 for more stability
                 n_steps=2048,
                 batch_size=64,
                 n_epochs=10,
@@ -1073,12 +1102,53 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
-        # Train
-        self.model.learn(
-            total_timesteps=total_timesteps,
-            callback=callback,
-            progress_bar=self.verbose
-        )
+        # Train with NaN error handling
+        try:
+            self.model.learn(
+                total_timesteps=total_timesteps,
+                callback=callback,
+                progress_bar=self.verbose
+            )
+        except ValueError as e:
+            if "nan" in str(e).lower() or "invalid values" in str(e):
+                self.logger.error("=" * 80)
+                self.logger.error("NaN ERROR DETECTED DURING TRAINING!")
+                self.logger.error("=" * 80)
+                self.logger.error(f"Error: {e}")
+                self.logger.error(f"Current level: {self.progress.current_level}")
+                self.logger.error(f"Total steps: {callback.n_calls}")
+                self.logger.error(f"Episodes completed: {len(callback.episode_rewards)}")
+
+                # Log recent episode stats
+                if len(callback.episode_rewards) > 0:
+                    recent_rewards = callback.episode_rewards[-10:]
+                    self.logger.error(f"Last 10 episode rewards: {recent_rewards}")
+                    self.logger.error(f"Mean: {np.mean(recent_rewards):.2f}, Std: {np.std(recent_rewards):.2f}")
+
+                # Check NaN detector summary
+                if hasattr(self, 'nan_detector'):
+                    summary = self.nan_detector.get_summary()
+                    self.logger.error(f"NaN detector summary: {summary}")
+
+                # Save debug information
+                debug_info = {
+                    "error": str(e),
+                    "level": self.progress.current_level,
+                    "total_steps": callback.n_calls,
+                    "episodes": len(callback.episode_rewards),
+                    "recent_rewards": callback.episode_rewards[-50:] if len(callback.episode_rewards) > 0 else [],
+                    "nan_detector_summary": self.nan_detector.get_summary() if hasattr(self, 'nan_detector') else None
+                }
+
+                debug_path = self.logs_dir / f"nan_error_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                with open(debug_path, 'w') as f:
+                    json.dump(debug_info, f, indent=2)
+
+                self.logger.error(f"Debug info saved to: {debug_path}")
+                self.logger.error("Check nan_debug/ folder for detailed logs")
+                raise
+            else:
+                raise
 
         # Close environments
         if self.envs:
