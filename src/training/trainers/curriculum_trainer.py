@@ -723,7 +723,7 @@ class CurriculumTrainer:
                     fighter_mass=70.0,
                     opponent_mass=70.0,
                     seed=42,
-                    debug=True  # Enable debug logging to diagnose hangs
+                    debug=self.debug  # Use the actual debug setting, not forced True
                 )
 
                 if self.verbose:
