@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait, FIRST_COMPLETED
 import multiprocessing
 
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -26,6 +26,7 @@ from stable_baselines3.common.monitor import Monitor
 # Clean relative imports within src package structure
 from ....arena import WorldConfig
 from ...gym_env import AtomCombatEnv
+from ...utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
 
 
@@ -347,16 +348,19 @@ def _load_opponent_models_for_training(
 
     Args:
         opponent_data: List of (name, mass, model_path) tuples
-        algorithm: "ppo" (only PPO supported)
+        algorithm: "ppo" or "sac"
 
     Returns:
         List of (name, mass, model) tuples
     """
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, SAC
 
     opponent_models = []
     for opp_name, opp_mass, opp_path in opponent_data:
-        opp_model = PPO.load(opp_path, device="cpu")
+        if algorithm == "ppo":
+            opp_model = PPO.load(opp_path, device="cpu")
+        else:
+            opp_model = SAC.load(opp_path, device="cpu")
         opponent_models.append((opp_name, opp_mass, opp_model))
 
     return opponent_models
@@ -384,7 +388,7 @@ def _create_opponent_decide_func(model):
         wall_dist_right = arena_width - position
 
         # Get opponent stance as integer
-        opp_stance = snapshot["opponent"]["stance"]
+        opp_stance = snapshot["opponent"].get("stance_hint", snapshot["opponent"].get("stance", "neutral"))
         # Handle JAX arrays - convert to Python type
         if hasattr(opp_stance, '__array__'):
             opp_stance_val = int(opp_stance)
@@ -417,7 +421,7 @@ def _create_opponent_decide_func(model):
         action, _ = model.predict(obs, deterministic=False)
 
         acceleration = float(action[0]) * 4.5
-        stance_idx = int(action[1])
+        stance_idx = int(np.clip(action[1], 0, 2))
         stances = ["neutral", "extended", "defending"]
         stance = stances[min(stance_idx, 2)]
 
@@ -505,7 +509,7 @@ def _create_cpu_training_environment(
         opp_name, opp_mass, opp_model = opponent_models[i % len(opponent_models)]
 
         # Use closure with default arguments to capture values
-        def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass):
+        def make_env(opp_m=opp_model, f_mass=fighter_mass, o_mass=opp_mass, env_idx=i):
             return Monitor(
                 AtomCombatEnv(
                     opponent_decision_func=_create_opponent_decide_func(opp_m),
@@ -514,7 +518,7 @@ def _create_cpu_training_environment(
                     fighter_mass=f_mass,
                     opponent_mass=o_mass
                 ),
-                str(Path(logs_dir) / f"{fighter_name}_env_{i}")
+                str(Path(logs_dir) / f"{fighter_name}_env_{env_idx}")
             )
 
         env_fns.append(make_env)
@@ -554,7 +558,7 @@ def _train_single_fighter_parallel(
         n_envs: Number of parallel environments (CPU mode)
         episodes: Number of episodes to train
         max_ticks: Max ticks per episode
-        algorithm: "ppo" (only PPO supported)
+        algorithm: "ppo" or "sac"
         config_dict: WorldConfig as dictionary
         logs_dir: Directory for logs
         use_vmap: Use JAX vmap for GPU acceleration
@@ -566,45 +570,30 @@ def _train_single_fighter_parallel(
     # Configure threading for subprocess
     _configure_process_threading()
 
-    # Configure GPU memory for subprocess (if using GPU)
+    # Configure GPU memory/runtime for subprocess (if using GPU/vmap)
     if use_vmap:
-        import os
-
-        # Fix for AMD GPU (RX 6650 XT and similar RDNA2 cards)
-        os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'  # RDNA2 architecture
-        os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'  # Disable triton
+        configure_runtime_gpu_env(enable_gpu=True, memory_fraction=0.75)
 
         try:
             import torch
-            # Limit each process to use only a fraction of GPU memory
-            # Since we default to sequential (1 process), give it most of the memory
-            # Leave 20% for system overhead
-            memory_fraction = 0.75  # Conservative allocation
-            torch.cuda.set_per_process_memory_fraction(memory_fraction, device=0)
-        except Exception as e:
+            if torch.cuda.is_available():
+                # Limit each process to only a fraction of memory.
+                memory_fraction = 0.75
+                torch.cuda.set_per_process_memory_fraction(memory_fraction, device=0)
+        except Exception:
             pass  # Silently continue if torch not available or no GPU
-
-        # Configure ROCm/HIP
-        os.environ['HIP_VISIBLE_DEVICES'] = '0'  # Use only GPU 0
-        os.environ['ROCR_VISIBLE_DEVICES'] = '0'
-        os.environ['GPU_DEVICE_ORDINAL'] = '0'
-
-        # Configure JAX memory
-        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.75'  # Match torch fraction
-        os.environ['JAX_PLATFORMS'] = 'rocm'  # Force ROCm platform
 
         try:
             import jax
-            # Clear any existing JAX cache from parent process
+            # Clear any existing JAX cache from parent process.
             jax.clear_caches()
-        except:
+        except Exception:
             pass
 
     # Required imports (after threading config)
     import numpy as np
     from pathlib import Path
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, SAC
     from src.arena import WorldConfig
 
     # Reconstruct config and load opponents
@@ -1252,6 +1241,7 @@ class PopulationTrainer:
         training_start_time = time.time()
 
         executor = None
+        cleanup_temp_paths_before_reload = True
         try:
             with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
                 # Process tasks in batches to avoid memory issues
@@ -1343,6 +1333,9 @@ class PopulationTrainer:
                                 print(f"    ⏳ Starting: {new_fighter_name}")
                             self.logger.info(f"Starting training: {new_fighter_name}")
 
+                # Training tasks completed successfully; keep temp files for model reload.
+                cleanup_temp_paths_before_reload = False
+
         except KeyboardInterrupt:
             if self.verbose:
                 print("\n\n⚠️  Training interrupted by user (Ctrl+C). Cleaning up worker processes...")
@@ -1355,13 +1348,14 @@ class PopulationTrainer:
             raise
 
         finally:
-            # Always clean up temp files, even on interrupt
-            for temp_path in temp_model_paths.values():
-                if temp_path.exists():
-                    try:
-                        temp_path.unlink()
-                    except Exception:
-                        pass  # Best effort cleanup
+            # On interrupts/errors, temp files should be cleaned immediately.
+            if cleanup_temp_paths_before_reload:
+                for temp_path in temp_model_paths.values():
+                    if temp_path.exists():
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass  # Best effort cleanup
 
         # Reload updated models back into fighters
         for fighter, _ in fighter_opponent_pairs:
@@ -1417,7 +1411,13 @@ class PopulationTrainer:
                 self.logger.info(f"  Total episodes: {total_episodes}")
                 self.logger.info(f"  Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
 
-        # Note: Temp files are cleaned up in finally block
+        # Clean up temp files now that updated models have been reloaded.
+        for temp_path in temp_model_paths.values():
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass  # Best effort cleanup
 
         return results
 
@@ -1557,11 +1557,20 @@ class PopulationTrainer:
                     obs, reward, terminated, truncated, info = env.step(action)
                     done = terminated or truncated
 
-                # Record results
-                if info.get("won"):
+                # Record results (handle KO and timeout/HP decisions)
+                outcome = info.get("won")
+                if outcome is True:
                     wins_a += 1
-                elif info.get("opponent_hp", 0) <= 0:
+                elif outcome is False:
                     wins_b += 1
+                else:
+                    # Fallback for older env info payloads
+                    fighter_hp = float(info.get("fighter_hp", 0.0))
+                    opponent_hp = float(info.get("opponent_hp", 0.0))
+                    if fighter_hp > opponent_hp:
+                        wins_a += 1
+                    elif opponent_hp > fighter_hp:
+                        wins_b += 1
 
                 total_damage_a += info.get("episode_damage_dealt", 0)
                 total_damage_b += info.get("episode_damage_taken", 0)
@@ -1851,8 +1860,11 @@ class PopulationTrainer:
         # Get the policy network
         policy = model.policy
 
-        # Create dummy input (observation space)
-        dummy_input = torch.zeros(1, 9, dtype=torch.float32)
+        # Create dummy input matching the trained observation dimensionality.
+        obs_shape = tuple(model.observation_space.shape)
+        if len(obs_shape) != 1:
+            raise ValueError(f"Expected 1D observation space, got shape={obs_shape}")
+        dummy_input = torch.zeros((1, obs_shape[0]), dtype=torch.float32)
 
         # Export to ONNX
         # Note: Using opset 17 instead of 12 because PyTorch 2.x requires opset 17+
@@ -1890,7 +1902,7 @@ ONNX_MODEL = "{onnx_filename}"
 
 # Global session (loaded once)
 _session = None
-_stance_names = ["neutral", "extended", "retracted", "defending"]
+_stance_names = ["neutral", "extended", "defending"]
 
 
 def _load_session():
@@ -1915,7 +1927,7 @@ def decide(snapshot):
     Returns:
         dict with:
             - acceleration: float (-4.5 to +4.5)
-            - stance: str ("neutral", "extended", "retracted", "defending")
+            - stance: str ("neutral", "extended", "defending")
     """
     session = _load_session()
 
@@ -1928,6 +1940,11 @@ def decide(snapshot):
     you_stamina_norm = you["stamina"] / you["max_stamina"]
     opp_hp_norm = opponent["hp"] / opponent["max_hp"]
     opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
+    wall_dist_left = you["position"]
+    wall_dist_right = arena["width"] - you["position"]
+    opp_stance = opponent.get("stance_hint", opponent.get("stance", "neutral"))
+    opp_stance_int = {{"neutral": 0.0, "extended": 1.0, "defending": 2.0}}.get(opp_stance, 0.0)
+    recent_damage = float(snapshot.get("recent_damage_dealt", 0.0))
 
     obs = np.array([
         you["position"],
@@ -1938,7 +1955,11 @@ def decide(snapshot):
         opponent["velocity"],
         opp_hp_norm,
         opp_stamina_norm,
-        arena["width"]
+        arena["width"],
+        wall_dist_left,
+        wall_dist_right,
+        opp_stance_int,
+        recent_damage
     ], dtype=np.float32).reshape(1, -1)
 
     # Run inference
@@ -1950,7 +1971,7 @@ def decide(snapshot):
     # Action space is Box: [acceleration_normalized, stance_selector]
     action = outputs[0][0]
     acceleration_normalized = np.clip(action[0], -1.0, 1.0)
-    stance_idx = int(np.clip(action[1], 0, 3))
+    stance_idx = int(np.clip(action[1], 0, 2))
 
     # Scale acceleration (max_acceleration = 4.5)
     acceleration = float(acceleration_normalized * 4.5)

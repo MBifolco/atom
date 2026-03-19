@@ -10,14 +10,8 @@ Usage:
     python train_progressive.py --mode complete --timesteps 1000000
 """
 
-# Set GPU environment variables BEFORE any imports
+# Set runtime environment variables BEFORE importing training modules.
 import os
-# Fix for AMD GPU (RX 6650 XT and similar RDNA2 cards)
-os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'  # RDNA2 architecture
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
-os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.75'
-os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'  # Disable triton for stability
-
 import sys
 from pathlib import Path
 
@@ -25,6 +19,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.absolute()
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+# Configure CUDA/ROCm/CPU runtime defaults before importing modules that may touch JAX.
+from src.training.utils.runtime_platform import configure_runtime_gpu_env
+_detected_runtime_platform = configure_runtime_gpu_env(enable_gpu=True, memory_fraction=0.75)
 
 # Now we can import cleanly from src
 from src.training.trainers.curriculum_trainer import CurriculumTrainer
@@ -419,6 +417,7 @@ class ProgressiveTrainer:
             print(f"\nConfiguration:")
             print(f"  Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
             print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
+            print(f"  Runtime Platform: {_detected_runtime_platform}")
             print(f"\nOutput directory: {self.output_dir}")
             print(f"Logs will be saved to:")
             print(f"  - {self.curriculum_dir / 'logs'}")
@@ -548,12 +547,12 @@ Examples:
         type=str,
         choices=["cpu", "cuda", "auto"],
         default="cuda",
-        help="Device to use for training: cpu, cuda (GPU), or auto (default: cuda for ROCm)"
+        help="Device to use for training: cpu, cuda (GPU), or auto"
     )
     parser.add_argument(
         "--use-vmap",
         action="store_true",
-        help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
+        help="Enable JAX vmap for GPU-accelerated training (CUDA or ROCm)"
     )
     parser.add_argument(
         "--population-cpu-only",

@@ -147,6 +147,8 @@ In the web app you can:
 Create AI fighters using our **Progressive Training System** that combines curriculum learning with population-based evolution!
 
 **📖 [Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
+**☁️ [Colab Setup Guide](docs/COLAB_SETUP.md)** - Persistent Drive cache + GPU training workflow
+**📓 [Colab Notebook](notebooks/Atom_Training_Colab.ipynb)** - Run setup/train/resume directly in Colab
 
 ```bash
 # Quick test run (~5 minutes)

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 # Use Stable Baselines3 with PyTorch (JAX is in physics engine)
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecCheckNan, VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback

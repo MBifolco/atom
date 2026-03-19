@@ -1,6 +1,6 @@
 # Atom Combat - Training Dependencies
 #
-# Install with: pip install -r requirements-training.txt
+# Install with: pip install -r requirements.txt
 
 # Reinforcement Learning
 stable-baselines3>=2.0.0
