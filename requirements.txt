@@ -22,5 +22,6 @@ pytest>=7.4.0
 pytest-cov>=4.1.0
 coverage>=7.3.0
 
-# Pure JAX RL dependencies (for future PureJaxRL integration)
-distrax>=0.1.7
+# Optional JAX RL dependencies (future PureJaxRL integration)
+# Install manually only when needed:
+#   pip install distrax>=0.1.7

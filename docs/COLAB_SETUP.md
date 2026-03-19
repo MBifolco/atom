@@ -40,6 +40,7 @@ Notes:
 - `ATOM_REPO_URL` is only required the first time (when Drive cache does not exist yet).
 - The script updates your Drive cache (`git pull`) then syncs to `/content/atom`.
 - CUDA JAX install is enabled by default (`ATOM_INSTALL_JAX_CUDA=1`).
+- JAX CUDA is pinned to a known working version by default (`ATOM_JAX_VERSION=0.7.2`).
 
 ## Train
 

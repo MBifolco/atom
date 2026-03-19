@@ -11,12 +11,14 @@ set -euo pipefail
 #   ATOM_WORK_REPO=/content/atom
 #   ATOM_BRANCH=main
 #   ATOM_INSTALL_JAX_CUDA=1   # 1=install JAX CUDA wheel, 0=skip
+#   ATOM_JAX_VERSION=0.7.2
 
 DRIVE_REPO="${ATOM_DRIVE_REPO:-/content/drive/MyDrive/dev/atom}"
 WORK_REPO="${ATOM_WORK_REPO:-/content/atom}"
 BRANCH="${ATOM_BRANCH:-main}"
 REPO_URL="${ATOM_REPO_URL:-}"
 INSTALL_JAX_CUDA="${ATOM_INSTALL_JAX_CUDA:-1}"
+JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
 
 if [[ ! -d "/content/drive" ]]; then
   echo "ERROR: /content/drive not found. Mount Drive first:"
@@ -57,8 +59,8 @@ python -m pip install -U pip
 python -m pip install -r requirements.txt
 
 if [[ "$INSTALL_JAX_CUDA" == "1" ]]; then
-  echo "Installing JAX CUDA wheel..."
-  python -m pip install -U "jax[cuda12]" \
+  echo "Installing JAX CUDA wheel (jax==$JAX_VERSION)..."
+  python -m pip install -U "jax[cuda12]==$JAX_VERSION" \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 fi
 
