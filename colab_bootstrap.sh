@@ -111,4 +111,4 @@ echo
 echo "Bootstrap complete."
 echo "Working directory: $WORK_REPO"
 echo "Try a quick smoke test:"
-echo "  python train_progressive.py --mode quick --device cuda --use-vmap"
+echo "  python train_progressive.py --mode quick --device auto --use-vmap --output-dir /content/drive/MyDrive/atom_runs/quick_test"

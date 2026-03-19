@@ -47,13 +47,15 @@ Notes:
 Quick smoke test:
 
 ```bash
-!python train_progressive.py --mode quick --device cuda --use-vmap --output-dir /content/drive/MyDrive/atom_runs/quick_test
+!python train_progressive.py --mode quick --device auto --use-vmap --output-dir /content/drive/MyDrive/atom_runs/quick_test || true
 ```
+
+Note: quick mode is mainly an infrastructure check. It may fail curriculum graduation with low timesteps.
 
 Full run:
 
 ```bash
-!python train_progressive.py --mode complete --device cuda --use-vmap --output-dir /content/drive/MyDrive/atom_runs/run1
+!python train_progressive.py --mode complete --device auto --use-vmap --timesteps 2000000 --output-dir /content/drive/MyDrive/atom_runs/run1
 ```
 
 ## Resume After Disconnect
