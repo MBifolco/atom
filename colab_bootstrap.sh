@@ -12,6 +12,7 @@ set -euo pipefail
 #   ATOM_BRANCH=main
 #   ATOM_INSTALL_JAX_CUDA=1   # 1=install JAX CUDA wheel, 0=skip
 #   ATOM_JAX_VERSION=0.7.2
+#   ATOM_DRIVE_REPO_SYNC_MODE=stash  # stash|reset|skip_pull
 
 DRIVE_REPO="${ATOM_DRIVE_REPO:-/content/drive/MyDrive/dev/atom}"
 WORK_REPO="${ATOM_WORK_REPO:-/content/atom}"
@@ -19,6 +20,7 @@ BRANCH="${ATOM_BRANCH:-main}"
 REPO_URL="${ATOM_REPO_URL:-}"
 INSTALL_JAX_CUDA="${ATOM_INSTALL_JAX_CUDA:-1}"
 JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
+SYNC_MODE="${ATOM_DRIVE_REPO_SYNC_MODE:-stash}"
 
 if [[ ! -d "/content/drive" ]]; then
   echo "ERROR: /content/drive not found. Mount Drive first:"
@@ -40,8 +42,49 @@ fi
 echo "Updating Drive repo cache ($BRANCH)..."
 cd "$DRIVE_REPO"
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  git checkout "$BRANCH"
+else
+  git checkout -b "$BRANCH" "origin/$BRANCH"
+fi
+
+# Handle dirty working tree in Drive cache before pulling.
+is_dirty=0
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  is_dirty=1
+fi
+if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  is_dirty=1
+fi
+
+skip_pull=0
+if [[ "$is_dirty" -eq 1 ]]; then
+  echo "Drive repo cache has local changes."
+  case "$SYNC_MODE" in
+    stash)
+      stash_name="colab-bootstrap-$(date +%Y%m%d_%H%M%S)"
+      git stash push -u -m "$stash_name" >/dev/null || true
+      echo "Stashed local changes as: $stash_name"
+      ;;
+    reset)
+      echo "Discarding local changes in Drive cache (SYNC_MODE=reset)..."
+      git reset --hard HEAD
+      git clean -fd
+      ;;
+    skip_pull)
+      echo "Skipping git pull because repo is dirty (SYNC_MODE=skip_pull)."
+      skip_pull=1
+      ;;
+    *)
+      echo "ERROR: Unknown ATOM_DRIVE_REPO_SYNC_MODE='$SYNC_MODE' (use stash|reset|skip_pull)."
+      exit 1
+      ;;
+  esac
+fi
+
+if [[ "$skip_pull" -eq 0 ]]; then
+  git pull --ff-only origin "$BRANCH"
+fi
 
 echo "Syncing to local runtime workspace: $WORK_REPO"
 mkdir -p "$WORK_REPO"
