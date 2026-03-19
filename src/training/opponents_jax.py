@@ -250,7 +250,7 @@ def distance_keeper_5m_jax(state, config):
 def stamina_efficient_jax(state, config):
     """Conservative stamina management."""
     my_stamina = state.fighter_b.stamina
-    max_stamina = config.max_stamina
+    max_stamina = state.fighter_b.max_stamina
     stamina_pct = my_stamina / max_stamina
 
     # Conservative stamina management
@@ -277,7 +277,7 @@ def stamina_waster_jax(state, config):
 def stamina_cycler_jax(state, config):
     """Cycles through stances based on stamina level."""
     my_stamina = state.fighter_b.stamina
-    max_stamina = config.max_stamina
+    max_stamina = state.fighter_b.max_stamina
     stamina_pct = my_stamina / max_stamina
 
     # Cycle stances based on stamina

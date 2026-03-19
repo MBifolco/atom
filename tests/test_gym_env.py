@@ -278,15 +278,16 @@ class TestGymEnvRewards:
         final_reward = 0
 
         for _ in range(60):
-            action = np.array([0.5, 1.0])  # Moderate aggression
+            action = np.array([0.0, 2.0])  # No movement, defensive stance
             obs, reward, done, truncated, info = env.step(action)
             final_reward = reward
 
             if done or truncated:
                 break
 
-        # Timeout should happen
+        # Timeout should happen (not termination)
         assert truncated, "Should timeout at max_ticks"
+        assert not done, "Should not terminate (no one should die)"
 
     def test_damage_reward_component(self):
         """Test damage dealt is tracked in episode."""

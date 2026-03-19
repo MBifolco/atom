@@ -64,7 +64,7 @@ class AtomCombatEnv(gym.Env):
         self.opponent_mass = opponent_mass
         self._seed = seed
 
-        # Define observation space (enhanced with 13 values)
+        # Define observation space (13 values for enhanced training)
         # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
         #  opp_hp_norm, opp_stamina_norm, arena_width,
         #  wall_dist_left, wall_dist_right, opp_stance_int, recent_damage_dealt]
@@ -172,13 +172,24 @@ class AtomCombatEnv(gym.Env):
         acceleration = acceleration_normalized * self.config.max_acceleration
 
         stance_idx = int(np.clip(action[1], 0, 2))  # Clip to 2 for 3 stances (0,1,2)
-        stance = self.stance_names[stance_idx]
 
-        fighter_action = {"acceleration": acceleration, "stance": stance}
+        # Use integer stance for JAX arena, string stance for Python arena
+        from ..arena.arena_1d_jax_jit import Arena1DJAXJit
+
+        if isinstance(self.arena, Arena1DJAXJit):
+            fighter_action = {"acceleration": acceleration, "stance": stance_idx}
+        else:
+            stance = self.stance_names[stance_idx]
+            fighter_action = {"acceleration": acceleration, "stance": stance}
 
         # Get opponent action
         snapshot_opp = generate_snapshot(self.opponent, self.fighter, self.tick, self.config.arena_width)
         opponent_action_dict = self.opponent_decide(snapshot_opp)
+
+        # Convert opponent stance to int if using JAX arena
+        if isinstance(self.arena, Arena1DJAXJit) and isinstance(opponent_action_dict.get("stance"), str):
+            opponent_action_dict = opponent_action_dict.copy()
+            opponent_action_dict["stance"] = self.stance_names.index(opponent_action_dict["stance"])
 
         # Execute tick in arena
         prev_fighter_hp = self.fighter.hp
@@ -188,9 +199,10 @@ class AtomCombatEnv(gym.Env):
         events = self.arena.step(fighter_action, opponent_action_dict)
 
         # Calculate damage dealt/taken this step
-        damage_dealt = prev_opponent_hp - self.opponent.hp
-        damage_taken = prev_fighter_hp - self.fighter.hp
-        stamina_spent = prev_fighter_stamina - self.fighter.stamina
+        # Convert to floats to handle JAX Arrays
+        damage_dealt = float(prev_opponent_hp - self.opponent.hp)
+        damage_taken = float(prev_fighter_hp - self.fighter.hp)
+        stamina_spent = float(prev_fighter_stamina - self.fighter.stamina)
 
         self.episode_damage_dealt += damage_dealt
         self.episode_damage_taken += damage_taken
@@ -207,13 +219,13 @@ class AtomCombatEnv(gym.Env):
         obs = self._get_observation()
 
         # Check termination
-        terminated = self.fighter.hp <= 0 or self.opponent.hp <= 0
-        truncated = self.tick >= self.max_ticks
+        terminated = bool(self.fighter.hp <= 0 or self.opponent.hp <= 0)
+        truncated = bool(self.tick >= self.max_ticks)
 
         # Calculate reward based on outcome
         # Use HP percentage (not absolute HP) since fighters can have different max HP
-        fighter_hp_pct = self.fighter.hp / self.fighter.max_hp
-        opponent_hp_pct = self.opponent.hp / self.opponent.max_hp
+        fighter_hp_pct = float(self.fighter.hp) / float(self.fighter.max_hp)
+        opponent_hp_pct = float(self.opponent.hp) / float(self.opponent.max_hp)
 
         if terminated:
             # Someone died - determine winner
@@ -269,7 +281,7 @@ class AtomCombatEnv(gym.Env):
 
             # 1b. Close-range engagement bonus - reward aggressive fighting
             # Distance is calculated below, so we need to get it here
-            distance = abs(self.fighter.position - self.opponent.position)
+            distance = float(abs(self.fighter.position - self.opponent.position))
             arena_width = self.config.arena_width
             if damage_dealt > 0 and distance < arena_width * 0.3:
                 close_range_bonus = damage_dealt * 2.0  # Double damage reward for close hits
@@ -277,8 +289,8 @@ class AtomCombatEnv(gym.Env):
                 self.episode_damage_reward += close_range_bonus
 
             # 2. Stamina-aware rewards - REDUCED (not core to basic combat)
-            stamina_pct = self.fighter.stamina / self.fighter.max_stamina
-            opp_stamina_pct = self.opponent.stamina / self.opponent.max_stamina
+            stamina_pct = float(self.fighter.stamina) / float(self.fighter.max_stamina)
+            opp_stamina_pct = float(self.opponent.stamina) / float(self.opponent.max_stamina)
 
             # Small reward for maintaining stamina advantage
             if stamina_pct > opp_stamina_pct + 0.2:
@@ -287,7 +299,12 @@ class AtomCombatEnv(gym.Env):
                 self.episode_stamina_reward += stamina_bonus
 
             # Small penalty for fighting at very low stamina (< 20%)
-            if stamina_pct < 0.2 and stance != "defending":
+            # Get fighter's current stance as a string if needed
+            fighter_stance_check = self.fighter.stance
+            if isinstance(fighter_stance_check, int):
+                fighter_stance_check = self.stance_names[fighter_stance_check]
+
+            if stamina_pct < 0.2 and fighter_stance_check != "defending":
                 stamina_penalty = -0.05  # Was -0.2, now -0.05 (4x reduction)
                 reward += stamina_penalty
                 self.episode_stamina_reward += stamina_penalty
@@ -324,11 +341,16 @@ class AtomCombatEnv(gym.Env):
             # 4. Stance-appropriate rewards
             stance_bonus = 0
 
+            # Get fighter's current stance as a string for reward calculations
+            fighter_stance = self.fighter.stance
+            if isinstance(fighter_stance, int):
+                fighter_stance = self.stance_names[fighter_stance]
+
             # Reward aggressive stance when opponent is hurt
-            if stance == "extended" and opponent_hp_pct < 0.5:
+            if fighter_stance == "extended" and opponent_hp_pct < 0.5:
                 stance_bonus = 0.05
             # Reward defensive stance when recovering stamina
-            elif stance == "defending" and stamina_pct < 0.3:
+            elif fighter_stance == "defending" and stamina_pct < 0.3:
                 stance_bonus = 0.10  # Increased since defending now regens stamina
 
             reward += stance_bonus
@@ -353,10 +375,10 @@ class AtomCombatEnv(gym.Env):
             "damage_taken": damage_taken,
             "episode_damage_dealt": self.episode_damage_dealt,
             "episode_damage_taken": self.episode_damage_taken,
-            "fighter_hp": self.fighter.hp,
-            "opponent_hp": self.opponent.hp,
-            "fighter_stamina": self.fighter.stamina,
-            "opponent_stamina": self.opponent.stamina,
+            "fighter_hp": float(self.fighter.hp),
+            "opponent_hp": float(self.opponent.hp),
+            "fighter_stamina": float(self.fighter.stamina),
+            "opponent_stamina": float(self.opponent.stamina),
             "hits_landed": self.hits_landed,
             "hits_taken": self.hits_taken,
             "stamina_used": self.stamina_used,
@@ -375,71 +397,63 @@ class AtomCombatEnv(gym.Env):
             } if (terminated or truncated) else None
         }
 
+        # Ensure reward is a Python float (not a JAX Array)
+        reward = float(reward) if hasattr(reward, '__float__') else reward
+
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (enhanced)."""
-        # Normalize HP and stamina to [0, 1]
-        you_hp_norm = self.fighter.hp / self.fighter.max_hp
-        you_stamina_norm = self.fighter.stamina / self.fighter.max_stamina
-        opp_hp_norm = self.opponent.hp / self.opponent.max_hp
-        opp_stamina_norm = self.opponent.stamina / self.opponent.max_stamina
+        """Get current observation as numpy array (13 dimensions)."""
+        # Normalize HP and stamina to [0, 1] with division protection
+        you_hp_norm = float(self.fighter.hp) / max(float(self.fighter.max_hp), 1.0)
+        you_stamina_norm = float(self.fighter.stamina) / max(float(self.fighter.max_stamina), 1.0)
+        opp_hp_norm = float(self.opponent.hp) / max(float(self.opponent.max_hp), 1.0)
+        opp_stamina_norm = float(self.opponent.stamina) / max(float(self.opponent.max_stamina), 1.0)
 
         # Calculate opponent distance and relative velocity
-        distance = abs(self.opponent.position - self.fighter.position)
+        distance = float(abs(self.opponent.position - self.fighter.position))
 
         # Relative velocity (negative = approaching)
-        if self.fighter.position < self.opponent.position:
-            rel_velocity = self.opponent.velocity - self.fighter.velocity
+        if float(self.fighter.position) < float(self.opponent.position):
+            rel_velocity = float(self.opponent.velocity) - float(self.fighter.velocity)
         else:
-            rel_velocity = self.fighter.velocity - self.opponent.velocity
+            rel_velocity = float(self.fighter.velocity) - float(self.opponent.velocity)
 
         # Wall distances
-        wall_dist_left = self.fighter.position
-        wall_dist_right = self.config.arena_width - self.fighter.position
+        wall_dist_left = float(self.fighter.position)
+        wall_dist_right = float(self.config.arena_width) - float(self.fighter.position)
 
-        # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
-        # Handle both string stance (Python Fighter) and int stance (JAX Fighter)
-        if hasattr(self.opponent, 'stance'):
-            if isinstance(self.opponent.stance, str):
-                opp_stance_int = self.stance_names.index(self.opponent.stance)
-            else:
-                opp_stance_int = int(self.opponent.stance)  # Already an int from JAX
-        else:
-            opp_stance_int = 0
+        # Opponent stance as integer
+        opp_stance = self.opponent.stance
+        if hasattr(opp_stance, '__array__'):  # JAX array
+            opp_stance_int = float(opp_stance)
+        else:  # String
+            stance_map = {"neutral": 0, "extended": 1, "defending": 2}
+            opp_stance_int = float(stance_map.get(opp_stance, 0))
 
-        # Recent damage dealt (last 5 ticks average)
-        recent_damage = self.episode_damage_dealt / max(self.tick, 1) * 5 if self.tick > 0 else 0
+        # Recent damage dealt (use episode tracking)
+        recent_damage = float(self.episode_damage_dealt)
 
         obs = np.array([
-            self.fighter.position,
-            self.fighter.velocity,
+            float(self.fighter.position),
+            float(self.fighter.velocity),
             you_hp_norm,
             you_stamina_norm,
             distance,
             rel_velocity,
             opp_hp_norm,
             opp_stamina_norm,
-            self.config.arena_width,
+            float(self.config.arena_width),
             wall_dist_left,
             wall_dist_right,
             opp_stance_int,
             recent_damage
         ], dtype=np.float32)
 
-        # Safety check: Replace any NaN or inf values with valid numbers
-        # This prevents training crashes from numerical instabilities
-        if not np.all(np.isfinite(obs)):
-            # Log the issue (but don't spam)
-            if not hasattr(self, '_nan_warning_shown'):
-                print(f"WARNING: Non-finite observation detected! Fighter HP: {self.fighter.hp}, Opp HP: {self.opponent.hp}")
-                print(f"  Obs: {obs}")
-                self._nan_warning_shown = True
-            # Replace NaN with 0, inf with large number
-            obs = np.nan_to_num(obs, nan=0.0, posinf=1e6, neginf=-1e6)
+        # Safety check: Replace any NaN or inf values
+        obs = np.nan_to_num(obs, nan=0.0, posinf=100.0, neginf=-100.0)
 
         return obs
-
     def _calculate_reward(self, damage_dealt, damage_taken):
         """
         Calculate reward for this step.

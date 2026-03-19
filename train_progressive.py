@@ -10,6 +10,14 @@ Usage:
     python train_progressive.py --mode complete --timesteps 1000000
 """
 
+# Set GPU environment variables BEFORE any imports
+import os
+# Fix for AMD GPU (RX 6650 XT and similar RDNA2 cards)
+os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'  # RDNA2 architecture
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.75'
+os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'  # Disable triton for stability
+
 import sys
 from pathlib import Path
 
@@ -57,6 +65,7 @@ class ProgressiveTrainer:
                  max_ticks: int = 250,
                  device: str = "auto",
                  use_vmap: bool = False,
+                 population_cpu_only: bool = False,
                  debug: bool = False,
                  record_replays: bool = False,
                  replay_frequency: int = 5,
@@ -84,6 +93,7 @@ class ProgressiveTrainer:
         self.max_ticks = max_ticks
         self.device = device
         self.use_vmap = use_vmap
+        self.population_cpu_only = population_cpu_only
         self.debug = debug
         self.record_replays = record_replays
         self.replay_frequency = replay_frequency
@@ -157,36 +167,114 @@ class ProgressiveTrainer:
         # Get the trained model path
         model_path = self.curriculum_dir / "models" / "curriculum_graduate.zip"
 
-        # Clean up curriculum trainer resources to free GPU memory
-        if hasattr(self.curriculum_trainer, 'model') and self.curriculum_trainer.model is not None:
-            # Delete the model to free memory
-            del self.curriculum_trainer.model
-            self.curriculum_trainer.model = None
+        # COMPREHENSIVE CLEANUP - Free all GPU/CPU memory from curriculum training
+        print("\n💾 Cleaning up curriculum trainer resources...")
 
+        # 1. Close environments properly (this now calls vmap_env.close())
         if hasattr(self.curriculum_trainer, 'envs') and self.curriculum_trainer.envs is not None:
-            # Close environments
             try:
                 self.curriculum_trainer.envs.close()
-            except:
-                pass
-            del self.curriculum_trainer.envs
-            self.curriculum_trainer.envs = None
+                print("  ✓ Closed curriculum environments")
+            except Exception as e:
+                print(f"  ⚠ Error closing environments: {e}")
+            finally:
+                del self.curriculum_trainer.envs
+                self.curriculum_trainer.envs = None
 
-        # Force garbage collection and clear GPU cache if available
+        # 2. Delete the PPO model and its components
+        if hasattr(self.curriculum_trainer, 'model') and self.curriculum_trainer.model is not None:
+            # Delete policy network
+            if hasattr(self.curriculum_trainer.model, 'policy'):
+                del self.curriculum_trainer.model.policy
+
+            # Delete value network
+            if hasattr(self.curriculum_trainer.model, 'value_net'):
+                del self.curriculum_trainer.model.value_net
+
+            # Delete rollout buffer
+            if hasattr(self.curriculum_trainer.model, 'rollout_buffer'):
+                del self.curriculum_trainer.model.rollout_buffer
+
+            # Delete the model itself
+            del self.curriculum_trainer.model
+            self.curriculum_trainer.model = None
+            print("  ✓ Deleted PPO model")
+
+        # 3. Delete progress tracking and statistics
+        if hasattr(self.curriculum_trainer, 'progress'):
+            del self.curriculum_trainer.progress
+            self.curriculum_trainer.progress = None
+
+        if hasattr(self.curriculum_trainer, 'stats'):
+            del self.curriculum_trainer.stats
+            self.curriculum_trainer.stats = None
+
+        # 4. Delete the entire curriculum trainer
+        del self.curriculum_trainer
+        self.curriculum_trainer = None
+        print("  ✓ Deleted curriculum trainer")
+
+        # 5. Force garbage collection (Python)
         import gc
         gc.collect()
+        gc.collect()  # Run twice to ensure cleanup
+        print("  ✓ Ran garbage collection")
 
+        # 6. Clear PyTorch GPU cache if available
         try:
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Wait for all GPU operations to complete
+
+                # Get memory stats
                 if self.verbose:
-                    print("  💾 Cleared GPU memory after curriculum training")
+                    allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+                    reserved = torch.cuda.memory_reserved() / 1024**3  # GB
+                    print(f"  ✓ Cleared PyTorch GPU cache")
+                    print(f"    GPU Memory - Allocated: {allocated:.2f} GB, Reserved: {reserved:.2f} GB")
+        except Exception as e:
+            if self.verbose:
+                print(f"  ⚠ PyTorch GPU cleanup: {e}")
+
+        # 7. Clear JAX resources
+        try:
+            import jax
+            jax.clear_caches()
+
+            # Also clear JAX GPU memory if using GPU
+            try:
+                devices = jax.devices()
+                if any('gpu' in str(d).lower() or 'rocm' in str(d).lower() for d in devices):
+                    # Force JAX to release GPU memory
+                    jax.clear_backends()
+                    print("  ✓ Cleared JAX GPU resources")
+            except:
+                pass
+
+            print("  ✓ Cleared JAX compilation cache")
+        except Exception as e:
+            if self.verbose:
+                print(f"  ⚠ JAX cleanup: {e}")
+
+        # 8. ROCm/AMD GPU specific cleanup
+        try:
+            # Try to reset ROCm if available
+            import subprocess
+            result = subprocess.run(['rocm-smi', '--resetclocks'],
+                                  capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                print("  ✓ Reset ROCm GPU clocks")
         except:
-            pass
+            pass  # ROCm tools may not be available
+
+        # 9. Brief pause to ensure all resources are released
+        import time
+        time.sleep(1)
+        print("  ✓ Resource cleanup complete\n")
 
         if self.verbose:
-            print(f"\n✅ Curriculum training complete!")
+            print(f"✅ Curriculum training complete!")
             print(f"Model saved to: {model_path}")
 
         return model_path
@@ -268,8 +356,13 @@ class ProgressiveTrainer:
 
         if not self.population_trainer:
             # Create population trainer if not already created
-            # NOTE: Population training uses GPU with reduced envs to fit memory
-            # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
+            # Determine whether to use GPU for population training
+            population_use_vmap = self.use_vmap and not self.population_cpu_only
+
+            if self.population_cpu_only and self.use_vmap and self.verbose:
+                print("⚠️  Forcing CPU mode for population training (--population-cpu-only)")
+                print("   (This avoids GPU out-of-memory issues)")
+
             self.population_trainer = PopulationTrainer(
                 population_size=population_size,
                 algorithm=self.algorithm,
@@ -277,7 +370,7 @@ class ProgressiveTrainer:
                 max_ticks=self.max_ticks,
                 verbose=self.verbose,
                 n_parallel_fighters=self.n_parallel_fighters,
-                use_vmap=self.use_vmap,  # Use GPU if enabled
+                use_vmap=population_use_vmap,  # May be overridden by population_cpu_only
                 n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
                 record_replays=self.record_replays,
                 replay_recording_frequency=self.replay_frequency
@@ -463,6 +556,11 @@ Examples:
         help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
     )
     parser.add_argument(
+        "--population-cpu-only",
+        action="store_true",
+        help="Force CPU-only training for population phase (avoids GPU OOM issues)"
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging to see detailed fight information"
@@ -522,6 +620,7 @@ Examples:
         max_ticks=args.max_ticks,
         device=args.device,
         use_vmap=args.use_vmap,
+        population_cpu_only=args.population_cpu_only,
         debug=args.debug,
         record_replays=args.record_replays,
         replay_frequency=args.replay_frequency,

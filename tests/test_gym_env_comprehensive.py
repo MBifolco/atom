@@ -557,7 +557,8 @@ class TestMidEpisodeRewards:
         env.fighter.position = 5.0
         env.opponent.position = 5.5
         env.fighter.velocity = 1.0
-        env.fighter.stance = "extended"
+        # Use integer stance for JAX arena (1 = extended)
+        env.fighter.stance = 1  # extended
 
         # Take many steps to potentially land hits
         hits_before = env.hits_landed

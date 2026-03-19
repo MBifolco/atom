@@ -97,14 +97,15 @@ def generate_snapshot(
     # Convert JAX fighters to proper format if needed
     from ..arena.arena_1d_jax_jit import FighterStateJAX, stance_to_str
 
-    # Convert stance from int to string if JAX fighter
+    # Convert stance from int to string if needed
     my_stance = my_fighter.stance
     opp_stance = opp_fighter.stance
 
-    if isinstance(my_fighter, FighterStateJAX):
-        my_stance = stance_to_str(int(my_fighter.stance))
-    if isinstance(opp_fighter, FighterStateJAX):
-        opp_stance = stance_to_str(int(opp_fighter.stance))
+    # Check if stance needs conversion (is an int)
+    if isinstance(my_stance, (int, float)):
+        my_stance = stance_to_str(int(my_stance))
+    if isinstance(opp_stance, (int, float)):
+        opp_stance = stance_to_str(int(opp_stance))
 
     distance = abs(opp_fighter.position - my_fighter.position)
 

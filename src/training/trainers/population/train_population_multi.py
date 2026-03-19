@@ -28,9 +28,9 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 # Atom imports
-from training.src.gym_env import AtomCombatEnv
-from training.src.trainers.population.population_fighter import PopulationFighter
-from training.src.trainers.population.fighter_loader import load_hardcoded_fighters, FighterLoadError
+from src.training.gym_env import AtomCombatEnv
+from src.training.trainers.population.population_fighter import PopulationFighter
+from src.training.trainers.population.fighter_loader import load_hardcoded_fighters, FighterLoadError
 
 # Name generation
 import funkybob

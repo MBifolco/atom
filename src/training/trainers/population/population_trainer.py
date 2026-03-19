@@ -375,16 +375,43 @@ def _create_opponent_decide_func(model):
     import numpy as np
 
     def decide(snapshot):
+        # Build 13-dimensional observation to match current gym_env
+        position = snapshot["you"]["position"]
+        arena_width = snapshot["arena"]["width"]
+
+        # Calculate wall distances
+        wall_dist_left = position
+        wall_dist_right = arena_width - position
+
+        # Get opponent stance as integer
+        opp_stance = snapshot["opponent"]["stance"]
+        # Handle JAX arrays - convert to Python type
+        if hasattr(opp_stance, '__array__'):
+            opp_stance_val = int(opp_stance)
+            # JAX arrays contain stance as integer already (0, 1, 2)
+            opp_stance_int = opp_stance_val
+        else:
+            # String stance from Python arena
+            stance_map = {"neutral": 0, "extended": 1, "defending": 2, "retracted": 0}  # retracted fallback to neutral
+            opp_stance_int = stance_map.get(opp_stance, 0)
+
+        # Estimate recent damage (not available in snapshot, use 0)
+        recent_damage = 0.0
+
         obs = np.array([
-            snapshot["you"]["position"],
-            snapshot["you"]["velocity"],
-            snapshot["you"]["hp"] / snapshot["you"]["max_hp"],
-            snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],
-            snapshot["opponent"]["distance"],
-            snapshot["opponent"]["velocity"],
-            snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],
-            snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],
-            snapshot["arena"]["width"]
+            position,  # 0: position
+            snapshot["you"]["velocity"],  # 1: velocity
+            snapshot["you"]["hp"] / snapshot["you"]["max_hp"],  # 2: hp_norm
+            snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],  # 3: stamina_norm
+            snapshot["opponent"]["distance"],  # 4: distance
+            snapshot["opponent"]["velocity"],  # 5: rel_velocity (from opponent's perspective)
+            snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],  # 6: opp_hp_norm
+            snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],  # 7: opp_stamina_norm
+            arena_width,  # 8: arena_width
+            wall_dist_left,  # 9: wall_dist_left
+            wall_dist_right,  # 10: wall_dist_right
+            opp_stance_int,  # 11: opp_stance_int
+            recent_damage  # 12: recent_damage_dealt
         ], dtype=np.float32)
 
         action, _ = model.predict(obs, deterministic=False)
@@ -539,6 +566,41 @@ def _train_single_fighter_parallel(
     # Configure threading for subprocess
     _configure_process_threading()
 
+    # Configure GPU memory for subprocess (if using GPU)
+    if use_vmap:
+        import os
+
+        # Fix for AMD GPU (RX 6650 XT and similar RDNA2 cards)
+        os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'  # RDNA2 architecture
+        os.environ['XLA_FLAGS'] = '--xla_gpu_enable_triton_gemm=false'  # Disable triton
+
+        try:
+            import torch
+            # Limit each process to use only a fraction of GPU memory
+            # Since we default to sequential (1 process), give it most of the memory
+            # Leave 20% for system overhead
+            memory_fraction = 0.75  # Conservative allocation
+            torch.cuda.set_per_process_memory_fraction(memory_fraction, device=0)
+        except Exception as e:
+            pass  # Silently continue if torch not available or no GPU
+
+        # Configure ROCm/HIP
+        os.environ['HIP_VISIBLE_DEVICES'] = '0'  # Use only GPU 0
+        os.environ['ROCR_VISIBLE_DEVICES'] = '0'
+        os.environ['GPU_DEVICE_ORDINAL'] = '0'
+
+        # Configure JAX memory
+        os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.75'  # Match torch fraction
+        os.environ['JAX_PLATFORMS'] = 'rocm'  # Force ROCm platform
+
+        try:
+            import jax
+            # Clear any existing JAX cache from parent process
+            jax.clear_caches()
+        except:
+            pass
+
     # Required imports (after threading config)
     import numpy as np
     from pathlib import Path
@@ -663,6 +725,29 @@ def _train_single_fighter_parallel(
 
     vec_env.close()
 
+    # Clean up GPU memory if using vmap
+    if use_vmap:
+        # Delete model to free GPU memory
+        del fighter_model
+
+        # Clear GPU caches
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except:
+            pass
+
+        try:
+            import jax
+            jax.clear_caches()
+        except:
+            pass
+
+        # Force garbage collection
+        import gc
+        gc.collect()
+
     # Return statistics
     return {
         "fighter": fighter_name,
@@ -774,18 +859,24 @@ class PopulationTrainer:
         # Parallel training configuration
         if n_parallel_fighters is None:
             if use_vmap:
-                # GPU mode: Limit parallelism to avoid GPU OOM
-                # Each process uses GPU, so use fewer parallel processes
-                n_parallel_fighters = 2  # Conservative: 2 parallel GPU processes
+                # GPU mode: Use sequential training to avoid GPU OOM
+                # Multiple processes sharing GPU memory is problematic with ROCm
+                n_parallel_fighters = 1  # Sequential GPU training
                 if verbose:
-                    print(f"⚠️  GPU mode: Automatically limiting parallel fighters to {n_parallel_fighters}")
-                    print(f"   (prevents GPU out-of-memory errors)")
-                    print(f"   💡 Tip: If GPU memory usage is low (<50%), try --n-parallel-fighters 4")
+                    print(f"⚠️  GPU mode: Training fighters sequentially (1 at a time)")
+                    print(f"   (prevents GPU out-of-memory errors with ROCm)")
+                    print(f"   Each fighter uses JAX vmap with {n_vmap_envs} parallel environments")
+                    print(f"   💡 For parallel training, use CPU mode: --no-vmap")
             else:
                 # CPU mode: Use more parallelism
                 n_parallel_fighters = max(1, multiprocessing.cpu_count() - 1)
         elif use_vmap and verbose:
-            print(f"🚀 GPU mode: Using {n_parallel_fighters} parallel fighters")
+            if n_parallel_fighters > 1:
+                print(f"⚠️  GPU mode: Using {n_parallel_fighters} parallel fighters")
+                print(f"   WARNING: This may cause GPU out-of-memory errors!")
+                print(f"   Recommended: Use --n-parallel-fighters 1 for GPU mode")
+            else:
+                print(f"✅ GPU mode: Sequential training (1 fighter at a time)")
 
         self.n_parallel_fighters = n_parallel_fighters
 
@@ -996,9 +1087,14 @@ class PopulationTrainer:
             wall_dist_right = arena_width - snapshot["you"]["position"]
 
             # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
-            opp_stance_hint = snapshot["opponent"].get("stance_hint", "neutral")
-            stance_map = {"neutral": 0, "extended": 1, "defending": 2}
-            opp_stance_int = stance_map.get(opp_stance_hint, 0)
+            opp_stance_hint = snapshot["opponent"].get("stance_hint", snapshot["opponent"].get("stance", "neutral"))
+            # Handle JAX arrays - convert to Python type
+            if hasattr(opp_stance_hint, '__array__'):
+                opp_stance_int = int(opp_stance_hint)
+            else:
+                # String stance from Python arena
+                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
+                opp_stance_int = stance_map.get(opp_stance_hint, 0)
 
             # Recent damage (placeholder - would need tracking)
             recent_damage = 0.0

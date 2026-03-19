@@ -20,7 +20,7 @@ from enum import Enum
 # Use Stable Baselines3 with PyTorch (JAX is in physics engine)
 from stable_baselines3 import PPO
 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecCheckNan
+from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecCheckNan, VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
@@ -61,7 +61,12 @@ class VmapEnvAdapter(VecEnv):
         return obs, rewards, dones, infos
 
     def close(self):
-        pass  # VmapEnvWrapper doesn't need cleanup
+        """Clean up vmap environment resources."""
+        if hasattr(self, 'vmap_env') and self.vmap_env is not None:
+            if hasattr(self.vmap_env, 'close'):
+                self.vmap_env.close()
+            del self.vmap_env
+            self.vmap_env = None
 
     def env_is_wrapped(self, wrapper_class, indices=None):
         """Required for VecEnv interface."""
@@ -735,8 +740,18 @@ class CurriculumTrainer:
                     print("✅ Environment adapter created!", flush=True)
                     sys.stdout.flush()
 
+                # Wrap with VecNormalize to prevent gradient explosion from large rewards
+                normalized_env = VecNormalize(
+                    adapted_env,
+                    norm_obs=False,  # Don't normalize observations (already normalized)
+                    norm_reward=True,  # Normalize rewards to prevent NaN
+                    clip_obs=10.0,  # Safety clip for observations
+                    clip_reward=10.0,  # Clip normalized rewards to [-10, 10] std deviations
+                    gamma=0.99  # Same as PPO gamma
+                )
+
                 # Wrap with NaN checker to catch numerical instabilities
-                return VecCheckNan(adapted_env, raise_exception=True, warn_once=True)
+                return VecCheckNan(normalized_env, raise_exception=True, warn_once=True)
 
             except Exception as e:
                 print(f"\n❌ ERROR creating vmap environment: {e}", flush=True)
@@ -769,8 +784,18 @@ class CurriculumTrainer:
             # SubprocVecEnv has too many pickle/process issues during curriculum progression
             dummy_env = DummyVecEnv(env_fns)
 
+            # Wrap with VecNormalize to prevent gradient explosion from large rewards
+            normalized_env = VecNormalize(
+                dummy_env,
+                norm_obs=False,  # Don't normalize observations (already normalized)
+                norm_reward=True,  # Normalize rewards to prevent NaN
+                clip_obs=10.0,  # Safety clip for observations
+                clip_reward=10.0,  # Clip normalized rewards to [-10, 10] std deviations
+                gamma=0.99  # Same as PPO gamma
+            )
+
             # Wrap with NaN checker to catch numerical instabilities
-            return VecCheckNan(dummy_env, raise_exception=True, warn_once=True)
+            return VecCheckNan(normalized_env, raise_exception=True, warn_once=True)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
@@ -786,11 +811,18 @@ class CurriculumTrainer:
 
             # Use stable PPO configuration
             from ..utils.stable_ppo import create_stable_ppo
+            from ..utils.stable_ppo_config import get_stable_ppo_config
 
-            self.model = create_stable_ppo(
+            # Get stable config to prevent NaN
+            stable_config = get_stable_ppo_config()
+
+            # Create PPO with stable configuration
+            from stable_baselines3 import PPO
+            self.model = PPO(
+                "MlpPolicy",
                 self.envs,
-                learning_rate=5e-5,  # Even lower for stability
-                device=actual_device
+                device=actual_device,
+                **stable_config
             )
 
             # Override some settings for our use case

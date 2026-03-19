@@ -368,8 +368,8 @@ class VmapEnvWrapper(gym.Env):
             print(f"⚠️  WARNING: NaN or Inf detected in observations! Clipping...")
             obs = np.nan_to_num(obs, nan=0.0, posinf=1000.0, neginf=-1000.0)
 
-        # Validate rewards - clip extreme values
-        rewards = np.clip(rewards, -10000, 10000)
+        # Clip rewards to prevent gradient explosion
+        rewards = np.clip(rewards, -1000.0, 1000.0)  # Safety clip only for extreme outliers
 
         return obs, rewards, dones, truncated, infos
 
@@ -438,13 +438,13 @@ class VmapEnvWrapper(gym.Env):
         # Recent damage dealt (average damage rate)
         recent_damage = self.episode_damage_dealt / np.maximum(self.tick_counts, 1) * 5
 
-        # Normalize
-        hp_norm = fighter_hp / fighter_max_hp
-        stamina_norm = fighter_stamina / fighter_max_stamina
-        opp_hp_norm = opponent_hp / opponent_max_hp
-        opp_stamina_norm = opponent_stamina / opponent_max_stamina
+        # Normalize with protection against division by zero
+        hp_norm = fighter_hp / np.maximum(fighter_max_hp, 1.0)
+        stamina_norm = fighter_stamina / np.maximum(fighter_max_stamina, 1.0)
+        opp_hp_norm = opponent_hp / np.maximum(opponent_max_hp, 1.0)
+        opp_stamina_norm = opponent_stamina / np.maximum(opponent_max_stamina, 1.0)
 
-        # Stack observations (now 13 values)
+        # Stack observations (13 values to match saved model)
         obs = np.stack([
             fighter_pos,
             fighter_vel,
@@ -479,18 +479,27 @@ class VmapEnvWrapper(gym.Env):
         fighter_stamina = np.array(self.jax_states.fighter_a.stamina)
         fighter_max_hp = np.array(self.jax_states.fighter_a.max_hp)
         fighter_max_stamina = np.array(self.jax_states.fighter_a.max_stamina)
+        fighter_stance = np.array(self.jax_states.fighter_a.stance)  # Integer stance
 
         # Compute relative metrics (from opponent's view)
         distance = np.abs(fighter_pos - opponent_pos)
         relative_velocity = fighter_vel - opponent_vel
 
-        # Normalize
-        hp_norm = opponent_hp / opponent_max_hp
-        stamina_norm = opponent_stamina / opponent_max_stamina
-        opp_hp_norm = fighter_hp / fighter_max_hp
-        opp_stamina_norm = fighter_stamina / fighter_max_stamina
+        # Wall distances (from opponent's perspective)
+        wall_dist_left = opponent_pos
+        wall_dist_right = self.arena_width - opponent_pos
 
-        # Stack observations (same format as _get_observations but from opponent's perspective)
+        # Recent damage dealt by opponent (use episode_damage_taken as proxy)
+        # Since opponent is fighter_b, their damage dealt is fighter_a's damage taken
+        recent_damage = self.episode_damage_taken / np.maximum(self.tick_counts, 1) * 5
+
+        # Normalize with protection against division by zero
+        hp_norm = opponent_hp / np.maximum(opponent_max_hp, 1.0)
+        stamina_norm = opponent_stamina / np.maximum(opponent_max_stamina, 1.0)
+        opp_hp_norm = fighter_hp / np.maximum(fighter_max_hp, 1.0)
+        opp_stamina_norm = fighter_stamina / np.maximum(fighter_max_stamina, 1.0)
+
+        # Stack observations (13 values to match saved model)
         obs = np.stack([
             opponent_pos,
             opponent_vel,
@@ -500,8 +509,17 @@ class VmapEnvWrapper(gym.Env):
             relative_velocity,
             opp_hp_norm,
             opp_stamina_norm,
-            np.full(self.n_envs, self.arena_width)
+            np.full(self.n_envs, self.arena_width),
+            wall_dist_left,
+            wall_dist_right,
+            fighter_stance,  # Fighter A's stance from opponent's perspective
+            recent_damage
         ], axis=1).astype(np.float32)
+
+        # Validate observations - replace any NaN or Inf with safe values
+        if np.isnan(obs).any() or np.isinf(obs).any():
+            print(f"⚠️  WARNING: NaN or Inf detected in opponent observations! Clipping...")
+            obs = np.nan_to_num(obs, nan=0.0, posinf=100.0, neginf=-100.0)
 
         return obs
 
@@ -568,13 +586,13 @@ class VmapEnvWrapper(gym.Env):
         stamina_spent = self.prev_fighter_stamina - fighter_stamina
         self.episode_stamina_used += np.maximum(0, stamina_spent)
 
-        # Calculate HP percentages
-        fighter_hp_pct = fighter_hp / fighter_max_hp
-        opponent_hp_pct = opponent_hp / opponent_max_hp
+        # Calculate HP percentages with division protection
+        fighter_hp_pct = fighter_hp / np.maximum(fighter_max_hp, 1.0)
+        opponent_hp_pct = opponent_hp / np.maximum(opponent_max_hp, 1.0)
 
-        # Calculate stamina percentages
-        stamina_pct = fighter_stamina / fighter_max_stamina
-        opp_stamina_pct = opponent_stamina / opponent_max_stamina
+        # Calculate stamina percentages with division protection
+        stamina_pct = fighter_stamina / np.maximum(fighter_max_stamina, 1.0)
+        opp_stamina_pct = opponent_stamina / np.maximum(opponent_max_stamina, 1.0)
 
         # Get positions and calculate distance
         fighter_pos = np.array(self.jax_states.fighter_a.position, dtype=np.float32)
@@ -649,14 +667,14 @@ class VmapEnvWrapper(gym.Env):
         if np.any(mid_episode_mask):
             mid_reward = np.zeros(self.n_envs, dtype=np.float32)
 
-            # 1. Damage differential (core reward)
+            # 1. Damage differential (core reward) - scaled down to prevent explosion
             damage_reward = (damage_dealt - damage_taken) * 10.0
             mid_reward += damage_reward
             self.episode_damage_reward += np.where(mid_episode_mask, damage_reward, 0.0)
 
             # 1b. Close-range engagement bonus
             close_range_mask = mid_episode_mask & (damage_dealt > 0) & (distance < self.arena_width * 0.3)
-            close_range_bonus = damage_dealt * 2.0
+            close_range_bonus = damage_dealt * 2.0  # Double damage reward for close hits
             mid_reward += np.where(close_range_mask, close_range_bonus, 0.0)
             self.episode_damage_reward += np.where(close_range_mask, close_range_bonus, 0.0)
 
@@ -727,6 +745,13 @@ class VmapEnvWrapper(gym.Env):
         self.prev_opponent_stamina = opponent_stamina.copy()
         self.last_distance = distance.copy()
 
+        # Validate rewards - replace any NaN or Inf with zeros
+        if np.isnan(rewards).any() or np.isinf(rewards).any():
+            print(f"⚠️  WARNING: NaN or Inf detected in rewards! Clipping...")
+            print(f"   NaN locations: {np.where(np.isnan(rewards))}")
+            print(f"   Inf locations: {np.where(np.isinf(rewards))}")
+            rewards = np.nan_to_num(rewards, nan=0.0, posinf=1000.0, neginf=-1000.0)
+
         return rewards.astype(np.float32)
 
     def _check_dones(self):
@@ -795,6 +820,82 @@ class VmapEnvWrapper(gym.Env):
                 self.episode_inaction_penalty[i] = 0.0
 
         # Note: last_distance doesn't need per-env reset, it's updated each step
+
+    def close(self):
+        """Clean up JAX resources and free memory."""
+        # Clear JAX states
+        if hasattr(self, 'jax_states') and self.jax_states is not None:
+            del self.jax_states
+            self.jax_states = None
+
+        # Clear tracking arrays
+        if hasattr(self, 'tick_counts') and self.tick_counts is not None:
+            del self.tick_counts
+            self.tick_counts = None
+
+        if hasattr(self, 'episode_rewards') and self.episode_rewards is not None:
+            del self.episode_rewards
+            self.episode_rewards = None
+
+        # Clear HP/stamina tracking
+        if hasattr(self, 'prev_fighter_hp'):
+            del self.prev_fighter_hp
+            self.prev_fighter_hp = None
+
+        if hasattr(self, 'prev_opponent_hp'):
+            del self.prev_opponent_hp
+            self.prev_opponent_hp = None
+
+        if hasattr(self, 'prev_fighter_stamina'):
+            del self.prev_fighter_stamina
+            self.prev_fighter_stamina = None
+
+        if hasattr(self, 'prev_opponent_stamina'):
+            del self.prev_opponent_stamina
+            self.prev_opponent_stamina = None
+
+        # Clear opponent decision function
+        if hasattr(self, 'opponent_decide') and self.opponent_decide is not None:
+            del self.opponent_decide
+            self.opponent_decide = None
+
+        # Clear stance arrays
+        if hasattr(self, 'stance_reach'):
+            del self.stance_reach
+            self.stance_reach = None
+
+        if hasattr(self, 'stance_defense'):
+            del self.stance_defense
+            self.stance_defense = None
+
+        if hasattr(self, 'stance_drain'):
+            del self.stance_drain
+            self.stance_drain = None
+
+        # Clear all episode tracking arrays
+        for attr in ['episode_damage_dealt', 'episode_damage_taken', 'episode_stamina_used',
+                     'episode_damage_reward', 'episode_proximity_reward',
+                     'episode_stamina_reward', 'episode_stance_reward',
+                     'episode_inaction_penalty', 'last_distance',
+                     'hits_landed', 'hits_taken']:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+        # Clear JAX PRNG key
+        if hasattr(self, 'rng'):
+            del self.rng
+            self.rng = None
+
+        # Force garbage collection of JAX arrays
+        import gc
+        gc.collect()
+
+        # Clear JAX compilation cache if possible
+        try:
+            import jax
+            jax.clear_caches()
+        except:
+            pass
 
 
 # Standalone test

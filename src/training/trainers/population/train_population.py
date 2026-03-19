@@ -26,11 +26,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 # Import gym environment and training utilities
-from training.src.gym_env import AtomCombatEnv
+from src.training.gym_env import AtomCombatEnv
 from src.protocol.combat_protocol import generate_snapshot
 
 # Import fighter loading utility
-from fighter_loader import load_hardcoded_fighters
+from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
 # Import RL libraries
 from stable_baselines3 import PPO

@@ -38,9 +38,11 @@ STANCE_NAMES = ["neutral", "extended", "defending"]  # Removed retracted
 STANCE_TO_INT = {name: i for i, name in enumerate(STANCE_NAMES)}
 
 
-def stance_to_int(stance_str: str) -> int:
-    """Convert stance string to integer."""
-    return STANCE_TO_INT[stance_str]
+def stance_to_int(stance) -> int:
+    """Convert stance string to integer, or return if already int."""
+    if isinstance(stance, int):
+        return stance
+    return STANCE_TO_INT[stance]
 
 
 def stance_to_str(stance_int: int) -> str:

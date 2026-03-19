@@ -45,8 +45,8 @@ class TestPPOStability:
         assert model.vf_coef == 0.5  # Value function coefficient
         assert model.ent_coef >= 0.02  # Higher entropy for exploration
 
-        # Check that it's using standard MlpPolicy
-        assert model.policy.__class__.__name__ == "MlpPolicy"
+        # Check that it's using standard ActorCriticPolicy (created from "MlpPolicy" string)
+        assert model.policy.__class__.__name__ == "ActorCriticPolicy"
 
     def test_orthogonal_initialization(self):
         """Test that networks use orthogonal initialization."""
