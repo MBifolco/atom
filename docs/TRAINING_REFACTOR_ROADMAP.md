@@ -119,8 +119,9 @@ Phase 2 status (updated 2026-03-19):
 - Completed (slice 2): added explicit level-transition state machine (`LevelTransitionStateMachine`) and integrated it into `CurriculumTrainer.advance_level()`.
 - Completed (slice 2): moved callback episode-step orchestration into componentized `CallbackStepProcessor` + `ReplayEvaluationService`, with compatibility wrapper retained for existing replay tests/tools.
 - Completed (slice 2): expanded component unit coverage for transition state machine and callback step processing behavior.
-- Remaining for Phase 2 completion:
-  - structured domain error types and error handling unification
+- Completed (slice 3): introduced structured curriculum training-domain errors (`CurriculumTrainingError` family) with unified context payloads for NaN exhaustion, checkpoint recovery failure, and unexpected loop execution failures.
+- Completed (slice 3): `CurriculumTrainer.train()` now uses unified error logging/cleanup for structured training loop failures.
+- Completed: Phase 2 curriculum trainer decomposition goals.
 
 ### Phase 3: Checkpoint and Recovery Hardening
 

@@ -46,6 +46,38 @@ class LevelTransitionResult:
     completed: bool
 
 
+@dataclass(frozen=True)
+class TrainingErrorDetails:
+    """Structured context attached to training-domain exceptions."""
+
+    level: int
+    completed_steps: int
+    total_timesteps: int
+    nan_retries: int = 0
+    checkpoint_path: Optional[Path] = None
+    debug_path: Optional[Path] = None
+
+
+class CurriculumTrainingError(RuntimeError):
+    """Base error for curriculum training loop failures."""
+
+    def __init__(self, message: str, *, details: TrainingErrorDetails):
+        super().__init__(message)
+        self.details = details
+
+
+class NaNRecoveryError(CurriculumTrainingError):
+    """Raised when NaN retries are exhausted and recovery fails."""
+
+
+class CheckpointRecoveryError(CurriculumTrainingError):
+    """Raised when checkpoint-based model recovery fails."""
+
+
+class TrainingLoopExecutionError(CurriculumTrainingError):
+    """Raised for unexpected non-NaN execution failures in the training loop."""
+
+
 class GraduationPolicy:
     """Encapsulates level graduation rules."""
 
@@ -360,16 +392,36 @@ class LevelRunner:
                     raise
 
                 nan_retries += 1
+                current_level = int(current_level_getter())
+                completed_steps = int(getattr(callback, "n_calls", 0))
                 self.logger.error("=" * 80)
                 self.logger.error(f"NaN ERROR DETECTED (Retry {nan_retries}/{self.recovery_manager.max_retries})")
                 self.logger.error("=" * 80)
                 self.logger.error(f"Error: {exc}")
-                self.logger.error(f"Current level: {current_level_getter()}")
-                self.logger.error(f"Total steps: {getattr(callback, 'n_calls', 0)}")
+                self.logger.error(f"Current level: {current_level}")
+                self.logger.error(f"Total steps: {completed_steps}")
 
                 if nan_retries < self.recovery_manager.max_retries and last_checkpoint:
                     self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint}")
-                    model, new_lr = self.recovery_manager.recover_model_from_checkpoint(model, last_checkpoint, envs)
+                    try:
+                        model, new_lr = self.recovery_manager.recover_model_from_checkpoint(
+                            model,
+                            last_checkpoint,
+                            envs,
+                        )
+                    except Exception as recovery_exc:
+                        details = TrainingErrorDetails(
+                            level=current_level,
+                            completed_steps=completed_steps,
+                            total_timesteps=total_timesteps,
+                            nan_retries=nan_retries,
+                            checkpoint_path=Path(last_checkpoint),
+                        )
+                        raise CheckpointRecoveryError(
+                            f"Failed to recover model from checkpoint: {last_checkpoint}",
+                            details=details,
+                        ) from recovery_exc
+
                     if new_lr is not None:
                         self.logger.info(f"Reduced learning rate to: {new_lr}")
 
@@ -387,13 +439,23 @@ class LevelRunner:
 
                 debug_path = self.recovery_manager.write_nan_debug_dump(
                     exc=exc,
-                    current_level=current_level_getter(),
-                    total_steps=getattr(callback, "n_calls", 0),
+                    current_level=current_level,
+                    total_steps=completed_steps,
                     episode_rewards=list(getattr(callback, "episode_rewards", [])),
                     nan_retries=nan_retries,
                 )
                 self.logger.error(f"Debug info saved to: {debug_path}")
-                raise RuntimeError(f"Training failed due to NaN after {nan_retries} retries")
+                details = TrainingErrorDetails(
+                    level=current_level,
+                    completed_steps=completed_steps,
+                    total_timesteps=total_timesteps,
+                    nan_retries=nan_retries,
+                    debug_path=Path(debug_path),
+                )
+                raise NaNRecoveryError(
+                    f"Training failed due to NaN after {nan_retries} retries",
+                    details=details,
+                ) from exc
 
             except Exception as exc:
                 if self.recovery_manager.is_progress_conflict_error(exc) and not disable_sb3_progress_bar:
@@ -406,7 +468,17 @@ class LevelRunner:
                         "Retrying without SB3 progress bar."
                     )
                     continue
-                raise
+
+                details = TrainingErrorDetails(
+                    level=int(current_level_getter()),
+                    completed_steps=int(getattr(callback, "n_calls", 0)),
+                    total_timesteps=total_timesteps,
+                    nan_retries=nan_retries,
+                )
+                raise TrainingLoopExecutionError(
+                    f"Unexpected training loop failure: {exc}",
+                    details=details,
+                ) from exc
 
         return model
 

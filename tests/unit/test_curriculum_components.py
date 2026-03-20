@@ -6,11 +6,14 @@ from unittest.mock import Mock
 
 from src.training.trainers.curriculum_components import (
     CallbackStepProcessor,
+    CheckpointRecoveryError,
     GraduationPolicy,
+    NaNRecoveryError,
     LevelRunner,
     LevelTransitionStateMachine,
     ProgressReporter,
     RecoveryManager,
+    TrainingLoopExecutionError,
 )
 
 
@@ -221,6 +224,136 @@ def test_level_runner_recovers_from_nan_with_checkpoint():
         assert isinstance(result_model, FakeModel)
         assert FakeModel.load_calls == 1
         assert result_model.learning_rate == 1e-3
+
+
+def test_level_runner_raises_nan_recovery_error_after_retry_exhaustion():
+    logger = _make_logger()
+
+    class FakeModel:
+        def __init__(self):
+            self.learning_rate = 2e-3
+
+        def save(self, path):
+            pass
+
+        def learn(self, **kwargs):
+            raise ValueError("invalid values in Normal distribution: nan")
+
+        @classmethod
+        def load(cls, path, env=None):
+            return cls()
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=1,
+            max_retries=2,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=17, episode_rewards=[1.0, 2.0])
+
+        try:
+            runner.run(
+                model=FakeModel(),
+                envs=object(),
+                callback=callback,
+                total_timesteps=1000,
+                verbose=False,
+                current_level_getter=lambda: 3,
+            )
+            assert False, "Expected NaNRecoveryError"
+        except NaNRecoveryError as exc:
+            assert exc.details.level == 3
+            assert exc.details.completed_steps == 17
+            assert exc.details.total_timesteps == 1000
+            assert exc.details.nan_retries == 2
+            assert exc.details.debug_path is not None
+
+
+def test_level_runner_wraps_checkpoint_recovery_failures():
+    logger = _make_logger()
+
+    class FakeModel:
+        def __init__(self):
+            self.learning_rate = 2e-3
+            self.learn_calls = 0
+
+        def save(self, path):
+            pass
+
+        def learn(self, **kwargs):
+            self.learn_calls += 1
+            raise ValueError("invalid values in Normal distribution: nan")
+
+        @classmethod
+        def load(cls, path, env=None):
+            raise RuntimeError("checkpoint load failed")
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=1,
+            max_retries=3,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=9, episode_rewards=[])
+
+        try:
+            runner.run(
+                model=FakeModel(),
+                envs=object(),
+                callback=callback,
+                total_timesteps=200,
+                verbose=False,
+                current_level_getter=lambda: 2,
+            )
+            assert False, "Expected CheckpointRecoveryError"
+        except CheckpointRecoveryError as exc:
+            assert exc.details.level == 2
+            assert exc.details.nan_retries == 1
+            assert exc.details.checkpoint_path is not None
+
+
+def test_level_runner_wraps_unexpected_errors_with_context():
+    logger = _make_logger()
+
+    class FakeModel:
+        def save(self, path):
+            pass
+
+        def learn(self, **kwargs):
+            raise RuntimeError("boom")
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=1,
+            max_retries=3,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=5, episode_rewards=[])
+
+        try:
+            runner.run(
+                model=FakeModel(),
+                envs=object(),
+                callback=callback,
+                total_timesteps=500,
+                verbose=False,
+                current_level_getter=lambda: 1,
+            )
+            assert False, "Expected TrainingLoopExecutionError"
+        except TrainingLoopExecutionError as exc:
+            assert "Unexpected training loop failure" in str(exc)
+            assert exc.details.level == 1
+            assert exc.details.completed_steps == 5
+            assert exc.details.total_timesteps == 500
 
 
 def test_level_transition_state_machine_resets_level_metrics():

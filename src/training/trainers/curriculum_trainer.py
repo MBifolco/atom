@@ -27,6 +27,7 @@ import importlib.util
 # Level 3: JAX vmap support
 from .curriculum_components import (
     CallbackStepProcessor,
+    CurriculumTrainingError,
     EnvFactory,
     GraduationPolicy,
     LevelRunner,
@@ -714,6 +715,23 @@ class CurriculumTrainer:
 
         self.logger.info(f"Training report saved to: {report_path}")
 
+    def _log_training_loop_error(self, exc: CurriculumTrainingError):
+        """Emit a consistent structured error block for training loop failures."""
+        details = exc.details
+        self.logger.error("=" * 80)
+        self.logger.error("CURRICULUM TRAINING LOOP FAILED")
+        self.logger.error("=" * 80)
+        self.logger.error(f"Error Type: {exc.__class__.__name__}")
+        self.logger.error(f"Error: {exc}")
+        self.logger.error(f"Current level: {details.level}")
+        self.logger.error(f"Completed steps: {details.completed_steps}/{details.total_timesteps}")
+        self.logger.error(f"NaN retries: {details.nan_retries}")
+        if details.checkpoint_path is not None:
+            self.logger.error(f"Checkpoint path: {details.checkpoint_path}")
+        if details.debug_path is not None:
+            self.logger.error(f"Debug dump: {details.debug_path}")
+        self.logger.error("=" * 80)
+
     def train(self, total_timesteps: int = 1_000_000):
         """
         Train the fighter through the curriculum.
@@ -737,19 +755,22 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
-        # Train with retry/recovery orchestration.
-        self.model = self.level_runner.run(
-            model=self.model,
-            envs=self.envs,
-            callback=callback,
-            total_timesteps=total_timesteps,
-            verbose=self.verbose,
-            current_level_getter=lambda: self.progress.current_level,
-        )
-
-        # Close environments
-        if self.envs:
-            self.envs.close()
+        try:
+            # Train with retry/recovery orchestration.
+            self.model = self.level_runner.run(
+                model=self.model,
+                envs=self.envs,
+                callback=callback,
+                total_timesteps=total_timesteps,
+                verbose=self.verbose,
+                current_level_getter=lambda: self.progress.current_level,
+            )
+        except CurriculumTrainingError as exc:
+            self._log_training_loop_error(exc)
+            raise
+        finally:
+            if self.envs:
+                self.envs.close()
 
         self.logger.info("Training complete!")
 
