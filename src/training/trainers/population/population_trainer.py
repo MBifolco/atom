@@ -5,21 +5,18 @@ Trains a population of fighters simultaneously, allowing them to learn
 from each other and evolve diverse strategies.
 """
 
-import sys
-import os
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple, Any
 import logging
 from datetime import datetime
-import time
 import random
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait, FIRST_COMPLETED
+from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 
 from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 
@@ -29,6 +26,15 @@ from ...gym_env import AtomCombatEnv
 from ...signal_engine import build_observation_from_snapshot
 from ...utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
+from .population_evaluation import EvaluationContext, PopulationEvaluationService
+from .population_evolution import EvolutionContext, PopulationEvolver
+from .population_persistence import PopulationPersistenceContext, PopulationPersistenceService
+from .population_training_loop import PopulationTrainingLoopContext, PopulationTrainingLoopHelper
+from .parallel_orchestrator import (
+    ParallelTrainingContext,
+    ParallelTrainingOrchestrator,
+    TrainingWorker,
+)
 
 
 # ==============================================================================
@@ -589,7 +595,6 @@ def _train_single_fighter_parallel(
     recent_rewards = []
     last_report_timestep = 0
 
-    import sys
     import time
 
     start_time = time.time()
@@ -1091,257 +1096,31 @@ class PopulationTrainer:
         Returns:
             List of training statistics dictionaries
         """
-        if not fighter_opponent_pairs:
-            return []
+        orchestrator = ParallelTrainingOrchestrator(self._build_parallel_training_context())
+        worker = TrainingWorker(_train_single_fighter_parallel)
+        return orchestrator.run(
+            fighter_opponent_pairs=fighter_opponent_pairs,
+            episodes_per_fighter=episodes_per_fighter,
+            worker=worker,
+            executor_factory=ProcessPoolExecutor,
+        )
 
-        # Prepare serializable data for each fighter
-        training_tasks = []
-        temp_model_paths = {}
-
-        for fighter, opponents in fighter_opponent_pairs:
-            # Save fighter model to temp file
-            temp_model_path = self.models_dir / f"temp_{fighter.name}_{self.generation}.zip"
-            fighter.model.save(temp_model_path)
-            temp_model_paths[fighter.name] = temp_model_path
-
-            # Save opponent models to temp files
-            opponent_data = []
-            for opp in opponents[:self.n_envs_per_fighter]:  # Only need as many as envs
-                if opp.name not in temp_model_paths:
-                    opp_path = self.models_dir / f"temp_{opp.name}_{self.generation}.zip"
-                    opp.model.save(opp_path)
-                    temp_model_paths[opp.name] = opp_path
-                else:
-                    opp_path = temp_model_paths[opp.name]
-
-                opponent_data.append((opp.name, opp.mass, str(opp_path)))
-
-            # Convert config to dictionary (using dataclasses.asdict-like approach)
-            # For simplicity, just pass None and use default config in subprocess
-            config_dict = None  # Will use WorldConfig() default in subprocess
-
-            task = (
-                fighter.name,
-                fighter.mass,
-                str(temp_model_path),
-                opponent_data,
-                self.n_envs_per_fighter,
-                episodes_per_fighter,
-                self.max_ticks,
-                self.algorithm,
-                config_dict,
-                str(self.logs_dir),
-                self.use_vmap,
-                self.n_vmap_envs
-            )
-            training_tasks.append(task)
-
-        # Run training in parallel
-        results = []
-
-        if self.verbose:
-            print(f"  Training {len(training_tasks)} fighters total, {self.n_parallel_fighters} at a time...")
-            print(f"  Episodes per fighter: {episodes_per_fighter}")
-            if len(training_tasks) > self.n_parallel_fighters:
-                batches = (len(training_tasks) + self.n_parallel_fighters - 1) // self.n_parallel_fighters
-                print(f"  Will train in {batches} batches of {self.n_parallel_fighters}")
-            print(f"  Note: PPO alternates between episode collection (physics) and NN training")
-            print()
-
-        # Log to file as well
-        self.logger.info(f"Training {len(training_tasks)} fighters, {self.n_parallel_fighters} at a time")
-        self.logger.info(f"Episodes per fighter: {episodes_per_fighter}")
-        if len(training_tasks) > self.n_parallel_fighters:
-            batches = (len(training_tasks) + self.n_parallel_fighters - 1) // self.n_parallel_fighters
-            self.logger.info(f"Training in {batches} batches of {self.n_parallel_fighters}")
-
-        # Set multiprocessing start method to 'spawn' to avoid TensorFlow/PyTorch issues
-        import multiprocessing as mp
-        mp_context = mp.get_context('spawn')
-
-        import time
-        training_start_time = time.time()
-
-        executor = None
-        cleanup_temp_paths_before_reload = True
-        try:
-            with ProcessPoolExecutor(max_workers=self.n_parallel_fighters, mp_context=mp_context) as executor:
-                # Process tasks in batches to avoid memory issues
-                future_to_fighter = {}
-                future_to_start_time = {}
-                task_queue = list(training_tasks)  # Create a queue of tasks
-                active_futures = set()
-
-                # Submit initial batch (up to n_parallel_fighters tasks)
-                for _ in range(min(self.n_parallel_fighters, len(task_queue))):
-                    if task_queue:
-                        task = task_queue.pop(0)
-                        future = executor.submit(_train_single_fighter_parallel, *task)
-                        fighter_name = task[0]
-                        future_to_fighter[future] = fighter_name
-                        future_to_start_time[future] = time.time()
-                        active_futures.add(future)
-                        if self.verbose:
-                            print(f"    ⏳ Starting: {fighter_name}")
-                        self.logger.info(f"Starting training: {fighter_name}")
-
-                # Collect results as they complete
-                completed_count = 0
-                total_fighters = len(training_tasks)
-
-                if self.verbose:
-                    print()
-                    print(f"  ⏱️  Training in progress (started {total_fighters} fighters)...")
-                    print()
-
-                # Process futures as they complete, including newly submitted ones
-                while active_futures:
-                    # Wait for the next future to complete
-                    done, pending = wait(
-                        active_futures,
-                        return_when=FIRST_COMPLETED
-                    )
-
-                    for future in done:
-                        fighter_name = future_to_fighter[future]
-                        completed_count += 1
-                        elapsed = time.time() - future_to_start_time[future]
-                        active_futures.remove(future)
-
-                        try:
-                            result = future.result(timeout=300)  # 5 minute timeout per fighter
-                            results.append(result)
-                            if self.verbose:
-                                print(f"    ✅ [{completed_count}/{total_fighters}] {fighter_name}: "
-                                      f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
-                                      f"time: {elapsed:.1f}s")
-                            self.logger.info(f"Completed training [{completed_count}/{total_fighters}] {fighter_name}: "
-                                            f"{result['episodes']} episodes, mean reward: {result['mean_reward']:.1f}, "
-                                            f"time: {elapsed:.1f}s")
-
-                            # Show remaining fighters every 2 completions
-                            if completed_count % 2 == 0 and completed_count < total_fighters:
-                                remaining = total_fighters - completed_count
-                                overall_elapsed = time.time() - training_start_time
-                                avg_time = overall_elapsed / completed_count
-                                eta = avg_time * remaining
-                                print(f"       💭 {remaining} fighters still training... (ETA: {int(eta)}s)")
-                                print()
-
-                        except TimeoutError:
-                            self.logger.error(f"Fighter {fighter_name} training timed out after 300s")
-                            if self.verbose:
-                                print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training timed out")
-                        except Exception as e:
-                            import traceback
-                            error_msg = str(e) if str(e) else repr(e)
-                            tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                            self.logger.error(f"Fighter {fighter_name} training failed: {error_msg}\n{tb_str}")
-                            if self.verbose:
-                                if not error_msg or error_msg == "":
-                                    print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Subprocess crashed (likely GPU OOM or segfault)")
-                                else:
-                                    print(f"    ❌ [{completed_count}/{total_fighters}] {fighter_name}: Training failed - {error_msg}")
-
-                        # Submit next task if available
-                        if task_queue:
-                            task = task_queue.pop(0)
-                            future = executor.submit(_train_single_fighter_parallel, *task)
-                            new_fighter_name = task[0]
-                            future_to_fighter[future] = new_fighter_name
-                            future_to_start_time[future] = time.time()
-                            active_futures.add(future)
-                            if self.verbose:
-                                print(f"    ⏳ Starting: {new_fighter_name}")
-                            self.logger.info(f"Starting training: {new_fighter_name}")
-
-                # Training tasks completed successfully; keep temp files for model reload.
-                cleanup_temp_paths_before_reload = False
-
-        except KeyboardInterrupt:
-            if self.verbose:
-                print("\n\n⚠️  Training interrupted by user (Ctrl+C). Cleaning up worker processes...")
-            # Shutdown executor and cancel pending futures
-            if executor is not None:
-                executor.shutdown(wait=False, cancel_futures=True)
-            if self.verbose:
-                print("   Worker processes terminated.")
-            # Re-raise to allow higher-level cleanup
-            raise
-
-        finally:
-            # On interrupts/errors, temp files should be cleaned immediately.
-            if cleanup_temp_paths_before_reload:
-                for temp_path in temp_model_paths.values():
-                    if temp_path.exists():
-                        try:
-                            temp_path.unlink()
-                        except Exception:
-                            pass  # Best effort cleanup
-
-        # Reload updated models back into fighters
-        for fighter, _ in fighter_opponent_pairs:
-            temp_path = temp_model_paths[fighter.name]
-            if temp_path.exists():
-                # Create a simple env for loading
-                env = DummyVecEnv([lambda: Monitor(AtomCombatEnv(
-                    opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"},
-                    config=self.config,
-                    max_ticks=self.max_ticks,
-                    fighter_mass=fighter.mass,
-                    opponent_mass=70.0
-                ))])
-
-                if self.algorithm == "ppo":
-                    fighter.model = PPO.load(temp_path, env=env)
-                else:
-                    fighter.model = SAC.load(temp_path, env=env)
-
-                fighter.training_episodes += episodes_per_fighter
-
-        # Print training summary
-        total_training_time = time.time() - training_start_time
-        if self.verbose and results:
-            print()
-            print("  📊 Training Summary:")
-            print(f"     Total time: {total_training_time:.1f}s ({total_training_time/60:.1f} min)")
-            successful = [r for r in results if 'mean_reward' in r]
-            if successful:
-                mean_rewards = [r['mean_reward'] for r in successful]
-                print(f"     Average reward: {sum(mean_rewards)/len(mean_rewards):.1f}")
-                print(f"     Best reward: {max(mean_rewards):.1f}")
-                print(f"     Worst reward: {min(mean_rewards):.1f}")
-            print(f"     Success rate: {len(successful)}/{len(results)}")
-            if successful:
-                total_episodes = sum(r.get('episodes', 0) for r in successful)
-                print(f"     Total episodes: {total_episodes}")
-                print(f"     Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
-
-        # Log summary to file
-        if results:
-            self.logger.info("Training Summary:")
-            self.logger.info(f"  Total time: {total_training_time:.1f}s ({total_training_time/60:.1f} min)")
-            successful = [r for r in results if 'mean_reward' in r]
-            if successful:
-                mean_rewards = [r['mean_reward'] for r in successful]
-                self.logger.info(f"  Average reward: {sum(mean_rewards)/len(mean_rewards):.1f}")
-                self.logger.info(f"  Best reward: {max(mean_rewards):.1f}")
-                self.logger.info(f"  Worst reward: {min(mean_rewards):.1f}")
-            self.logger.info(f"  Success rate: {len(successful)}/{len(results)}")
-            if successful:
-                total_episodes = sum(r.get('episodes', 0) for r in successful)
-                self.logger.info(f"  Total episodes: {total_episodes}")
-                self.logger.info(f"  Throughput: {total_episodes/total_training_time:.1f} episodes/sec")
-
-        # Clean up temp files now that updated models have been reloaded.
-        for temp_path in temp_model_paths.values():
-            if temp_path.exists():
-                try:
-                    temp_path.unlink()
-                except Exception:
-                    pass  # Best effort cleanup
-
-        return results
+    def _build_parallel_training_context(self) -> ParallelTrainingContext:
+        """Build immutable context passed to parallel orchestration helpers."""
+        return ParallelTrainingContext(
+            models_dir=self.models_dir,
+            logs_dir=self.logs_dir,
+            config=self.config,
+            max_ticks=self.max_ticks,
+            algorithm=self.algorithm,
+            n_envs_per_fighter=self.n_envs_per_fighter,
+            n_parallel_fighters=self.n_parallel_fighters,
+            use_vmap=self.use_vmap,
+            n_vmap_envs=self.n_vmap_envs,
+            generation=self.generation,
+            verbose=self.verbose,
+            logger=self.logger,
+        )
 
     def train_fighter_batch(self,
                            fighter: PopulationFighter,
@@ -1429,100 +1208,25 @@ class PopulationTrainer:
         """
         Run evaluation matches between all fighters to update ELO ratings.
         """
-        self.logger.info(f"Starting evaluation matches with {len(self.population)} fighters")
+        service = PopulationEvaluationService(self._build_evaluation_context())
+        matches_run = service.run(
+            population=self.population,
+            elo_tracker=self.elo_tracker,
+            decision_func_factory=self._get_fighter_decision_func,
+            env_factory=AtomCombatEnv,
+            num_matches_per_pair=num_matches_per_pair,
+        )
+        self.total_matches += matches_run
 
-        if self.verbose:
-            print("\n" + "="*60)
-            print("EVALUATION MATCHES")
-            print("="*60)
-            print(f"Running matches between {len(self.population)} fighters")
-
-        # Get all unique pairs
-        pairs = []
-        for i in range(len(self.population)):
-            for j in range(i+1, len(self.population)):
-                pairs.append((self.population[i], self.population[j]))
-
-        self.logger.info(f"Created {len(pairs)} unique matchups")
-
-        if len(pairs) == 0:
-            self.logger.error("No pairs created for evaluation! Population may be corrupted.")
-            if self.verbose:
-                print("ERROR: No evaluation pairs created!")
-            return
-
-        random.shuffle(pairs)
-
-        # Run matches
-        for fighter_a, fighter_b in pairs:
-            wins_a = 0
-            wins_b = 0
-            total_damage_a = 0
-            total_damage_b = 0
-
-            for _ in range(num_matches_per_pair):
-                # Create environment for the match
-                env = AtomCombatEnv(
-                    opponent_decision_func=self._get_fighter_decision_func(fighter_b),
-                    config=self.config,
-                    max_ticks=self.max_ticks,
-                    fighter_mass=fighter_a.mass,
-                    opponent_mass=fighter_b.mass
-                )
-
-                # Run match
-                obs, _ = env.reset()
-                done = False
-
-                while not done:
-                    action, _ = fighter_a.model.predict(obs, deterministic=True)
-                    obs, reward, terminated, truncated, info = env.step(action)
-                    done = terminated or truncated
-
-                # Record results (handle KO and timeout/HP decisions)
-                outcome = info.get("won")
-                if outcome is True:
-                    wins_a += 1
-                elif outcome is False:
-                    wins_b += 1
-                else:
-                    # Fallback for older env info payloads
-                    fighter_hp = float(info.get("fighter_hp", 0.0))
-                    opponent_hp = float(info.get("opponent_hp", 0.0))
-                    if fighter_hp > opponent_hp:
-                        wins_a += 1
-                    elif opponent_hp > fighter_hp:
-                        wins_b += 1
-
-                total_damage_a += info.get("episode_damage_dealt", 0)
-                total_damage_b += info.get("episode_damage_taken", 0)
-
-                env.close()
-
-            # Determine overall result
-            if wins_a > wins_b:
-                result = "a_wins"
-            elif wins_b > wins_a:
-                result = "b_wins"
-            else:
-                result = "draw"
-
-            # Update ELO ratings
-            new_elo_a, new_elo_b = self.elo_tracker.update_ratings(
-                fighter_a.name,
-                fighter_b.name,
-                result,
-                total_damage_a / num_matches_per_pair,
-                total_damage_b / num_matches_per_pair,
-                {"generation": self.generation}
-            )
-
-            if self.verbose:
-                result_str = f"{fighter_a.name} wins" if result == "a_wins" else \
-                           (f"{fighter_b.name} wins" if result == "b_wins" else "Draw")
-                print(f"  {fighter_a.name} ({new_elo_a:.0f}) vs {fighter_b.name} ({new_elo_b:.0f}): {result_str}")
-
-            self.total_matches += num_matches_per_pair
+    def _build_evaluation_context(self) -> EvaluationContext:
+        """Build immutable context for evaluation helpers."""
+        return EvaluationContext(
+            config=self.config,
+            max_ticks=self.max_ticks,
+            generation=self.generation,
+            verbose=self.verbose,
+            logger=self.logger,
+        )
 
     def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> None:
         """
@@ -1532,137 +1236,44 @@ class PopulationTrainer:
             keep_top: Fraction of population to keep
             mutation_rate: How much to vary the cloned models
         """
-        if self.verbose:
-            print("\n" + "="*60)
-            print("POPULATION EVOLUTION")
-            print("="*60)
+        evolver = PopulationEvolver(self._build_evolution_context())
+        evolver.evolve(
+            population=self.population,
+            elo_tracker=self.elo_tracker,
+            keep_top=keep_top,
+            mutation_rate=mutation_rate,
+            create_fighter_name=self._create_fighter_name,
+            fighter_factory=self._create_population_fighter,
+        )
 
-        rankings = self.elo_tracker.get_rankings()
-        keep_count = max(2, int(len(self.population) * keep_top))
+    def _build_evolution_context(self) -> EvolutionContext:
+        """Build immutable context passed to population evolution helpers."""
+        return EvolutionContext(
+            config=self.config,
+            max_ticks=self.max_ticks,
+            mass_range=self.mass_range,
+            generation=self.generation,
+            algorithm=self.algorithm,
+            verbose=self.verbose,
+            logger=self.logger,
+        )
 
-        # Get rankings for ONLY the current population fighters
-        population_names = {f.name for f in self.population}
-        population_rankings = [(i, stats) for i, stats in enumerate(rankings)
-                              if stats.name in population_names]
-
-        # Sort current population by their global ELO rank
-        population_by_rank = sorted(self.population,
-                                   key=lambda f: next((i for i, s in population_rankings if s.name == f.name), 999))
-
-        # Identify survivors and those to replace based on relative ranking in current population
-        survivors = population_by_rank[:keep_count]
-        to_replace = population_by_rank[keep_count:]
-
-        if self.verbose:
-            print(f"  Keeping top {len(survivors)} fighters")
-            print(f"  Replacing {len(to_replace)} fighters")
-
-        # Replace weak fighters with mutations of strong ones
-        for i, old_fighter in enumerate(to_replace):
-            # Select a parent from survivors (weighted by ELO)
-            parent = random.choice(survivors)
-
-            # Create new fighter name
-            new_name = self._create_fighter_name(
-                self.population.index(old_fighter),
-                self.generation
-            )
-
-            # Vary the mass slightly
-            mass_variation = np.random.uniform(-5, 5)
-            new_mass = np.clip(parent.mass + mass_variation, *self.mass_range)
-
-            # Clone the parent's model
-            env = DummyVecEnv([lambda: Monitor(AtomCombatEnv(
-                opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"},
-                config=self.config,
-                max_ticks=self.max_ticks,
-                fighter_mass=new_mass,
-                opponent_mass=70.0
-            ))])
-
-            if self.algorithm == "ppo":
-                # Load parent model - save temporarily if no checkpoint exists
-                if parent.last_checkpoint:
-                    parent_path = parent.last_checkpoint
-                else:
-                    # Save temporarily for loading
-                    import tempfile
-                    temp_dir = Path(tempfile.mkdtemp())
-                    parent_path = temp_dir / f"{parent.name}_temp.zip"
-                    parent.model.save(parent_path)
-
-                new_model = PPO.load(parent_path, env=env)
-
-                # Clean up temp file if we created one
-                if not parent.last_checkpoint:
-                    parent_path.unlink()
-                    parent_path.parent.rmdir()
-
-                # Apply mutation by slightly changing learning rate
-                new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
-
-                # IMPORTANT: Also mutate the actual neural network weights!
-                import torch
-                with torch.no_grad():
-                    for param in new_model.policy.parameters():
-                        # Add Gaussian noise to weights
-                        # Scale noise by mutation_rate and parameter std
-                        noise_scale = mutation_rate * 0.1  # 0.1 is base noise level
-                        noise = torch.randn_like(param) * noise_scale
-                        param.data.add_(noise)
-
-            else:  # SAC
-                # Load parent model - save temporarily if no checkpoint exists
-                if parent.last_checkpoint:
-                    parent_path = parent.last_checkpoint
-                else:
-                    # Save temporarily for loading
-                    import tempfile
-                    temp_dir = Path(tempfile.mkdtemp())
-                    parent_path = temp_dir / f"{parent.name}_temp.zip"
-                    parent.model.save(parent_path)
-
-                new_model = SAC.load(parent_path, env=env)
-
-                # Clean up temp file if we created one
-                if not parent.last_checkpoint:
-                    parent_path.unlink()
-                    parent_path.parent.rmdir()
-
-                new_model.learning_rate *= (1 + np.random.uniform(-mutation_rate, mutation_rate))
-
-                # IMPORTANT: Also mutate the actual neural network weights!
-                import torch
-                with torch.no_grad():
-                    for param in new_model.policy.parameters():
-                        # Add Gaussian noise to weights
-                        noise_scale = mutation_rate * 0.1  # 0.1 is base noise level
-                        noise = torch.randn_like(param) * noise_scale
-                        param.data.add_(noise)
-
-            # Create new fighter
-            new_fighter = PopulationFighter(
-                name=new_name,
-                model=new_model,
-                generation=self.generation,
-                lineage=f"{parent.name}→{new_name}",
-                mass=new_mass
-            )
-
-            # Replace in population
-            idx = self.population.index(old_fighter)
-            self.population[idx] = new_fighter
-
-            # Remove old fighter from ELO tracker before adding new one
-            self.elo_tracker.remove_fighter(old_fighter.name)
-            # Add new fighter to ELO tracker (starts at default ELO)
-            self.elo_tracker.add_fighter(new_name)
-
-            if self.verbose:
-                print(f"    Replaced {old_fighter.name} with {new_name} (child of {parent.name})")
-
-        self.logger.info(f"Evolved to generation {self.generation}")
+    def _create_population_fighter(
+        self,
+        name: str,
+        model: Any,
+        generation: int,
+        lineage: str,
+        mass: float,
+    ) -> PopulationFighter:
+        """Factory wrapper for creating population fighters during evolution."""
+        return PopulationFighter(
+            name=name,
+            model=model,
+            generation=generation,
+            lineage=lineage,
+            mass=mass,
+        )
 
     def save_population(self, min_win_rate: float = None) -> None:
         """
@@ -1675,28 +1286,33 @@ class PopulationTrainer:
         """
         if min_win_rate is None:
             min_win_rate = self.export_threshold
-        generation_dir = self.models_dir / f"generation_{self.generation}"
-        generation_dir.mkdir(exist_ok=True)
-
-        for fighter in self.population:
-            model_path = generation_dir / f"{fighter.name}.zip"
-            fighter.model.save(model_path)
-            fighter.last_checkpoint = str(model_path)
-
-        # Save ELO rankings
-        rankings_file = generation_dir / "rankings.txt"
-        with open(rankings_file, 'w') as f:
-            f.write(f"Generation {self.generation} Rankings\n")
-            f.write("="*60 + "\n")
-            for i, stats in enumerate(self.elo_tracker.get_rankings(), 1):
-                f.write(f"{i}. {stats.name}: ELO={stats.elo:.0f}, "
-                       f"Record={stats.wins}-{stats.losses}-{stats.draws}\n")
+        persistence = self._build_population_persistence_service()
+        generation_dir = persistence.generation_dir()
+        persistence.save_generation_models(self.population, generation_dir)
+        persistence.write_rankings_file(self.elo_tracker.get_rankings(), generation_dir)
 
         # Export qualifying fighters to AIs directory
         self._export_qualifying_fighters(min_win_rate)
 
         if self.verbose:
             print(f"\nSaved generation {self.generation} to {generation_dir}")
+
+    def _build_population_persistence_context(self) -> PopulationPersistenceContext:
+        """Build immutable context for persistence/export helpers."""
+        project_root = Path(__file__).parent.parent.parent.parent.parent
+        return PopulationPersistenceContext(
+            models_dir=self.models_dir,
+            project_root=project_root,
+            algorithm=self.algorithm,
+            population_size=self.population_size,
+            generation=self.generation,
+            verbose=self.verbose,
+            logger=self.logger,
+        )
+
+    def _build_population_persistence_service(self) -> PopulationPersistenceService:
+        """Create a persistence/export helper service for current trainer state."""
+        return PopulationPersistenceService(self._build_population_persistence_context())
 
     def _export_qualifying_fighters(self, min_win_rate: float = 0.5) -> None:
         """
@@ -1712,11 +1328,8 @@ class PopulationTrainer:
         """
         # Calculate win rates for all fighters
         rankings = self.elo_tracker.get_rankings()
-
-        # Determine project root (where atom_fight.py is)
-        project_root = Path(__file__).parent.parent.parent.parent.parent
-        ais_dir = project_root / "fighters" / "AIs"
-        ais_dir.mkdir(parents=True, exist_ok=True)
+        persistence = self._build_population_persistence_service()
+        ais_dir = persistence.resolve_ais_dir()
 
         exported_count = 0
 
@@ -1727,11 +1340,7 @@ class PopulationTrainer:
                 continue
 
             # Calculate win rate
-            total_matches = stats.wins + stats.losses + stats.draws
-            if total_matches == 0:
-                win_rate = 0.0
-            else:
-                win_rate = (stats.wins + 0.5 * stats.draws) / total_matches
+            win_rate = persistence.compute_win_rate(stats)
 
             # Check if fighter qualifies
             if win_rate >= min_win_rate:
@@ -1756,126 +1365,26 @@ class PopulationTrainer:
 
         Creates a folder with ONNX model, Python wrapper, and README.
         """
-        # Create fighter directory
-        fighter_dir = ais_dir / fighter.name
-        fighter_dir.mkdir(parents=True, exist_ok=True)
-
-        # Export model to ONNX
-        onnx_path = fighter_dir / f"{fighter.name}.onnx"
-        self._export_model_to_onnx(fighter.model, onnx_path)
-
-        # Create Python wrapper
-        py_path = fighter_dir / f"{fighter.name}.py"
-        self._create_fighter_wrapper(fighter, py_path, onnx_path.name)
-
-        # Create README
-        readme_path = fighter_dir / "README.md"
-        self._create_fighter_readme(fighter, stats, win_rate, readme_path)
+        persistence = self._build_population_persistence_service()
+        fighter_dir = persistence.export_fighter_bundle(
+            fighter=fighter,
+            stats=stats,
+            win_rate=win_rate,
+            ais_dir=ais_dir,
+        )
 
         if self.verbose:
             print(f"  📦 Exported {fighter.name} (WR: {win_rate:.1%}, ELO: {stats.elo:.0f}) to {fighter_dir}")
 
     def _export_model_to_onnx(self, model, output_path: Path) -> None:
         """Export a Stable-Baselines3 model to ONNX format."""
-        import torch
-
-        # Get the policy network
-        policy = model.policy
-
-        # Create dummy input matching the trained observation dimensionality.
-        obs_shape = tuple(model.observation_space.shape)
-        if len(obs_shape) != 1:
-            raise ValueError(f"Expected 1D observation space, got shape={obs_shape}")
-        dummy_input = torch.zeros((1, obs_shape[0]), dtype=torch.float32)
-
-        # Export to ONNX
-        # Note: Using opset 17 instead of 12 because PyTorch 2.x requires opset 17+
-        # Modern browsers and onnxruntime support opset 17
-        torch.onnx.export(
-            policy,
-            dummy_input,
-            str(output_path),
-            input_names=["observation"],
-            output_names=["action"],
-            dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
-            opset_version=17
-        )
+        persistence = self._build_population_persistence_service()
+        persistence.export_model_to_onnx(model, output_path)
 
     def _create_fighter_wrapper(self, fighter: PopulationFighter, output_path: Path, onnx_filename: str) -> None:
         """Create a Python wrapper file with decide() function for atom_fight.py."""
-        template = f'''"""
-{fighter.name} - Trained AI Fighter
-
-Generation: {fighter.generation}
-Lineage: {fighter.lineage}
-Mass: {fighter.mass:.1f}kg
-Training Episodes: {fighter.training_episodes}
-
-Auto-generated wrapper for trained ONNX model.
-Compatible with atom_fight.py
-"""
-
-import numpy as np
-import onnxruntime as ort
-from pathlib import Path
-from src.training.signal_engine import build_observation_from_snapshot
-
-# ONNX model path (relative to this file)
-ONNX_MODEL = "{onnx_filename}"
-
-# Global session (loaded once)
-_session = None
-_stance_names = ["neutral", "extended", "defending"]
-
-
-def _load_session():
-    """Load ONNX session (lazy loading)."""
-    global _session
-    if _session is None:
-        model_path = Path(__file__).parent / ONNX_MODEL
-        _session = ort.InferenceSession(str(model_path))
-    return _session
-
-
-def decide(snapshot):
-    """
-    Decision function for trained fighter.
-
-    Args:
-        snapshot: Combat snapshot from the arena
-            - you: dict with position, velocity, hp, max_hp, stamina, max_stamina
-            - opponent: dict with distance, velocity, hp, max_hp, stamina, max_stamina
-            - arena: dict with width
-
-    Returns:
-        dict with:
-            - acceleration: float (-4.5 to +4.5)
-            - stance: str ("neutral", "extended", "defending")
-    """
-    session = _load_session()
-
-    obs = build_observation_from_snapshot(snapshot).reshape(1, -1)
-
-    # Run inference
-    input_name = session.get_inputs()[0].name
-    output_names = [output.name for output in session.get_outputs()]
-    outputs = session.run(output_names, {{input_name: obs}})
-
-    # Parse action
-    # Action space is Box: [acceleration_normalized, stance_selector]
-    action = outputs[0][0]
-    acceleration_normalized = np.clip(action[0], -1.0, 1.0)
-    stance_idx = int(np.clip(action[1], 0, 2))
-
-    # Scale acceleration (max_acceleration = 4.5)
-    acceleration = float(acceleration_normalized * 4.5)
-    stance = _stance_names[stance_idx]
-
-    return {{"acceleration": acceleration, "stance": stance}}
-'''
-
-        with open(output_path, 'w') as f:
-            f.write(template)
+        persistence = self._build_population_persistence_service()
+        persistence.create_fighter_wrapper(fighter, output_path, onnx_filename)
 
     def _create_fighter_readme(self,
                                fighter: PopulationFighter,
@@ -1883,75 +1392,30 @@ def decide(snapshot):
                                win_rate: float,
                                output_path: Path) -> None:
         """Create a README.md file with fighter stats and usage info."""
-        total_matches = stats.wins + stats.losses + stats.draws
+        persistence = self._build_population_persistence_service()
+        persistence.create_fighter_readme(fighter, stats, win_rate, output_path)
 
-        readme = f'''# {fighter.name}
-
-Trained AI Fighter from Population-Based Training
-
-## Stats
-
-- **Generation**: {fighter.generation}
-- **Lineage**: {fighter.lineage}
-- **Mass**: {fighter.mass:.1f}kg
-- **Training Episodes**: {fighter.training_episodes}
-
-### Performance Metrics
-
-- **ELO Rating**: {stats.elo:.0f}
-- **Win Rate**: {win_rate:.1%}
-- **Record**: {stats.wins}W - {stats.losses}L - {stats.draws}D
-- **Total Matches**: {total_matches}
-
-## Usage
-
-This fighter is compatible with `atom_fight.py`:
-
-```bash
-# Fight against another AI
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py
-
-# Watch the fight in terminal
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/tank.py --watch
-
-# Generate HTML replay
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/balanced.py --html replay.html
-
-# Custom mass (if different from trained mass)
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py --mass-a {fighter.mass:.0f}
-```
-
-## Files
-
-- `{fighter.name}.py` - Python wrapper with decide() function
-- `{fighter.name}.onnx` - ONNX model (neural network weights)
-- `README.md` - This file
-
-## Requirements
-
-```bash
-pip install onnxruntime numpy
-```
-
-## Strategy
-
-This fighter learned its strategy through population-based training, competing against
-other evolving AI fighters. Its behavior emerged from reinforcement learning rather than
-being hand-coded.
-
-**Training Algorithm**: {self.algorithm.upper()}
-**Population Size**: {self.population_size}
-**Generation**: {self.generation}
-
-## Notes
-
-- The fighter was trained at {fighter.mass:.1f}kg mass. Performance may vary with different masses.
-- Win rate of {win_rate:.1%} was achieved against the training population.
-- The ONNX model requires `onnxruntime` to run inference.
-'''
-
-        with open(output_path, 'w') as f:
-            f.write(readme)
+    def _build_training_loop_context(
+        self,
+        generations: int,
+        episodes_per_generation: int,
+        evolution_frequency: int,
+        keep_top: float,
+        mutation_rate: float,
+    ) -> PopulationTrainingLoopContext:
+        """Build immutable context used by train-loop helper utilities."""
+        return PopulationTrainingLoopContext(
+            population_size=self.population_size,
+            generations=generations,
+            episodes_per_generation=episodes_per_generation,
+            evolution_frequency=evolution_frequency,
+            keep_top=keep_top,
+            mutation_rate=mutation_rate,
+            replay_recording_frequency=self.replay_recording_frequency,
+            replay_matches_per_pair=self.replay_matches_per_pair,
+            verbose=self.verbose,
+            logger=self.logger,
+        )
 
     def train(self,
              generations: int = 10,
@@ -1971,17 +1435,16 @@ being hand-coded.
             keep_top: Fraction of population to keep during evolution
             mutation_rate: Strength of mutations (0.1 = 10% noise added to weights)
         """
-        if self.verbose:
-            print("\n" + "="*80)
-            print("STARTING POPULATION TRAINING")
-            print("="*80)
-            print(f"Population Size: {self.population_size}")
-            print(f"Generations: {generations}")
-            print(f"Episodes per Generation: {episodes_per_generation}")
-            print(f"Evolution Frequency: Every {evolution_frequency} generations")
-            if base_model_path:
-                print(f"Base Model: {base_model_path}")
-            print("="*80)
+        loop_helper = PopulationTrainingLoopHelper(
+            self._build_training_loop_context(
+                generations=generations,
+                episodes_per_generation=episodes_per_generation,
+                evolution_frequency=evolution_frequency,
+                keep_top=keep_top,
+                mutation_rate=mutation_rate,
+            )
+        )
+        loop_helper.print_start_banner(base_model_path=base_model_path)
 
         # Initialize population if empty
         if not self.population:
@@ -1989,77 +1452,40 @@ being hand-coded.
 
         # Training loop
         for gen in range(generations):
-            if self.verbose:
-                print(f"\n{'='*80}")
-                print(f"GENERATION {self.generation + 1}/{generations}")
-                print(f"{'='*80}")
-            self.logger.info(f"{'='*80}")
-            self.logger.info(f"GENERATION {self.generation + 1}/{generations}")
-            self.logger.info(f"{'='*80}")
+            loop_helper.log_generation_header(current_generation=self.generation + 1)
 
             # Create matchmaking pairs
             pairs = self.create_matchmaking_pairs()
 
             # Prepare fighter-opponent pairs for parallel training
-            fighter_opponent_pairs = []
-            for fighter in self.population:
-                # Select opponents for this fighter
-                opponents = [
-                    opp for pair in pairs
-                    for opp in [pair[0], pair[1]]
-                    if pair[0] == fighter or pair[1] == fighter
-                    if opp != fighter
-                ]
-
-                # If no opponents from pairs, use random selection
-                if not opponents:
-                    opponents = [f for f in self.population if f != fighter]
-                    opponents = random.sample(opponents, min(3, len(opponents)))
-
-                fighter_opponent_pairs.append((fighter, opponents))
+            fighter_opponent_pairs = loop_helper.build_fighter_opponent_pairs(self.population, pairs)
 
             # Train all fighters in parallel
-            if self.verbose:
-                print(f"\n🚀 Training {len(self.population)} fighters in parallel...")
-            self.logger.info(f"Training {len(self.population)} fighters in parallel")
+            loop_helper.log_generation_training_start(population_size=len(self.population))
 
             results = self.train_fighters_parallel(
                 fighter_opponent_pairs,
                 episodes_per_fighter=episodes_per_generation // len(self.population)
             )
 
-            if self.verbose and results:
-                mean_reward_overall = np.mean([r['mean_reward'] for r in results])
-                total_episodes = sum(r['episodes'] for r in results)
-                print(f"  ✓ Completed {total_episodes} episodes total, "
-                      f"mean reward: {mean_reward_overall:.1f}")
-            if results:
-                mean_reward_overall = np.mean([r['mean_reward'] for r in results])
-                total_episodes = sum(r['episodes'] for r in results)
-                self.logger.info(f"Generation training complete: {total_episodes} episodes total, "
-                                f"mean reward: {mean_reward_overall:.1f}")
+            loop_helper.log_generation_training_summary(results)
 
             # Evaluation matches
             self.run_evaluation_matches(num_matches_per_pair=3)
 
             # Record replays if enabled (based on frequency)
-            if self.replay_recorder and (gen + 1) % self.replay_recording_frequency == 0:
-                try:
-                    self.replay_recorder.record_population_generation(
-                        generation=self.generation + 1,
-                        fighters=self.population,
-                        num_matches_per_pair=self.replay_matches_per_pair
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to record replays for generation {self.generation + 1}: {e}")
+            loop_helper.maybe_record_replays(
+                replay_recorder=self.replay_recorder,
+                population=self.population,
+                generation_zero_based=gen,
+                trainer_generation=self.generation,
+            )
 
             # Show leaderboard (only active fighters)
-            if self.verbose:
-                active_names = [f.name for f in self.population]
-                self.elo_tracker.print_leaderboard(active_only=active_names)
+            loop_helper.maybe_show_leaderboard(self.elo_tracker, self.population)
 
             # Evolution
-            if (gen + 1) % evolution_frequency == 0 and gen < generations - 1:
+            if loop_helper.should_evolve(gen):
                 self.evolve_population(keep_top=keep_top, mutation_rate=mutation_rate)
 
             # Save checkpoint
@@ -2068,41 +1494,9 @@ being hand-coded.
             self.generation += 1
 
         # Final report
-        if self.verbose:
-            print("\n" + "="*80)
-            print("TRAINING COMPLETE")
-            print("="*80)
-            print(f"Total Generations: {self.generation}")
-            print(f"Total Matches: {self.total_matches}")
-            print("\nFinal Rankings (All Time):")
-            self.elo_tracker.print_leaderboard()  # Show all fighters for historical record
-
-            # Show diversity metrics
-            metrics = self.elo_tracker.get_diversity_metrics()
-            print(f"\nPopulation Diversity:")
-            print(f"  ELO Spread: {metrics['elo_range']:.0f}")
-            print(f"  ELO Std Dev: {metrics['elo_std']:.1f}")
-            if 'win_rate_std' in metrics:
-                print(f"  Win Rate Variance: {metrics['win_rate_std']:.3f}")
-
-        # Log final report to file
-        self.logger.info("="*80)
-        self.logger.info("TRAINING COMPLETE")
-        self.logger.info("="*80)
-        self.logger.info(f"Total Generations: {self.generation}")
-        self.logger.info(f"Total Matches: {self.total_matches}")
-
-        # Log diversity metrics
-        metrics = self.elo_tracker.get_diversity_metrics()
-        self.logger.info("Population Diversity:")
-        self.logger.info(f"  ELO Spread: {metrics['elo_range']:.0f}")
-        self.logger.info(f"  ELO Std Dev: {metrics['elo_std']:.1f}")
-        if 'win_rate_std' in metrics:
-            self.logger.info(f"  Win Rate Variance: {metrics['win_rate_std']:.3f}")
-
-        # Save replay index if recording was enabled
-        if self.replay_recorder:
-            self.replay_recorder.save_replay_index()
-
-        self.logger.info("Training complete")
-        self.logger.info(f"Final generation: {self.generation}")
+        loop_helper.print_and_log_final_report(
+            generation=self.generation,
+            total_matches=self.total_matches,
+            elo_tracker=self.elo_tracker,
+            replay_recorder=self.replay_recorder,
+        )

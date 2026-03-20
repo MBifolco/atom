@@ -176,6 +176,27 @@ Exit criteria:
 - Population training critical paths are covered by focused tests.
 - Large monolithic methods are replaced by composable units.
 
+Phase 4 status (updated 2026-03-19):
+- Completed (slice 1): extracted population parallel process orchestration from `PopulationTrainer.train_fighters_parallel()` into `parallel_orchestrator.py`.
+- Completed (slice 1): introduced `TrainingWorker` abstraction for pluggable worker execution strategy while keeping subprocess entrypoint compatibility.
+- Completed (slice 1): introduced `ModelArtifactStore` to consolidate temp model save/reload/cleanup interfaces used by parallel training flow.
+- Completed (slice 1): `PopulationTrainer.train_fighters_parallel()` now delegates through a thin orchestration wrapper and immutable `ParallelTrainingContext`.
+- Completed (slice 1): added focused orchestration tests in `tests/test_population_parallel_orchestrator.py` and verified existing train-fighters-parallel comprehensive tests still pass.
+- Completed (slice 2): extracted population selection + mutation lifecycle into `population_evolution.py` with `PopulationEvolver` and immutable `EvolutionContext`.
+- Completed (slice 2): `PopulationTrainer.evolve_population()` now delegates to evolution helpers through thin context/factory wrappers.
+- Completed (slice 2): added focused evolution tests in `tests/test_population_evolution.py` and verified checkpoint-backed evolution compatibility via targeted comprehensive test selection.
+- Completed (slice 3): extracted generation save/export responsibilities into `population_persistence.py` with `PopulationPersistenceService` and immutable `PopulationPersistenceContext`.
+- Completed (slice 3): `save_population` and export helper methods now delegate to persistence service while preserving existing `PopulationTrainer` wrapper method signatures for test/tool compatibility.
+- Completed (slice 3): added focused persistence tests in `tests/test_population_persistence.py` and verified export/save compatibility via targeted comprehensive test selection.
+- Completed (slice 4): extracted evaluation match execution into `population_evaluation.py` with `PopulationEvaluationService` and immutable `EvaluationContext`.
+- Completed (slice 4): `PopulationTrainer.run_evaluation_matches()` now delegates via injected env/decision factories, preserving existing test patch points and trainer-level behavior.
+- Completed (slice 4): added focused evaluation tests in `tests/test_population_evaluation.py` and verified comprehensive evaluation test subsets plus prior Phase 4 component suites.
+- Completed (slice 5): extracted generation-loop orchestration utilities from `PopulationTrainer.train()` into `population_training_loop.py` with `PopulationTrainingLoopHelper` and immutable `PopulationTrainingLoopContext`.
+- Completed (slice 5): `train()` now delegates banner/header/reporting, opponent-pair construction, replay hooks, and evolution scheduling through loop helper utilities.
+- Completed (slice 5): added focused loop-helper tests in `tests/test_population_training_loop.py` and verified targeted comprehensive subsets for train/evaluate/save/evolve/parallel paths.
+- Completed (slice 6): consolidated duplicated component protocols into `population_protocols.py` and updated evaluation/evolution/orchestration modules to use shared interfaces.
+- Completed (slice 6): performed import hygiene and minor module cleanup in `population_trainer.py` (removed unused imports while preserving behavior/test patch points).
+
 ### Phase 5: Colab and Operationalization
 
 Goals:
