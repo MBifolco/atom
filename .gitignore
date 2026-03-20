@@ -41,6 +41,8 @@ outputs/replays/
 # IDE
 .vscode/
 .idea/
+.claude/
+.ipynb_checkpoints/
 *.swp
 *.swo
 *~
