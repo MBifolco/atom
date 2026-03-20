@@ -516,6 +516,66 @@ def test_level_runner_restores_training_state_on_nan_restart():
         assert restored_states[0] == current_state
 
 
+def test_level_runner_uses_restored_env_for_checkpoint_load():
+    logger = _make_logger()
+
+    class FakeModel:
+        load_calls = 0
+        load_envs = []
+        nan_raised = False
+
+        def __init__(self):
+            self.learning_rate = 1e-3
+
+        def save(self, path):
+            Path(path).write_text("model")
+
+        def learn(self, **kwargs):
+            if not FakeModel.nan_raised:
+                FakeModel.nan_raised = True
+                raise ValueError("invalid values in Normal distribution: nan")
+            return self
+
+        @classmethod
+        def load(cls, path, env=None):
+            cls.load_calls += 1
+            cls.load_envs.append(env)
+            return cls()
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=1,
+            max_retries=3,
+            base_backoff_seconds=0.0,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=12, episode_rewards=[])
+
+        old_env = object()
+        new_env = object()
+        env_box = {"env": old_env}
+
+        runner.run(
+            model=FakeModel(),
+            envs=old_env,
+            callback=callback,
+            total_timesteps=100,
+            verbose=False,
+            current_level_getter=lambda: 0,
+            training_state_getter=lambda: {"progress": {"current_level": 1}},
+            training_state_restorer=lambda state: env_box.__setitem__("env", new_env),
+            model_update_fn=lambda _model: None,
+            env_getter=lambda: env_box["env"],
+            sleep_fn=lambda _seconds: None,
+        )
+
+        assert FakeModel.load_calls == 1
+        assert FakeModel.load_envs[-1] is new_env
+
+
 def test_level_transition_state_machine_resets_level_metrics():
     progress = SimpleNamespace(
         current_level=0,

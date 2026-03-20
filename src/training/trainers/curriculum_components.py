@@ -499,6 +499,7 @@ class LevelRunner:
         training_state_getter: Optional[Callable[[], dict]] = None,
         training_state_restorer: Optional[Callable[[dict], None]] = None,
         model_update_fn: Optional[Callable[[Any], None]] = None,
+        env_getter: Optional[Callable[[], Any]] = None,
         sleep_fn: Optional[Callable[[float], None]] = None,
     ):
         if sleep_fn is None:
@@ -514,6 +515,11 @@ class LevelRunner:
         if model_update_fn is not None:
             model_update_fn(model)
 
+        def _current_envs():
+            if env_getter is not None:
+                return env_getter()
+            return envs
+
         def _capture_training_state() -> Optional[dict]:
             if training_state_getter is None:
                 return None
@@ -523,7 +529,7 @@ class LevelRunner:
             nonlocal last_checkpoint
             bundle = self.recovery_manager.save_checkpoint_bundle(
                 model=model,
-                envs=envs,
+                envs=_current_envs(),
                 step=step,
                 training_state=_capture_training_state(),
                 verbose=verbose,
@@ -535,7 +541,7 @@ class LevelRunner:
             try:
                 checkpoint_bundle = self.recovery_manager.maybe_save_checkpoint(
                     model=model,
-                    envs=envs,
+                    envs=_current_envs(),
                     step=start_timestep,
                     verbose=verbose,
                     training_state=_capture_training_state(),
@@ -584,16 +590,16 @@ class LevelRunner:
                 if nan_retries < self.recovery_manager.max_retries and last_checkpoint:
                     self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint.model_path}")
                     try:
-                        model, new_lr = self.recovery_manager.recover_model_from_checkpoint(
-                            model,
-                            last_checkpoint.model_path,
-                            envs,
-                        )
-
                         if training_state_restorer is not None:
                             state = self.recovery_manager.load_checkpoint_training_state(last_checkpoint)
                             if state is not None:
                                 training_state_restorer(state)
+
+                        model, new_lr = self.recovery_manager.recover_model_from_checkpoint(
+                            model,
+                            last_checkpoint.model_path,
+                            _current_envs(),
+                        )
 
                         if model_update_fn is not None:
                             model_update_fn(model)

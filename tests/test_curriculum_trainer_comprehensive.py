@@ -707,6 +707,136 @@ class TestCurriculumTrainerLogging:
             assert len(log_files) == 1
 
 
+class TestCurriculumTrainerStateRestore:
+    """Tests for training state capture/restore behavior."""
+
+    def test_capture_and_restore_training_state_roundtrip(self):
+        """Captured state should restore progress and callback buffers."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(
+                output_dir=tmpdir,
+                verbose=False
+            )
+            callback = CurriculumCallback(trainer, verbose=0)
+
+            trainer.progress.current_level = 0
+            trainer.progress.episodes_at_level = 123
+            trainer.progress.wins_at_level = 77
+            trainer.progress.recent_episodes = [True, False, True]
+            trainer.progress.graduated_levels = ["Fundamentals"]
+            trainer.progress.total_episodes = 456
+            trainer.progress.total_wins = 300
+            trainer.progress.recent_rewards = [10.0, 20.0]
+            trainer.progress.recent_reward_breakdowns = [{"damage": 2.0}]
+
+            callback.episode_rewards = [1.0, 2.0, 3.0]
+            callback.episode_wins = [True, False, True]
+            callback.recent_reward_components = [{"damage": 4.0}]
+            callback.rollout_count = 9
+
+            state = trainer._capture_training_state(callback)
+
+            trainer.progress.episodes_at_level = 0
+            trainer.progress.wins_at_level = 0
+            trainer.progress.recent_episodes = []
+            trainer.progress.graduated_levels = []
+            trainer.progress.total_episodes = 0
+            trainer.progress.total_wins = 0
+            trainer.progress.recent_rewards = []
+            trainer.progress.recent_reward_breakdowns = []
+            callback.episode_rewards = []
+            callback.episode_wins = []
+            callback.recent_reward_components = []
+            callback.rollout_count = 0
+
+            trainer._restore_training_state(callback, state)
+
+            assert trainer.progress.episodes_at_level == 123
+            assert trainer.progress.wins_at_level == 77
+            assert trainer.progress.recent_episodes == [True, False, True]
+            assert trainer.progress.graduated_levels == ["Fundamentals"]
+            assert trainer.progress.total_episodes == 456
+            assert trainer.progress.total_wins == 300
+            assert trainer.progress.recent_rewards == [10.0, 20.0]
+            assert trainer.progress.recent_reward_breakdowns == [{"damage": 2.0}]
+            assert callback.episode_rewards == [1.0, 2.0, 3.0]
+            assert callback.episode_wins == [True, False, True]
+            assert callback.recent_reward_components == [{"damage": 4.0}]
+            assert callback.rollout_count == 9
+
+    def test_restore_resyncs_non_vmap_env_when_level_changes(self):
+        """Non-vmap restore should switch opponents on existing envs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(
+                output_dir=tmpdir,
+                verbose=False,
+                use_vmap=False,
+            )
+            callback = CurriculumCallback(trainer, verbose=0)
+
+            trainer.model = Mock()
+            trainer.envs = Mock()
+            trainer.progress.current_level = 0
+            trainer.load_opponent = Mock(return_value=lambda _state: {"acceleration": 0.0, "stance": "neutral"})
+
+            state = {
+                "progress": {
+                    "current_level": 1,
+                    "episodes_at_level": 10,
+                    "wins_at_level": 6,
+                    "recent_episodes": [True, False],
+                    "graduated_levels": ["Fundamentals"],
+                    "total_episodes": 10,
+                    "total_wins": 6,
+                },
+                "callback": {},
+            }
+
+            trainer._restore_training_state(callback, state)
+
+            assert trainer.progress.current_level == 1
+            assert trainer.envs.env_method.call_count == trainer.n_envs
+            method_names = [call.args[0] for call in trainer.envs.env_method.call_args_list]
+            assert all(name == "set_opponent" for name in method_names)
+
+    def test_restore_resyncs_vmap_env_when_level_changes(self):
+        """Vmap restore should recreate envs and rebind model env."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(
+                output_dir=tmpdir,
+                verbose=False,
+                use_vmap=True,
+            )
+            callback = CurriculumCallback(trainer, verbose=0)
+
+            old_env = Mock()
+            new_env = Mock()
+            trainer.envs = old_env
+            trainer.model = Mock()
+            trainer.create_envs_for_level = Mock(return_value=new_env)
+            trainer.progress.current_level = 0
+
+            state = {
+                "progress": {
+                    "current_level": 1,
+                    "episodes_at_level": 22,
+                    "wins_at_level": 12,
+                    "recent_episodes": [True, True, False],
+                    "graduated_levels": ["Fundamentals"],
+                    "total_episodes": 22,
+                    "total_wins": 12,
+                },
+                "callback": {},
+            }
+
+            trainer._restore_training_state(callback, state)
+
+            assert trainer.progress.current_level == 1
+            assert trainer.envs is new_env
+            trainer.model.set_env.assert_called_once_with(new_env)
+            old_env.close.assert_called_once()
+
+
 class TestCurriculumCallbackVerbose:
     """Tests for verbose callback paths."""
 

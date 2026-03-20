@@ -149,6 +149,14 @@ Phase 3 status (updated 2026-03-19):
   - mid-level checkpoint state roundtrip
   - post-level-transition checkpoint state roundtrip
   - NaN restart state restoration path in `LevelRunner`
+- Completed (slice 2): recovery now resolves environments dynamically (`env_getter`) so checkpoint load/retry paths use post-restore env state instead of stale pre-transition env references.
+- Completed (slice 2): forced-failure resume coverage now includes latest-checkpoint recovery boundary assertions (verifies restore/load uses most recent periodic checkpoint state).
+- Completed (slice 2): trainer-level state restore tests now cover:
+  - progress/callback capture+restore roundtrip
+  - non-vmap level-change resync (`set_opponent` path)
+  - vmap level-change resync (recreate env + `model.set_env`)
+- Remaining before Phase 3 gate sign-off:
+  - longer local smoke-resume scenario against the real training loop (timeboxed)
 
 ### Phase 4: Population Trainer Refactor
 

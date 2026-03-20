@@ -849,6 +849,7 @@ class CurriculumTrainer:
                 training_state_getter=lambda: self._capture_training_state(callback),
                 training_state_restorer=lambda state: self._restore_training_state(callback, state),
                 model_update_fn=lambda recovered_model: setattr(self, "model", recovered_model),
+                env_getter=lambda: self.envs,
             )
         except CurriculumTrainingError as exc:
             self._log_training_loop_error(exc)
