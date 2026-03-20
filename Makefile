@@ -1,4 +1,4 @@
-.PHONY: install-test-deps test test-unit test-integration test-training test-e2e test-slow baseline-local coverage coverage-report clean
+.PHONY: install-test-deps test test-unit test-integration test-training test-e2e test-slow baseline-local coverage coverage-report docs-links clean
 
 install-test-deps:
 	pip install -r requirements.txt
@@ -29,6 +29,9 @@ coverage:
 
 coverage-report:
 	coverage report --show-missing
+
+docs-links:
+	python scripts/ops/check_markdown_links.py
 
 clean:
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +

@@ -9,10 +9,12 @@ entrypoints.
   - `analyze_population_progress.py`: summarize Elo/diversity trends from a population run
 - `ops/`
   - `clear_gpu_memory.py`: clear framework caches and print GPU status (primarily ROCm-focused)
+  - `check_markdown_links.py`: validate relative markdown links across the repo
 
 ## Example Usage
 
 ```bash
 python scripts/analysis/analyze_population_progress.py outputs/progressive_YYYYMMDD_HHMMSS
 python scripts/ops/clear_gpu_memory.py
+python scripts/ops/check_markdown_links.py
 ```
