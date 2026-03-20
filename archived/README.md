@@ -29,4 +29,4 @@ For normal use, prefer:
 - [`docs/README.md`](../docs/README.md)
 - [`docs/TRAINING_REFACTOR_ROADMAP.md`](../docs/TRAINING_REFACTOR_ROADMAP.md)
 - [`docs/LOCAL_TESTING_WORKFLOW.md`](../docs/LOCAL_TESTING_WORKFLOW.md)
-- [`docs/REPO_HYGIENE_AUDIT_2026-03-20.md`](../docs/REPO_HYGIENE_AUDIT_2026-03-20.md)
+- [`docs/analysis/REPO_HYGIENE_AUDIT_2026-03-20.md`](../docs/analysis/REPO_HYGIENE_AUDIT_2026-03-20.md)

@@ -46,9 +46,9 @@ Technical docs for training, runtime architecture, and project planning.
 
 ## Session Summaries
 
-- **[SESSION_COMPLETE_SUMMARY.md](SESSION_COMPLETE_SUMMARY.md)**
-- **[SESSION_SUMMARY_BOXING_SYSTEM.md](SESSION_SUMMARY_BOXING_SYSTEM.md)**
-- **[TESTING_COVERAGE_REPORT.md](TESTING_COVERAGE_REPORT.md)**
+- **[analysis/SESSION_COMPLETE_SUMMARY.md](analysis/SESSION_COMPLETE_SUMMARY.md)**
+- **[analysis/SESSION_SUMMARY_BOXING_SYSTEM.md](analysis/SESSION_SUMMARY_BOXING_SYSTEM.md)**
+- **[analysis/TESTING_COVERAGE_REPORT.md](analysis/TESTING_COVERAGE_REPORT.md)**
 
 ## Other Entry Points
 

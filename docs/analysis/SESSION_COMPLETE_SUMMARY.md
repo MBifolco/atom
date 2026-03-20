@@ -146,8 +146,8 @@ Swarmer vs Counter:    Swarmer wins (18.6 vs 15.2 HP, 7 hits)
 - `docs/BOXING_SYSTEM_CHANGES.md` - Migration guide
 - `docs/BUG_FIXES_FIGHTER_MOVEMENT.md` - Detailed bug analysis
 - `docs/GPU_FALLBACK.md` - GPU/CPU fallback guide
-- `docs/SESSION_SUMMARY_BOXING_SYSTEM.md` - Boxing system summary
-- `docs/TESTING_COVERAGE_REPORT.md` - Coverage analysis
+- `docs/analysis/SESSION_SUMMARY_BOXING_SYSTEM.md` - Boxing system summary
+- `docs/analysis/TESTING_COVERAGE_REPORT.md` - Coverage analysis
 - `docs/TRAINING_CODE_CLEANUP_PLAN.md` - Cleanup documentation
 - `docs/REFACTORING_OPPORTUNITIES.md` - Identified large methods
 - `docs/REFACTORING_PLAN_DETAILED.md` - Detailed refactoring strategy
