@@ -459,7 +459,7 @@ def main():
     logger.info("\nTo use the champion:")
     logger.info(f"  cp {output_dir}/champion.py fighters/")
     logger.info(f"  cp {output_dir}/champion.onnx fighters/")
-    logger.info(f"  python atom_fight.py fighters/champion.py fighters/examples/tank.py")
+    logger.info("  python atom_fight.py fighters/champion.py fighters/examples/boxer.py")
 
 
 if __name__ == "__main__":

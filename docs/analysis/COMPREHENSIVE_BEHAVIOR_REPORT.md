@@ -1,5 +1,9 @@
 # Comprehensive Fighter Behavior Analysis Report
 
+> Historical snapshot: this report reflects a legacy fighter set and legacy
+> behavior tuning work from 2025, not the current benchmark set in
+> `fighters/examples`.
+
 ## Executive Summary
 
 After running all 49 fighter combinations (7x7 matrix) and analyzing telemetry data in detail, several critical issues have been identified that affect combat dynamics.

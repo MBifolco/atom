@@ -28,7 +28,7 @@ python train_progressive.py --use-vmap --mode complete
 from src.training.trainers.ppo.trainer import train_fighter
 
 train_fighter(
-    opponent_files=["fighters/training_opponents/training_dummy.py"],
+    opponent_files=["fighters/test_dummies/atomic/stationary_neutral.py"],
     output_path="outputs/model.zip",
     episodes=10000,
     n_envs=250,      # 250 parallel environments on GPU

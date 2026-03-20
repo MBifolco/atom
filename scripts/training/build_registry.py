@@ -69,12 +69,12 @@ def main():
         count = registry.scan_directory(ais_dir, fighter_type="onnx-ai")
         print(f"   Found {count} AI fighters")
 
-    # Scan training_opponents directory
-    training_dir = fighters_dir / "training_opponents"
-    if training_dir.exists():
-        print(f"\n📁 Scanning {training_dir}...")
-        count = registry.scan_directory(training_dir, fighter_type="training")
-        print(f"   Found {count} training opponents")
+    # Scan curriculum test dummies
+    test_dummies_dir = fighters_dir / "test_dummies"
+    if test_dummies_dir.exists():
+        print(f"\n📁 Scanning {test_dummies_dir}...")
+        count = registry.scan_directory(test_dummies_dir, fighter_type="training")
+        print(f"   Found {count} curriculum training opponents")
 
     # Save registry
     print(f"\n💾 Saving registry to {registry_path}...")

@@ -119,20 +119,20 @@ def run_detailed_match(fighter1_path: str, fighter2_path: str = None, max_ticks:
 
 
 if __name__ == "__main__":
-    # Test rusher vs tank
+    # Test boxer vs slugger
     base_path = "/home/biff/eng/atom"
 
-    print("Testing RUSHER vs TANK\n")
+    print("Testing BOXER vs SLUGGER\n")
     run_detailed_match(
-        f"{base_path}/fighters/examples/rusher.py",
-        f"{base_path}/fighters/examples/tank.py",
+        f"{base_path}/fighters/examples/boxer.py",
+        f"{base_path}/fighters/examples/slugger.py",
         max_ticks=50
     )
 
     print("\n" + "=" * 70)
-    print("\nTesting BALANCED vs Random\n")
+    print("\nTesting COUNTER_PUNCHER vs Random\n")
     run_detailed_match(
-        f"{base_path}/fighters/examples/balanced.py",
+        f"{base_path}/fighters/examples/counter_puncher.py",
         None,
         max_ticks=30
     )

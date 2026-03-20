@@ -3,6 +3,12 @@
 **Date:** 2025-11-03
 **Status:** Post-POC Component Build
 
+> Historical snapshot: this document captures a point-in-time gap analysis from
+> November 2025. Some implementation details and fighter file names have changed
+> since then. For current runtime/training behavior, prefer:
+> `docs/PLATFORM_ARCHITECTURE.md`, `docs/PROGRESSIVE_TRAINING.md`,
+> and `fighters/README.md`.
+
 This document compares what we've built against the original vision documents in `mds/`.
 
 ---
@@ -33,16 +39,16 @@ This document compares what we've built against the original vision documents in
 **Vision:**
 ```bash
 # Simple commands to run fights
-atom fight rusher.py tank.py --render html
+atom fight boxer.py slugger.py --render html
 ```
 
 **Current Reality:**
 ```bash
 # NOW WORKS! Simple one-command fights:
-python atom_fight.py fighters/rusher.py fighters/tank.py --html replay.html
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py --html replay.html
 
 # Full featured:
-python atom_fight.py fighters/rusher.py fighters/tank.py \
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py \
     --mass-a 65 --mass-b 80 \
     --watch \
     --html replay.html \
@@ -56,7 +62,7 @@ python atom_fight.py fighters/rusher.py fighters/tank.py \
 - ✅ Fighter file loading system (Python files with `decide` function)
 - ✅ Default configurations (sensible defaults for all params)
 - ✅ Quick replay generation (--html flag)
-- ✅ Example fighters (`fighters/rusher.py`, `fighters/tank.py`, `fighters/balanced.py`)
+- ✅ Example fighters (`fighters/examples/boxer.py`, `fighters/examples/slugger.py`, `fighters/examples/counter_puncher.py`)
 
 **Remaining (lower priority):**
 - Tournament runner
@@ -70,8 +76,8 @@ python atom_fight.py fighters/rusher.py fighters/tank.py \
 **Vision:**
 ```json
 {
-  "id": "rusher_v1",
-  "name": "Rusher",
+  "id": "fighter_v1",
+  "name": "Example Fighter",
   "version": "1.0",
   "creator": "alice",
   "tags": ["aggressive", "lightweight"],
@@ -278,7 +284,7 @@ stamina = stamina_max - (mass - min_mass) * (stamina_max - stamina_min) / (...)
 
 ```bash
 # NOW WORKS!
-python atom_fight.py fighters/rusher.py fighters/tank.py --html replay.html
+python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py --html replay.html
 ```
 
 **Tasks:**
@@ -289,9 +295,9 @@ python atom_fight.py fighters/rusher.py fighters/tank.py --html replay.html
 
 **Files Created:**
 - `atom_fight.py` - Main CLI entry point ✅
-- `fighters/rusher.py` - Aggressive fighter example ✅
-- `fighters/tank.py` - Defensive fighter example ✅
-- `fighters/balanced.py` - Adaptive fighter example ✅
+- `fighters/examples/boxer.py` - Pressure fighter example ✅
+- `fighters/examples/slugger.py` - Power fighter example ✅
+- `fighters/examples/counter_puncher.py` - Reactive fighter example ✅
 - `README.md` - Complete usage guide ✅
 
 ---
@@ -309,7 +315,7 @@ python atom_fight.py fighters/rusher.py fighters/tank.py --html replay.html
 **Files to Create:**
 - `src/fighter/spec.py` - FighterSpec, FighterArtifact
 - `src/fighter/loader.py` - Load from disk
-- `fighters/rusher.json` - Example spec file
+- `fighters/examples/boxer.json` - Example spec file
 
 ---
 

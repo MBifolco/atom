@@ -1,5 +1,8 @@
 # Fighter Test Suite - Comprehensive Summary Report
 
+> Historical snapshot: this test report targets a legacy fighter set from 2025.
+> It is preserved for reference, but does not represent current benchmark files.
+
 **Test Date:** 2025-11-05
 **Test Seed:** 42
 **Total Tests Conducted:** 18 matches

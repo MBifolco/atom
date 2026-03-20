@@ -73,15 +73,15 @@ Fighters progress through 5 levels of increasing difficulty, each with specific 
 
 ### Curriculum Levels
 
-**Hardcore Graduation System**: Fighters must maintain elite standards (80-88% win rates) throughout all levels. Each level requires BOTH recent win rate AND overall win rate thresholds to prevent lucky streaks.
+**Hardcore Graduation System**: Fighters must maintain elite standards (80-90% recent win rates) throughout all levels. Each level requires BOTH recent win rate and overall win rate thresholds to prevent lucky streaks.
 
 | Level | Name | Opponents | Min Episodes | Learning Objectives | Graduation (Recent / Overall) |
 |-------|------|-----------|--------------|---------------------|----------------------|
-| 1 | Fundamentals | 4 stationary | 200 | Basic attacking, stance usage | 90% / 75% over 50 episodes |
-| 2 | Basic Skills | 6 simple movers | 300 | Pursuit, evasion, predictive movement | 88% / 73% over 50 episodes |
-| 3 | Intermediate | 9 distance/stamina | 400 | Spacing, resource management, walls | 85% / 70% over 50 episodes |
-| 4 | Advanced | 6 behavioral | 500 | Complex strategies, counter-strategies | 83% / 68% over 50 episodes |
-| 5 | Expert | 7 hardcoded | 600 | Mastery against expert opponents | 80% / 65% over 50 episodes |
+| 1 | Fundamentals | 3 stationary atomic dummies | 200 | Basic attacking, stance usage | 90% / 50% over 50 episodes |
+| 2 | Basic Skills | 6 simple movement dummies | 300 | Pursuit, evasion, predictive movement | 88% / 50% over 50 episodes |
+| 3 | Intermediate | 6 distance/stamina/movement dummies | 400 | Spacing, resource management, wall combat | 85% / 50% over 50 episodes |
+| 4 | Advanced | 6 stance/behavior dummies | 500 | Complex strategies, counter-strategies | 83% / 50% over 50 episodes |
+| 5 | Expert | 5 example fighters | 600 | Mastery against expert opponents | 80% / 50% over 50 episodes |
 
 **Dual-Requirement System**:
 - **Recent Win Rate**: Performance over last 50 episodes (measures current skill)
@@ -90,29 +90,19 @@ Fighters progress through 5 levels of increasing difficulty, each with specific 
 
 ### Test Dummies
 
-The curriculum uses **32 specialized test dummies** organized in two categories:
+The curriculum currently draws opponents from `fighters/test_dummies/atomic/`, then
+uses hand-authored experts from `fighters/examples/` at Level 5.
 
-#### Atomic Dummies (23 fighters)
-Simple, single-behavior opponents in `fighters/test_dummies/atomic/`:
-- **Stationary** (4): neutral, extended, defending, retracted stances
-- **Movement** (8): approach (slow/fast), flee, shuttle (slow/medium/fast), circle (left/right)
-- **Distance** (3): maintain 1m, 3m, 5m spacing
-- **Stamina** (3): waster, cycler, efficient patterns
-- **Walls** (2): wall hugger (left/right)
-- **Reactive** (3): mirror, counter, charge on approach
+#### Atomic Dummies
+Representative opponents:
+- **Fundamentals**: `stationary_neutral`, `stationary_extended`, `stationary_defending`
+- **Basic Skills**: `approach_slow`, `flee_always`, `shuttle_slow`, `shuttle_medium`, `circle_left`, `circle_right`
+- **Intermediate**: `distance_keeper_1m`, `stamina_efficient`, `charge_on_approach`, `forward_mover`, `backward_mover`, `sideways_mover_smooth`
+- **Advanced**: `aggressive_stance_switcher`, `balanced_stance_switcher`, `defensive_stance_switcher`, `forward_charger`, `oscillator`, `retreater`
 
-#### Behavioral Fighters (6 fighters)
-Complex, strategic opponents in `fighters/test_dummies/behavioral/`:
-- **perfect_defender**: Pure defensive strategy
-- **burst_attacker**: Aggressive stamina burst attacks
-- **perfect_kiter**: Maintains distance while attacking
-- **stamina_optimizer**: Efficient stamina management
-- **wall_fighter**: Uses arena walls tactically
-- **adaptive_fighter**: Adapts strategy to opponent
-
-#### Hardcoded Experts (7 fighters)
+#### Hardcoded Experts (Level 5)
 Expert opponents in `fighters/examples/`:
-- tank, rusher, balanced, grappler, zoner, dodger, berserker
+- `boxer`, `counter_puncher`, `out_fighter`, `slugger`, `swarmer`
 
 ### Implementation
 
@@ -188,7 +178,7 @@ trainer.train(
 The `ProgressiveTrainer` class orchestrates both phases:
 
 ```python
-from training.train_progressive import ProgressiveTrainer
+from src.training.pipelines import ProgressiveTrainer
 
 trainer = ProgressiveTrainer(
     algorithm="ppo",
@@ -277,7 +267,7 @@ Trained fighters are automatically exported in formats compatible with `atom_fig
 # Use exported champion
 python atom_fight.py \
     outputs/progressive/champions/champion_1.py \
-    fighters/examples/tank.py
+    fighters/examples/boxer.py
 ```
 
 ## Output Structure

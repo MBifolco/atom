@@ -497,7 +497,9 @@ def main():
             logger.info(f"\nTo use the champion:")
             logger.info(f"  cp {wrapper_path} fighters/")
             logger.info(f"  cp {onnx_path} fighters/")
-            logger.info(f"  python atom_fight.py fighters/champion.py fighters/examples/tank.py")
+            logger.info(
+                "  python atom_fight.py fighters/champion.py fighters/examples/boxer.py"
+            )
 
         except Exception as e:
             logger.error(f"Failed to export champion: {e}")

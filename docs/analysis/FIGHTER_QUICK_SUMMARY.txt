@@ -1,3 +1,6 @@
+NOTE: Historical snapshot from 2025. This summary references a legacy fighter set
+that does not fully match the current contents of fighters/examples/.
+
 ================================================================================
                      FIGHTER TEST SUITE - QUICK SUMMARY
 ================================================================================

@@ -262,7 +262,7 @@ atom/
 │   ├── PROGRESSIVE_TRAINING.md  # Training system guide
 │   ├── POPULATION_TRAINING.md   # Population evolution details
 │   ├── original_vision/         # Design philosophy & specs
-│   └── VISION_GAP_ANALYSIS.md   # Built vs planned features
+│   └── VISION_GAP_ANALYSIS.md   # Historical built-vs-planned snapshot
 ├── scripts/                    # Utility scripts
 │   ├── analysis/              # Training/run analysis helpers
 │   ├── training/              # Registry, baseline, resume helpers
@@ -344,7 +344,7 @@ make test-integration
 - **[Fighter Guide](fighters/README.md)** - Fighter collection & testing commands
 - **[Test Dummies](fighters/test_dummies/README.md)** - Training curriculum opponents
 - **[Vision Documents](docs/original_vision/)** - Original design philosophy
-- **[Vision Gap Analysis](docs/VISION_GAP_ANALYSIS.md)** - What's built vs planned
+- **[Vision Gap Analysis](docs/VISION_GAP_ANALYSIS.md)** - Historical gap snapshot (Nov 2025)
 
 ---
 
@@ -363,7 +363,7 @@ make test-integration
 
 ## 🚧 Roadmap
 
-See [docs/VISION_GAP_ANALYSIS.md](docs/VISION_GAP_ANALYSIS.md) for full gap analysis.
+See [docs/future_implementation/](docs/future_implementation/) for active roadmap docs.
 
 **Next Priorities:**
 - [ ] Fighter spec & artifact system (metadata, versioning)

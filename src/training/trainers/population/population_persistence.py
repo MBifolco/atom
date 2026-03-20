@@ -231,16 +231,16 @@ This fighter is compatible with `atom_fight.py`:
 
 ```bash
 # Fight against another AI
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/boxer.py
 
 # Watch the fight in terminal
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/tank.py --watch
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/slugger.py --watch
 
 # Generate HTML replay
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/balanced.py --html replay.html
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/counter_puncher.py --html replay.html
 
 # Custom mass (if different from trained mass)
-python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/rusher.py --mass-a {fighter.mass:.0f}
+python atom_fight.py fighters/AIs/{fighter.name}/{fighter.name}.py fighters/examples/boxer.py --mass-a {fighter.mass:.0f}
 ```
 
 ## Files

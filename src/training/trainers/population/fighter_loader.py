@@ -184,25 +184,18 @@ def load_hardcoded_fighters(base_path: Optional[str] = None, verbose: bool = Tru
     if verbose:
         print(f"\nLoading hardcoded fighters from: {fighters_dir}")
 
-    fighter_files = {
-        "tank": "tank.py",
-        "rusher": "rusher.py",
-        "balanced": "balanced.py",
-        # New diverse training opponents
-        "dodger": "dodger.py",
-        "stamina_manager": "stamina_manager.py",
-        "counter_puncher": "counter_puncher.py",
-        "berserker": "berserker.py",
-        "zoner": "zoner.py",
-        "grappler": "grappler.py",
-        "hit_and_run": "hit_and_run.py"
-    }
+    example_paths = sorted(
+        path for path in fighters_dir.glob("*.py")
+        if not path.name.startswith("__")
+    )
+    if verbose and not example_paths:
+        print(f"  ✗ No example fighters found in {fighters_dir}")
 
     loaded_fighters = {}
     failed_fighters = []
 
-    for name, filename in fighter_files.items():
-        filepath = fighters_dir / filename
+    for filepath in example_paths:
+        name = filepath.stem
 
         try:
             if verbose:

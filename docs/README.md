@@ -35,13 +35,14 @@ Technical docs for training, runtime architecture, and project planning.
 
 ## Planning and Historical Context
 
-- **[VISION_GAP_ANALYSIS.md](VISION_GAP_ANALYSIS.md)** - Current system vs long-term vision
+- **[VISION_GAP_ANALYSIS.md](VISION_GAP_ANALYSIS.md)** - Historical gap snapshot (Nov 2025)
 - **[REFACTORING_OPPORTUNITIES.md](REFACTORING_OPPORTUNITIES.md)** - Candidate refactors
 - **[REFACTORING_PLAN_DETAILED.md](REFACTORING_PLAN_DETAILED.md)** - Detailed refactor sequencing
 - **[`future_implementation/`](future_implementation/)** - Future architecture and roadmap docs
 - **[`original_vision/`](original_vision/)** - Original design specifications
 - **[`original_vision/README.md`](original_vision/README.md)** - Guided index for original-vision docs
-- **[`analysis/`](analysis/)** - Research/analysis reports
+- **[`analysis/`](analysis/)** - Research reports (mixed current + historical)
+- **[analysis/README.md](analysis/README.md)** - Which analysis docs are current vs historical
 - **[analysis/GPU_MEMORY_GUIDE.md](analysis/GPU_MEMORY_GUIDE.md)** - GPU memory behavior and troubleshooting notes
 - **[analysis/NAN_FIX_SUMMARY.md](analysis/NAN_FIX_SUMMARY.md)** - NaN mitigation summary
 

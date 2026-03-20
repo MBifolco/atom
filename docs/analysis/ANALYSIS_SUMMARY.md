@@ -1,5 +1,9 @@
 # Analysis Summary: Reward System, Training Approach, and New Fighters
 
+> Historical snapshot: this report reflects an earlier fighter set from 2025.
+> Several fighter files referenced here are no longer part of the active
+> `fighters/examples` directory.
+
 ## Executive Summary
 
 Comprehensive analysis of Atom Combat's training system has identified specific reward function issues and created 7 new specialized hardcoded fighters to dramatically improve population training diversity and skill development.
@@ -305,4 +309,3 @@ This analysis provides:
 The new fighters will transform population training from limited diversity (3 similar fighters) to comprehensive diversity (10 complementary fighters), enabling emergence of complex strategies and well-rounded AI opponents.
 
 **Recommended action:** Deploy new fighters immediately (no code changes needed), run population training with diverse opponent set, monitor ELO/diversity metrics, and implement reward improvements based on results.
-

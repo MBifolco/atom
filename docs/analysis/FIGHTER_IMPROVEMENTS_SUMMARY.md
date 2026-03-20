@@ -4,6 +4,9 @@
 **Status:** Complete - All 7 fighters improved and tested
 **Registry Updated:** Yes (version 2.0 for all improved fighters)
 
+> Historical snapshot: this report references a prior fighter roster from 2025.
+> Not all fighters mentioned here exist in the current `fighters/examples` set.
+
 ---
 
 ## Executive Summary

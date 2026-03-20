@@ -162,7 +162,9 @@ def main():
 
     print(f"\nCurrent champion: {models_dir.parent / 'champion.py'}")
     print("Test against benchmarks:")
-    print("  python atom_fight.py outputs/.../champion.py fighters/examples/balanced.py --episodes 100")
+    print(
+        "  python atom_fight.py outputs/.../champion.py fighters/examples/counter_puncher.py --episodes 100"
+    )
 
     print("\n" + "=" * 80)
 

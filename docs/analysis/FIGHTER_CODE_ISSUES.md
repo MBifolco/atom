@@ -1,5 +1,8 @@
 # Fighter Code Issues - Technical Analysis
 
+> Historical snapshot: this document analyzes a legacy fighter roster from 2025.
+> Some file names and archetypes referenced here were later removed or replaced.
+
 ## Overview
 This document identifies specific code problems causing poor fighter performance.
 
