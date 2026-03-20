@@ -155,8 +155,11 @@ Phase 3 status (updated 2026-03-19):
   - progress/callback capture+restore roundtrip
   - non-vmap level-change resync (`set_opponent` path)
   - vmap level-change resync (recreate env + `model.set_env`)
-- Remaining before Phase 3 gate sign-off:
-  - longer local smoke-resume scenario against the real training loop (timeboxed)
+- Completed (slice 3): added explicit resume-from-latest support through `CurriculumTrainer.train(resume_from_latest=True)` and `train_progressive.py --resume-curriculum`, with configurable checkpoint cadence (`--checkpoint-interval`).
+- Completed (slice 3): executed a timeboxed local real-loop smoke+resume validation:
+  - initial curriculum run generated periodic checkpoint bundles (`checkpoint_0/1024/2048`)
+  - resume run loaded latest bundle and continued from a non-zero step (`checkpoint_2048`)
+- Completed: Phase 3 checkpoint and recovery hardening goals.
 
 ### Phase 4: Population Trainer Refactor
 

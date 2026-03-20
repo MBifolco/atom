@@ -67,7 +67,8 @@ class ProgressiveTrainer:
                  debug: bool = False,
                  record_replays: bool = False,
                  replay_frequency: int = 5,
-                 override_episodes_per_level: int = None):
+                 override_episodes_per_level: int = None,
+                 checkpoint_interval: int = 100000):
         """
         Initialize the progressive trainer.
 
@@ -96,6 +97,7 @@ class ProgressiveTrainer:
         self.record_replays = record_replays
         self.replay_frequency = replay_frequency
         self.override_episodes_per_level = override_episodes_per_level
+        self.checkpoint_interval = checkpoint_interval
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -111,13 +113,15 @@ class ProgressiveTrainer:
 
     def run_curriculum_training(self,
                               timesteps: int = 500_000,
-                              n_envs: int = None) -> Path:
+                              n_envs: int = None,
+                              resume_from_latest: bool = False) -> Path:
         """
         Run curriculum training phase.
 
         Args:
             timesteps: Total training timesteps
             n_envs: Number of parallel environments (default: from init or 8 for CPU, 250 for GPU)
+            resume_from_latest: Resume from latest curriculum checkpoint bundle.
 
         Returns:
             Path to the trained model
@@ -156,11 +160,15 @@ class ProgressiveTrainer:
             use_vmap=self.use_vmap,
             debug=self.debug,
             record_replays=self.record_replays,
-            override_episodes_per_level=self.override_episodes_per_level
+            override_episodes_per_level=self.override_episodes_per_level,
+            checkpoint_interval=self.checkpoint_interval,
         )
 
         # Train through curriculum
-        self.curriculum_trainer.train(total_timesteps=timesteps)
+        self.curriculum_trainer.train(
+            total_timesteps=timesteps,
+            resume_from_latest=resume_from_latest,
+        )
 
         # Get the trained model path
         model_path = self.curriculum_dir / "models" / "curriculum_graduate.zip"
@@ -400,7 +408,8 @@ class ProgressiveTrainer:
                              episodes_per_generation: int = 2000,
                              keep_top: float = 0.5,
                              evolution_frequency: int = 2,
-                             mutation_rate: float = 0.1):
+                             mutation_rate: float = 0.1,
+                             resume_curriculum: bool = False):
         """
         Run the complete progressive training pipeline.
 
@@ -426,7 +435,8 @@ class ProgressiveTrainer:
 
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
-            timesteps=curriculum_timesteps
+            timesteps=curriculum_timesteps,
+            resume_from_latest=resume_curriculum,
             # n_envs defaults to 8 for CPU or 250 for GPU (auto-configured)
         )
 
@@ -582,6 +592,17 @@ Examples:
         help="Force graduation after N episodes (for testing). None for normal graduation."
     )
     parser.add_argument(
+        "--resume-curriculum",
+        action="store_true",
+        help="Resume curriculum training from latest checkpoint bundle in output dir."
+    )
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=100000,
+        help="Save curriculum checkpoint bundle every N timesteps (default: 100000)."
+    )
+    parser.add_argument(
         "--keep-top",
         type=float,
         default=0.5,
@@ -623,7 +644,8 @@ Examples:
         debug=args.debug,
         record_replays=args.record_replays,
         replay_frequency=args.replay_frequency,
-        override_episodes_per_level=args.override_episodes_per_level
+        override_episodes_per_level=args.override_episodes_per_level,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
     # Run based on mode
@@ -633,11 +655,15 @@ Examples:
             curriculum_timesteps=10_000,
             population_generations=2,
             population_size=4,
-            episodes_per_generation=500  # Keep low for quick mode
+            episodes_per_generation=500,  # Keep low for quick mode
+            resume_curriculum=args.resume_curriculum,
         )
     elif args.mode == "curriculum":
         # Curriculum only
-        trainer.run_curriculum_training(timesteps=args.timesteps)
+        trainer.run_curriculum_training(
+            timesteps=args.timesteps,
+            resume_from_latest=args.resume_curriculum,
+        )
     elif args.mode == "population":
         # Population only
         print("Note: Population mode requires an existing curriculum graduate model.")
@@ -658,7 +684,8 @@ Examples:
             episodes_per_generation=args.episodes_per_gen,
             keep_top=args.keep_top,
             evolution_frequency=args.evolution_frequency,
-            mutation_rate=args.mutation_rate
+            mutation_rate=args.mutation_rate,
+            resume_curriculum=args.resume_curriculum,
         )
 
 

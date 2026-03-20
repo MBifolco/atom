@@ -119,6 +119,16 @@ class TestCurriculumTrainerInit:
             assert trainer.use_vmap == False
             assert trainer.model is None
 
+    def test_init_rejects_bad_checkpoint_interval(self):
+        """Checkpoint interval must be positive."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(ValueError, match="checkpoint_interval"):
+                CurriculumTrainer(
+                    output_dir=tmpdir,
+                    verbose=False,
+                    checkpoint_interval=0,
+                )
+
     def test_init_with_custom_params(self):
         """Test initialization with custom parameters."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -835,6 +845,63 @@ class TestCurriculumTrainerStateRestore:
             assert trainer.envs is new_env
             trainer.model.set_env.assert_called_once_with(new_env)
             old_env.close.assert_called_once()
+
+    def test_train_resume_from_latest_passes_initial_step_to_runner(self):
+        """Resume mode should hydrate from latest checkpoint bundle."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(
+                output_dir=tmpdir,
+                verbose=False,
+                checkpoint_interval=10,
+            )
+
+            class FakeModel:
+                def __init__(self):
+                    self.saved_paths = []
+
+                def save(self, path):
+                    self.saved_paths.append(str(path))
+
+                @classmethod
+                def load(cls, path, env=None):
+                    return cls()
+
+            checkpoint_bundle = trainer.recovery_manager.save_checkpoint_bundle(
+                model=FakeModel(),
+                envs=object(),
+                step=250,
+                training_state={
+                    "progress": {
+                        "current_level": 0,
+                        "episodes_at_level": 5,
+                        "wins_at_level": 4,
+                        "recent_episodes": [True],
+                        "graduated_levels": ["Fundamentals"],
+                        "total_episodes": 5,
+                        "total_wins": 4,
+                    },
+                    "callback": {"episode_rewards": [1.0], "episode_wins": [True]},
+                },
+                verbose=False,
+            )
+            assert checkpoint_bundle.step == 250
+            trainer.recovery_manager.find_latest_checkpoint_bundle = Mock(return_value=checkpoint_bundle)
+
+            trainer.create_envs_for_level = Mock(return_value=Mock(close=Mock()))
+            trainer.initialize_model = Mock(side_effect=lambda: setattr(trainer, "model", FakeModel()))
+
+            captured = {}
+
+            def fake_run(**kwargs):
+                captured.update(kwargs)
+                return kwargs["model"]
+
+            trainer.level_runner.run = Mock(side_effect=fake_run)
+
+            trainer.train(total_timesteps=1000, resume_from_latest=True)
+
+            assert captured["initial_step"] == 250
+            assert trainer.progress.graduated_levels == ["Fundamentals"]
 
 
 class TestCurriculumCallbackVerbose:

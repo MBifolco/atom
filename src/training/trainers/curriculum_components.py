@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -368,6 +369,34 @@ class RecoveryManager:
             verbose=verbose,
         )
 
+    def list_checkpoint_bundles(self) -> list[CheckpointBundle]:
+        bundles: list[CheckpointBundle] = []
+        pattern = re.compile(r"checkpoint_(\d+)\.zip$")
+        for model_path in self.checkpoints_dir.glob("checkpoint_*.zip"):
+            match = pattern.match(model_path.name)
+            if match is None:
+                continue
+            step = int(match.group(1))
+            checkpoint_base = self.checkpoints_dir / f"checkpoint_{step}"
+            state_path = checkpoint_base.with_suffix(".state.json")
+            vecnormalize_path = checkpoint_base.with_suffix(".vecnormalize.pkl")
+            bundles.append(
+                CheckpointBundle(
+                    step=step,
+                    model_path=model_path,
+                    state_path=state_path if state_path.exists() else None,
+                    vecnormalize_path=vecnormalize_path if vecnormalize_path.exists() else None,
+                )
+            )
+        bundles.sort(key=lambda b: b.step)
+        return bundles
+
+    def find_latest_checkpoint_bundle(self) -> Optional[CheckpointBundle]:
+        bundles = self.list_checkpoint_bundles()
+        if not bundles:
+            return None
+        return bundles[-1]
+
     def save_checkpoint_bundle(
         self,
         *,
@@ -494,6 +523,7 @@ class LevelRunner:
         envs,
         callback,
         total_timesteps: int,
+        initial_step: int = 0,
         verbose: bool,
         current_level_getter,
         training_state_getter: Optional[Callable[[], dict]] = None,
@@ -505,8 +535,11 @@ class LevelRunner:
         if sleep_fn is None:
             sleep_fn = time.sleep
 
-        remaining_timesteps = total_timesteps
-        start_timestep = 0
+        start_timestep = max(0, int(initial_step))
+        remaining_timesteps = max(0, int(total_timesteps) - start_timestep)
+
+        if remaining_timesteps <= 0:
+            return model
         nan_retries = 0
         disable_sb3_progress_bar = False
         progress_bar_disable_reason: Optional[str] = None

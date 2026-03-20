@@ -16,6 +16,8 @@ def test_baseline_command_includes_requested_overrides(tmp_path: Path):
         use_vmap=True,
         max_ticks=321,
         override_episodes_per_level=50,
+        resume_curriculum=True,
+        checkpoint_interval=777,
     )
 
     cmd = config.build_command(python_executable="python3")
@@ -27,6 +29,8 @@ def test_baseline_command_includes_requested_overrides(tmp_path: Path):
     assert "--max-ticks" in cmd and "321" in cmd
     assert "--use-vmap" in cmd
     assert "--override-episodes-per-level" in cmd and "50" in cmd
+    assert "--checkpoint-interval" in cmd and "777" in cmd
+    assert "--resume-curriculum" in cmd
     assert "--output-dir" in cmd and str(tmp_path) in cmd
 
 
@@ -57,3 +61,13 @@ def test_baseline_config_validate_rejects_bad_cores(tmp_path: Path):
         assert "cores" in str(exc)
     else:
         raise AssertionError("Expected ValueError for invalid cores")
+
+
+def test_baseline_config_validate_rejects_bad_checkpoint_interval(tmp_path: Path):
+    config = BaselineRunConfig(output_dir=tmp_path, checkpoint_interval=0)
+    try:
+        config.validate()
+    except ValueError as exc:
+        assert "checkpoint_interval" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for invalid checkpoint_interval")

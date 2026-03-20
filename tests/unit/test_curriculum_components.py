@@ -576,6 +576,81 @@ def test_level_runner_uses_restored_env_for_checkpoint_load():
         assert FakeModel.load_envs[-1] is new_env
 
 
+def test_level_runner_respects_initial_step_budget():
+    logger = _make_logger()
+
+    class FakeModel:
+        learned_steps = []
+
+        def save(self, path):
+            pass
+
+        def learn(self, **kwargs):
+            FakeModel.learned_steps.append(kwargs["total_timesteps"])
+            return self
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=10,
+            max_retries=2,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=0, episode_rewards=[])
+
+        runner.run(
+            model=FakeModel(),
+            envs=object(),
+            callback=callback,
+            total_timesteps=1000,
+            initial_step=250,
+            verbose=False,
+            current_level_getter=lambda: 0,
+        )
+
+        assert FakeModel.learned_steps == [750]
+
+
+def test_recovery_manager_finds_latest_checkpoint_bundle():
+    logger = _make_logger()
+
+    class FakeModel:
+        def save(self, path):
+            Path(path).write_text("model")
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=10,
+        )
+
+        manager.save_checkpoint_bundle(
+            model=FakeModel(),
+            envs=object(),
+            step=100,
+            training_state={"progress": {"current_level": 1}},
+            verbose=False,
+        )
+        manager.save_checkpoint_bundle(
+            model=FakeModel(),
+            envs=object(),
+            step=400,
+            training_state={"progress": {"current_level": 2}},
+            verbose=False,
+        )
+
+        bundles = manager.list_checkpoint_bundles()
+        assert [bundle.step for bundle in bundles] == [100, 400]
+        latest = manager.find_latest_checkpoint_bundle()
+        assert latest is not None
+        assert latest.step == 400
+        assert latest.state_path is not None and latest.state_path.exists()
+
+
 def test_level_transition_state_machine_resets_level_metrics():
     progress = SimpleNamespace(
         current_level=0,

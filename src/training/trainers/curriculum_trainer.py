@@ -276,7 +276,8 @@ class CurriculumTrainer:
                  debug: bool = False,
                  record_replays: bool = False,
                  replay_matches_per_opponent: int = 3,
-                 override_episodes_per_level: int = None):
+                 override_episodes_per_level: int = None,
+                 checkpoint_interval: int = 100000):
         """
         Initialize the curriculum trainer.
 
@@ -291,6 +292,7 @@ class CurriculumTrainer:
             record_replays: Whether to record fight replays for montage
             replay_matches_per_opponent: Number of evaluation matches per opponent for replay recording
             override_episodes_per_level: Force graduation after N episodes (for testing). None for normal graduation.
+            checkpoint_interval: Save checkpoint bundle every N timesteps.
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -303,10 +305,13 @@ class CurriculumTrainer:
         self.record_replays = record_replays
         self.replay_matches_per_opponent = replay_matches_per_opponent
         self.override_episodes_per_level = override_episodes_per_level
+        self.checkpoint_interval = checkpoint_interval
 
         # Validate override
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
             raise ValueError("override_episodes_per_level must be positive")
+        if self.checkpoint_interval <= 0:
+            raise ValueError("checkpoint_interval must be positive")
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -362,7 +367,7 @@ class CurriculumTrainer:
             models_dir=self.models_dir,
             logs_dir=self.logs_dir,
             logger=self.logger,
-            checkpoint_interval=100000,
+            checkpoint_interval=self.checkpoint_interval,
             max_retries=3,
         )
         self.level_runner = LevelRunner(
@@ -814,12 +819,13 @@ class CurriculumTrainer:
             )
             self._sync_environment_to_level()
 
-    def train(self, total_timesteps: int = 1_000_000):
+    def train(self, total_timesteps: int = 1_000_000, resume_from_latest: bool = False):
         """
         Train the fighter through the curriculum.
 
         Args:
             total_timesteps: Total training timesteps across all levels
+            resume_from_latest: Load latest checkpoint bundle before training.
         """
         self.logger.info("Starting curriculum training...")
 
@@ -837,6 +843,24 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
+        initial_step = 0
+        if resume_from_latest:
+            latest_bundle = self.recovery_manager.find_latest_checkpoint_bundle()
+            if latest_bundle is None:
+                self.logger.info("Resume requested but no checkpoint bundle found; starting fresh run.")
+            else:
+                self.logger.info(f"Resuming from checkpoint bundle: {latest_bundle.model_path}")
+                self.model = self.model.__class__.load(latest_bundle.model_path, env=self.envs)
+                checkpoint_state = self.recovery_manager.load_checkpoint_training_state(latest_bundle)
+                if checkpoint_state is not None:
+                    self._restore_training_state(callback, checkpoint_state)
+                initial_step = int(latest_bundle.step)
+                if self.verbose:
+                    self.logger.info(
+                        f"Resume state loaded from step {initial_step}; "
+                        f"remaining timesteps target: {max(0, total_timesteps - initial_step)}"
+                    )
+
         try:
             # Train with retry/recovery orchestration.
             self.model = self.level_runner.run(
@@ -844,6 +868,7 @@ class CurriculumTrainer:
                 envs=self.envs,
                 callback=callback,
                 total_timesteps=total_timesteps,
+                initial_step=initial_step,
                 verbose=self.verbose,
                 current_level_getter=lambda: self.progress.current_level,
                 training_state_getter=lambda: self._capture_training_state(callback),

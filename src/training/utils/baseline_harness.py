@@ -30,6 +30,8 @@ class BaselineRunConfig:
     cores: int | None = 1
     max_ticks: int = 250
     override_episodes_per_level: int | None = None
+    resume_curriculum: bool = False
+    checkpoint_interval: int = 100000
 
     def validate(self) -> None:
         if self.mode not in {"quick", "curriculum", "population", "complete"}:
@@ -47,6 +49,10 @@ class BaselineRunConfig:
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
             raise ValueError(
                 "override_episodes_per_level must be > 0 when provided"
+            )
+        if self.checkpoint_interval <= 0:
+            raise ValueError(
+                f"checkpoint_interval must be > 0, got {self.checkpoint_interval}"
             )
 
     @property
@@ -84,6 +90,9 @@ class BaselineRunConfig:
                     str(self.override_episodes_per_level),
                 ]
             )
+        cmd.extend(["--checkpoint-interval", str(self.checkpoint_interval)])
+        if self.resume_curriculum:
+            cmd.append("--resume-curriculum")
         return cmd
 
     def build_environment(self) -> dict[str, str]:
