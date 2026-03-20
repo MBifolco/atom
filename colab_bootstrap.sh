@@ -52,7 +52,22 @@ fi
 
 echo "Updating Drive repo cache ($BRANCH)..."
 cd "$DRIVE_REPO"
-git fetch origin "$BRANCH"
+
+# Drive cache may have been initialized with --single-branch, which limits
+# remote.origin.fetch to one branch. Expand it so switching branches works.
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git fetch --prune origin
+
+if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+  echo "ERROR: Remote branch '$BRANCH' not found on origin."
+  echo "Available remote branches:"
+  git for-each-ref --format='%(refname:short)' refs/remotes/origin/ \
+    | sed 's#^origin/##' \
+    | grep -v '^HEAD$' \
+    | sed 's#^#  #'
+  exit 1
+fi
+
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
   git checkout "$BRANCH"
 else
