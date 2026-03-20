@@ -6,7 +6,7 @@
 - ALWAYS write small methods/functions
 - ALWAYS refactor for reusability rather than duplicate code
 - Use the atom pyenv 
-- Run at start setup_gpu.sh
+- Run at start `source scripts/ops/setup_gpu.sh`
 
 ## Testing
 - Write tests after you fix a bug to ensure its covered

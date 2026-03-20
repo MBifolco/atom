@@ -12,7 +12,7 @@ import os
 # Ensure GPU environment is set
 if 'HSA_OVERRIDE_GFX_VERSION' not in os.environ:
     print("❌ GPU environment not configured!")
-    print("Run: source setup_gpu.sh")
+    print("Run: source scripts/ops/setup_gpu.sh")
     sys.exit(1)
 
 project_root = Path(__file__).parent.absolute()

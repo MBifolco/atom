@@ -60,11 +60,11 @@ python -m pytest tests/e2e -m e2e -s
 
 - `ATOM_TEST_SEED` controls deterministic Python/NumPy seeding in tests.
 - `tests/conftest.py` applies seed fixtures and optional torch seeding fixture.
-- Local baseline training runs can be launched with `run_local_baseline.py`.
+- Local baseline training runs can be launched with `scripts/training/run_local_baseline.py`.
 
 Example:
 
 ```bash
 ATOM_TEST_SEED=1337 python -m pytest -m unit
-python run_local_baseline.py --mode curriculum --timesteps 10000 --seed 1337
+python scripts/training/run_local_baseline.py --mode curriculum --timesteps 10000 --seed 1337
 ```

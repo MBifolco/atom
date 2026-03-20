@@ -74,7 +74,7 @@ Swarmer vs Counter:    Swarmer wins (18.6 vs 15.2 HP, 7 hits)
 
 **Bug #5: Registry Kept Ghost Fighters**
 - **Impact**: Registry showed 73 fighters when only 5 existed
-- **Fix**: Set `load_existing=False` in build_registry.py
+- **Fix**: Set `load_existing=False` in `scripts/training/build_registry.py`
 - **Result**: Clean rebuild from scratch
 
 ### 3. Code Cleanup & Refactoring ✅

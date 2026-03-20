@@ -24,16 +24,21 @@ These appear to be core or actively used operational scripts:
 
 - `atom_fight.py`
 - `train_progressive.py`
-- `build_registry.py`
 - `colab_bootstrap.sh`
-- `run_local_baseline.py`
-- `resume_population_training.py`
-- `render_replays.py`
-- `create_html_montage.py`
-- `create_html_montage_from_existing.py`
-- `create_montage.py`
-- `setup_gpu.sh`
-- `tail_latest_log.sh`
+
+## Moved Out of Root (Follow-up Cleanup)
+
+Operational tooling was moved under `scripts/` to reduce root clutter:
+
+- `scripts/training/build_registry.py`
+- `scripts/training/run_local_baseline.py`
+- `scripts/training/resume_population_training.py`
+- `scripts/montage/render_replays.py`
+- `scripts/montage/create_html_montage.py`
+- `scripts/montage/create_html_montage_from_existing.py`
+- `scripts/montage/create_montage.py`
+- `scripts/ops/setup_gpu.sh`
+- `scripts/ops/tail_latest_log.sh`
 
 ## High-Confidence Archive Candidates
 

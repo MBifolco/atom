@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ```bash
 cd ..
-python build_registry.py
+python scripts/training/build_registry.py
 ```
 
 This scans `fighters/` directory and creates `fighters/registry.json`.
@@ -263,7 +263,7 @@ curl http://localhost:8000/api/fighters
 ### Adding New Fighters
 
 1. Add your fighter to `fighters/` directory
-2. Rebuild registry: `python build_registry.py`
+2. Rebuild registry: `python scripts/training/build_registry.py`
 3. Restart the server (or it will auto-reload if using `--reload`)
 4. Fighter will appear in the UI automatically
 
@@ -311,14 +311,14 @@ registry = FighterRegistry(registry_path)
 ### No fighters showing up
 
 **Error:** Empty fighter list
-**Solution:** Build registry: `python build_registry.py`
+**Solution:** Build registry: `python scripts/training/build_registry.py`
 
 ### Fighter fails to load
 
 **Error:** 500 error when running match
 **Solution:**
 1. Check fighter file exists: `ls fighters/examples/rusher.py`
-2. Validate fighter: `python build_registry.py --validate`
+2. Validate fighter: `python scripts/training/build_registry.py --validate`
 3. Check server logs for detailed error
 
 ### Port already in use

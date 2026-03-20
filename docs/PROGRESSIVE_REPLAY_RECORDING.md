@@ -18,7 +18,7 @@ The progressive replay recording system captures training fights throughout the 
 - `_record_evaluation_replay()`: Runs evaluation match with telemetry
 - Records when `should_record()` returns True
 
-### 3. HTML Montage Generator (`create_html_montage.py`)
+### 3. HTML Montage Generator (`scripts/montage/create_html_montage.py`)
 - Loads progressive replays from training run
 - Creates single HTML file with embedded replay data
 - Interactive playback controls (play/pause, speed, navigation)
@@ -35,7 +35,7 @@ python train_progressive.py --record-replays --timesteps 1000000
 ### Generate HTML Montage
 ```bash
 # After training completes
-python create_html_montage.py --run-dir outputs/progressive_YYYYMMDD_HHMMSS
+python scripts/montage/create_html_montage.py --run-dir outputs/progressive_YYYYMMDD_HHMMSS
 ```
 
 ### Check Recording Status
@@ -52,7 +52,7 @@ The progressive recording is not saving files during training because:
 3. The model prediction might fail during evaluation
 
 ### Workaround
-Currently using `create_html_montage_from_existing.py` to generate montages from old spectacle-based replays with simulated progressive metadata.
+Currently using `scripts/montage/create_html_montage_from_existing.py` to generate montages from old spectacle-based replays with simulated progressive metadata.
 
 ## Testing
 

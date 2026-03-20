@@ -72,7 +72,7 @@ Full run:
 ## Resume After Disconnect
 
 ```bash
-!python resume_population_training.py \
+!python scripts/training/resume_population_training.py \
   --checkpoint-dir /content/drive/MyDrive/atom_runs/run1 \
   --start-gen 8 \
   --total-gens 20 \

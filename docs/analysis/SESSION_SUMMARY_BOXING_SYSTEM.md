@@ -133,7 +133,7 @@ Swarmer vs Counter:     Swarmer wins (18.6 vs 15.2 HP, 7 hits, 100 ticks)
 
 **Support Systems:**
 - fighter_registry.py, atom_fight.py
-- build_registry.py
+- scripts/training/build_registry.py
 
 ### Tests Added: 132 tests across 15 files
 

@@ -46,7 +46,7 @@ pip install playwright
 playwright install chromium
 
 # Create montage
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_20251114_120000 \
   --speed 3.0
 ```
@@ -55,7 +55,7 @@ python create_montage.py \
 
 ```bash
 # Render HTML files
-python render_replays.py \
+python scripts/montage/render_replays.py \
   --run-dir outputs/progressive_20251114_120000
 
 # Open outputs/progressive_TIMESTAMP/rendered_html/playlist.html
@@ -165,7 +165,7 @@ sudo apt-get install ffmpeg  # Ubuntu/Debian
 
 **Create montage:**
 ```bash
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_20251114_120000 \
   --speed 3.0 \
   --fps 30 \
@@ -198,7 +198,7 @@ python create_montage.py \
 
 **Render HTML files:**
 ```bash
-python render_replays.py \
+python scripts/montage/render_replays.py \
   --run-dir outputs/progressive_20251114_120000 \
   --speed 3.0
 ```
@@ -359,7 +359,7 @@ python train_progressive.py \
 
 # Creates ~20 replays (5 curriculum + 15 population)
 # Generate montage
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_TIMESTAMP \
   --speed 5.0
 ```
@@ -382,7 +382,7 @@ python train_progressive.py \
 
 # Creates ~39 replays
 # High-quality 1080p montage at 3x speed
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_TIMESTAMP \
   --speed 3.0 \
   --resolution 1920x1080
@@ -392,7 +392,7 @@ python create_montage.py \
 
 ```bash
 # After training, create 4K montage
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_20251114_120000 \
   --speed 3.0 \
   --resolution 3840x2160 \
@@ -404,7 +404,7 @@ python create_montage.py \
 
 ```bash
 # Resume from generation 20, continue recording
-python resume_population_training.py \
+python scripts/training/resume_population_training.py \
   --checkpoint-dir outputs/progressive_20251114_120000 \
   --start-gen 20 \
   --total-gens 60 \
@@ -414,7 +414,7 @@ python resume_population_training.py \
 
 # Replays append to existing replay_index.json
 # Creates montage with all generations (0-60)
-python create_montage.py \
+python scripts/montage/create_montage.py \
   --run-dir outputs/progressive_20251114_120000 \
   --speed 3.0
 ```
@@ -425,15 +425,15 @@ python create_montage.py \
 
 ```bash
 # Very fast (5x)
-python create_montage.py --run-dir ... --speed 5.0
+python scripts/montage/create_montage.py --run-dir ... --speed 5.0
 # Result: ~2 minute montage, fast-paced
 
 # Moderate (3x) - Recommended
-python create_montage.py --run-dir ... --speed 3.0
+python scripts/montage/create_montage.py --run-dir ... --speed 3.0
 # Result: ~3.5 minute montage, clear action
 
 # Slow (1x) - Real-time
-python create_montage.py --run-dir ... --speed 1.0
+python scripts/montage/create_montage.py --run-dir ... --speed 1.0
 # Result: ~10+ minute montage, every detail visible
 ```
 
@@ -537,7 +537,7 @@ pip install playwright
 playwright install chromium
 
 # Or use manual method
-python render_replays.py --run-dir ...
+python scripts/montage/render_replays.py --run-dir ...
 ```
 
 ### "ffmpeg not found"
@@ -562,13 +562,13 @@ brew install ffmpeg
 **Solutions:**
 ```bash
 # 1. Try manual method instead
-python render_replays.py --run-dir ...
+python scripts/montage/render_replays.py --run-dir ...
 
 # 2. Check Chrome/Chromium availability
-python create_montage.py --run-dir ... --use-chrome
+python scripts/montage/create_montage.py --run-dir ... --use-chrome
 
 # 3. Reduce resolution
-python create_montage.py --run-dir ... --resolution 1280x720
+python scripts/montage/create_montage.py --run-dir ... --resolution 1280x720
 ```
 
 ### Replays look choppy
@@ -578,13 +578,13 @@ python create_montage.py --run-dir ... --resolution 1280x720
 **Solutions:**
 ```bash
 # Increase framerate
-python create_montage.py --run-dir ... --fps 60
+python scripts/montage/create_montage.py --run-dir ... --fps 60
 
 # Reduce playback speed
-python create_montage.py --run-dir ... --speed 2.0
+python scripts/montage/create_montage.py --run-dir ... --speed 2.0
 
 # Or use realtime speed for smooth viewing
-python create_montage.py --run-dir ... --speed 1.0
+python scripts/montage/create_montage.py --run-dir ... --speed 1.0
 ```
 
 ### Out of disk space
@@ -612,7 +612,7 @@ rm -rf outputs/progressive_TIMESTAMP/montage_temp/
 python train_progressive.py --record-replays --replay-frequency 1
 
 # Or resume training
-python resume_population_training.py \
+python scripts/training/resume_population_training.py \
   --checkpoint-dir outputs/... \
   --start-gen 20 \
   --total-gens 40 \
@@ -735,7 +735,7 @@ ffmpeg -i training_montage.mp4 -i music.mp3 \
 
 **Q: Can I export individual replays as videos?**
 
-A: Yes! The `create_montage.py` script creates individual clips in `montage_temp/`. Keep them instead of deleting:
+A: Yes! The `scripts/montage/create_montage.py` script creates individual clips in `montage_temp/`. Keep them instead of deleting:
 
 ```bash
 # After creating montage

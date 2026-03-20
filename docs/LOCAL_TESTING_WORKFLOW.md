@@ -32,7 +32,7 @@ make baseline-local
 Or directly:
 
 ```bash
-python run_local_baseline.py \
+python scripts/training/run_local_baseline.py \
   --mode curriculum \
   --timesteps 10000 \
   --seed 1337 \
@@ -73,4 +73,4 @@ Checklist:
   - `ATOM_GLOBAL_SEED`
   - `ATOM_TRAINING_SEED`
 
-These are automatically set by `run_local_baseline.py`.
+These are automatically set by `scripts/training/run_local_baseline.py`.

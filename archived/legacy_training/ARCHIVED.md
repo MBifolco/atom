@@ -14,7 +14,7 @@ This directory contains old training code that was superseded by `src/training/`
 All training is now in:
 - **`src/training/`** - Training infrastructure (gym_env, trainers, etc.)
 - **`train_progressive.py`** (root) - Main training script
-- **`resume_population_training.py`** (root) - Resume training
+- **`scripts/training/resume_population_training.py`** - Resume training
 
 ## Training Outputs
 

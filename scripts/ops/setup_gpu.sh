@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup ROCm GPU environment variables for JAX
-# Source this file before running training: source setup_gpu.sh
+# Source this file before running training: source scripts/ops/setup_gpu.sh
 
 # Use atom environment (Python 3.11.10 with JAX ROCm)
 export PYENV_VERSION=atom

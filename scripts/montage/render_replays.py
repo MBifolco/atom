@@ -6,7 +6,7 @@ Simple script that renders replay files to HTML for manual video recording.
 Use this if you don't want to install Playwright.
 
 Usage:
-    python render_replays.py --run-dir outputs/progressive_20251114_120000
+    python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000
 
 Then:
     1. Open HTML files in browser
@@ -18,6 +18,10 @@ import json
 from pathlib import Path
 import argparse
 import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.telemetry.replay_store import load_replay
 from src.renderer.html_renderer import HtmlRenderer
@@ -302,7 +306,7 @@ def render_all_replays(
     print("  - Record each HTML replay")
     print("  - Edit together in video editor")
     print("\nOr use automated method:")
-    print(f"  python create_montage.py --run-dir {run_dir}")
+    print(f"  python scripts/montage/create_montage.py --run-dir {run_dir}")
 
 
 def create_playlist_html(output_dir: Path, playlist_items: list, playback_speed: float):
@@ -420,13 +424,13 @@ def main():
         epilog="""
 Examples:
   # Render all replays
-  python render_replays.py --run-dir outputs/progressive_20251114_120000
+  python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000
 
   # Custom playback speed
-  python render_replays.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
+  python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
 
   # Custom output directory
-  python render_replays.py --run-dir outputs/progressive_20251114_120000 --output-dir ~/Desktop/replays
+  python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000 --output-dir ~/Desktop/replays
         """
     )
 

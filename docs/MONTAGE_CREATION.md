@@ -33,7 +33,7 @@ pip install playwright
 playwright install chromium
 
 # Create montage
-python create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 3.0
+python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 3.0
 ```
 
 This automatically:
@@ -46,7 +46,7 @@ This automatically:
 
 ```bash
 # Just render HTML files
-python render_replays.py --run-dir outputs/progressive_20251114_120000
+python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000
 ```
 
 Then manually:
@@ -87,20 +87,20 @@ With default settings (3x speed, 250 max ticks):
 
 ```bash
 # 5x speed for shorter montage
-python create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
+python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
 
 # 1x speed for full detail
-python create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 1.0
+python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 1.0
 ```
 
 ### Resolution
 
 ```bash
 # 4K
-python create_montage.py --run-dir outputs/progressive_20251114_120000 --resolution 3840x2160
+python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --resolution 3840x2160
 
 # 720p (smaller file)
-python create_montage.py --run-dir outputs/progressive_20251114_120000 --resolution 1280x720
+python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --resolution 1280x720
 ```
 
 ### Recording Frequency
@@ -155,7 +155,7 @@ brew install ffmpeg
 ### Video recording fails
 Try manual method:
 ```bash
-python render_replays.py --run-dir outputs/progressive_20251114_120000
+python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000
 ```
 
 Then use OBS or similar to record the HTML animations.
@@ -177,7 +177,7 @@ For full creative control:
 
 1. Render individual HTML files:
 ```bash
-python render_replays.py --run-dir outputs/progressive_20251114_120000
+python scripts/montage/render_replays.py --run-dir outputs/progressive_20251114_120000
 ```
 
 2. Open HTML files in browser and record with screen capture

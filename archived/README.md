@@ -13,16 +13,19 @@ longer part of the active training/runtime entrypoints.
 - `montage_legacy/`: superseded montage script versions
 - `media/`: generated media artifacts moved out of root
 
-## Active Entry Points (Repo Root)
+## Active Entry Points
 
 For normal use, prefer:
 
 - `atom_fight.py`
 - `train_progressive.py`
-- `run_local_baseline.py`
-- `resume_population_training.py`
 - `colab_bootstrap.sh`
-- `build_registry.py`
+- `scripts/training/run_local_baseline.py`
+- `scripts/training/resume_population_training.py`
+- `scripts/training/build_registry.py`
+- `scripts/montage/create_montage.py`
+- `scripts/montage/render_replays.py`
+- `scripts/ops/setup_gpu.sh`
 
 ## Related Documentation
 

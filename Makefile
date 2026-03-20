@@ -22,7 +22,7 @@ test-slow:
 	python -m pytest -m slow --no-cov
 
 baseline-local:
-	python run_local_baseline.py --mode curriculum --timesteps 10000 --seed 1337 --cores 1 --device cpu
+	python scripts/training/run_local_baseline.py --mode curriculum --timesteps 10000 --seed 1337 --cores 1 --device cpu
 
 coverage:
 	python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=80

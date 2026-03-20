@@ -17,7 +17,7 @@ the current runtime/training entrypoints.
 Use these for normal workflows:
 
 - `train_progressive.py`
-- `run_local_baseline.py`
-- `resume_population_training.py`
+- `scripts/training/run_local_baseline.py`
+- `scripts/training/resume_population_training.py`
 - `colab_bootstrap.sh`
 - `tests/` (pytest suites)

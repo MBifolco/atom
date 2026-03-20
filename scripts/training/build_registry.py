@@ -6,12 +6,18 @@ Scans the fighters/ directory and builds registry.json with metadata
 for all discovered fighters.
 
 Usage:
-    python build_registry.py
-    python build_registry.py --output custom/path/registry.json
+    python scripts/training/build_registry.py
+    python scripts/training/build_registry.py --output custom/path/registry.json
 """
 
 import argparse
 from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.registry import FighterRegistry
 
 
@@ -34,7 +40,7 @@ def main():
     args = parser.parse_args()
 
     # Determine paths
-    project_root = Path(__file__).parent
+    project_root = PROJECT_ROOT
     registry_path = Path(args.output) if args.output else project_root / "fighters" / "registry.json"
 
     print("="*60)

@@ -5,7 +5,7 @@
 ### Setup (every time)
 ```bash
 cd /home/biff/eng/atom
-source setup_gpu.sh
+source scripts/ops/setup_gpu.sh
 ```
 
 ### Verify GPU
@@ -19,7 +19,7 @@ python -c "import jax; print(jax.devices())"
 **Progressive Training (Recommended)**:
 ```bash
 # GPU-accelerated progressive training
-source setup_gpu.sh
+source scripts/ops/setup_gpu.sh
 python train_progressive.py --use-vmap --mode complete
 ```
 
@@ -45,7 +45,7 @@ train_fighter(
 |-------|--------------|---------|---------|
 | 1+2 | SBX + 8 envs (CPU) | 3.2x | `python train_progressive.py` |
 | 3 | vmap 100 (CPU) | 10-15x | `python train_progressive.py --use-vmap` |
-| 4 | vmap 250 (GPU) | **77x** | `source setup_gpu.sh && python train_progressive.py --use-vmap` |
+| 4 | vmap 250 (GPU) | **77x** | `source scripts/ops/setup_gpu.sh && python train_progressive.py --use-vmap` |
 
 ### Progressive Training Options
 
@@ -54,11 +54,11 @@ train_fighter(
 python train_progressive.py --mode complete --timesteps 500000
 
 # GPU training (77x faster)
-source setup_gpu.sh
+source scripts/ops/setup_gpu.sh
 python train_progressive.py --use-vmap --mode complete --timesteps 500000
 
 # Quick test (GPU)
-source setup_gpu.sh
+source scripts/ops/setup_gpu.sh
 python train_progressive.py --use-vmap --mode quick
 ```
 
@@ -92,7 +92,7 @@ python train_progressive.py --use-vmap --mode quick
 **GPU not detected**:
 ```bash
 # Did you source the script?
-source setup_gpu.sh
+source scripts/ops/setup_gpu.sh
 
 # Check environment
 echo $PYENV_VERSION  # Should be: atom
@@ -110,10 +110,10 @@ pip list | grep jax  # Should show jax 0.7.1
 
 ## Files
 
-- `setup_gpu.sh` - GPU setup script (source before training)
+- `scripts/ops/setup_gpu.sh` - GPU setup script (source before training)
 - `benchmark_gpu.py` - GPU performance benchmarks
 - `docs/FINAL_RESULTS_ALL_LEVELS.md` - Complete documentation
 
 ---
 
-**Quick Start**: `source setup_gpu.sh && python train.py`
+**Quick Start**: `source scripts/ops/setup_gpu.sh && python train_progressive.py --mode quick --use-vmap`

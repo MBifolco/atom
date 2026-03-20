@@ -8,11 +8,11 @@ This script allows you to:
 
 Usage:
     # Resume from generation 25 and continue to 40
-    python resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 25 --total-gens 40
+    python scripts/training/resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 25 --total-gens 40
 
     # Continue training for 20 more generations after completing 40
-    python resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 40 --total-gens 60
-    python resume_population_training.py --checkpoint-dir  outputs/progressive_20251112_183943 --start-gen 8 --total-gens 40
+    python scripts/training/resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 40 --total-gens 60
+    python scripts/training/resume_population_training.py --checkpoint-dir  outputs/progressive_20251112_183943 --start-gen 8 --total-gens 40
 """
 
 import argparse
@@ -20,8 +20,9 @@ import shutil
 from pathlib import Path
 import sys
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from train_progressive import ProgressiveTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
@@ -172,7 +173,7 @@ def resume_population_training(
         print("Current settings: CPU mode (no --use-vmap flag)")
         print("\nThis will be MUCH SLOWER (~77x slower)!")
         print("\nTo resume with GPU acceleration, add --use-vmap flag:")
-        print(f"  python resume_population_training.py --checkpoint-dir {checkpoint_dir} \\")
+        print(f"  python scripts/training/resume_population_training.py --checkpoint-dir {checkpoint_dir} \\")
         print(f"         --start-gen {start_generation} --total-gens {total_generations} --use-vmap")
         print("\nAuto-enabling GPU mode to match original training...")
         print("="*80 + "\n")
@@ -286,13 +287,13 @@ def main():
         epilog="""
 Examples:
   # Resume from generation 25 (crashed) and continue to 40
-  python resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 25 --total-gens 40
+  python scripts/training/resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 25 --total-gens 40
 
   # Continue training for 20 more generations (40 -> 60)
-  python resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 40 --total-gens 60
+  python scripts/training/resume_population_training.py --checkpoint-dir outputs/progressive_20251112_085705 --start-gen 40 --total-gens 60
 
   # Resume with different settings (more episodes)
-  python resume_population_training.py --checkpoint-dir outputs/old_run --start-gen 15 --total-gens 30 --episodes-per-gen 3000
+  python scripts/training/resume_population_training.py --checkpoint-dir outputs/old_run --start-gen 15 --total-gens 30 --episodes-per-gen 3000
         """
     )
 

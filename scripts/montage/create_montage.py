@@ -13,13 +13,13 @@ Requirements:
 
 Usage:
     # Create montage from training run
-    python create_montage.py --run-dir outputs/progressive_20251114_120000
+    python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000
 
     # Custom playback speed (3x faster)
-    python create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 3.0
+    python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 3.0
 
     # Use system Chrome instead of Playwright
-    python create_montage.py --run-dir outputs/progressive_20251114_120000 --use-chrome
+    python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --use-chrome
 """
 
 import json
@@ -30,6 +30,10 @@ from typing import List, Dict, Any
 import argparse
 import sys
 import time
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.telemetry.replay_store import load_replay
 from src.renderer.html_renderer import HtmlRenderer
@@ -570,13 +574,13 @@ def main():
         epilog="""
 Examples:
   # Create montage from training run
-  python create_montage.py --run-dir outputs/progressive_20251114_120000
+  python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000
 
   # Faster playback (5x speed)
-  python create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
+  python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --speed 5.0
 
   # Custom output path
-  python create_montage.py --run-dir outputs/progressive_20251114_120000 --output my_montage.mp4
+  python scripts/montage/create_montage.py --run-dir outputs/progressive_20251114_120000 --output my_montage.mp4
         """
     )
 

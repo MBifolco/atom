@@ -92,7 +92,7 @@ Create a registry of all available fighters:
 
 ```bash
 # Scan all fighters and create registry.json
-python build_registry.py
+python scripts/training/build_registry.py
 
 # This indexes:
 # - Example fighters (fighters/examples/)
@@ -263,8 +263,10 @@ atom/
 │   ├── POPULATION_TRAINING.md   # Population evolution details
 │   ├── original_vision/         # Design philosophy & specs
 │   └── VISION_GAP_ANALYSIS.md   # Built vs planned features
-├── scripts/                    # Utility scripts (analysis + ops)
+├── scripts/                    # Utility scripts
 │   ├── analysis/              # Training/run analysis helpers
+│   ├── training/              # Registry, baseline, resume helpers
+│   ├── montage/               # Replay rendering and montage generation
 │   └── ops/                   # Operational helpers
 ├── archived/                   # Historical diagnostics and legacy assets
 ├── outputs/                    # Training outputs (logs, models, fighters)
