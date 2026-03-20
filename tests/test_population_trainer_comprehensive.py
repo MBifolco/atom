@@ -163,8 +163,8 @@ class TestPopulationTrainerInit:
                 verbose=False
             )
 
-            # Should limit to 2 for GPU mode
-            assert trainer.n_parallel_fighters == 2
+            # GPU vmap mode defaults to sequential training to avoid OOM.
+            assert trainer.n_parallel_fighters == 1
             assert trainer.use_vmap is True
 
     def test_init_with_custom_parallel_and_vmap(self):

@@ -16,6 +16,11 @@ class TestPopulationBatching:
 
     def test_batching_limits_concurrent_execution(self):
         """Test that only n_parallel_fighters run concurrently."""
+        # Create a proper mock for FileHandler to avoid touching filesystem.
+        mock_handler = Mock()
+        mock_handler.level = logging.INFO
+        mock_handler.setFormatter = Mock()
+
         # Track concurrent executions
         concurrent_count = {'max': 0, 'current': 0}
         lock = threading.Lock()
@@ -75,8 +80,8 @@ class TestPopulationBatching:
 
         # Patch ProcessPoolExecutor and file operations
         with patch('src.training.trainers.population.population_trainer.ProcessPoolExecutor', MockExecutor):
-            with patch('pathlib.Path.mkdir'):
-                with patch('pathlib.Path.unlink'):
+            with patch('pathlib.Path.unlink'):
+                with patch('logging.FileHandler', return_value=mock_handler):
                     with patch('stable_baselines3.PPO.load', return_value=Mock()):
                         from src.training.trainers.population.population_trainer import PopulationTrainer, PopulationFighter
 
@@ -137,7 +142,7 @@ class TestPopulationBatching:
                         # Verify execution pattern shows batching
                         print(f"\nExecution log (showing batching behavior):")
                         for event, name, timestamp, concurrent in execution_log[:20]:  # Show first 20 events
-                            print(f"  {event:5s}: {name:10s} at {timestamp:7.3f}s (concurrent: {concurrent})")
+                            print(f"  {event:5s}: {str(name):>10} at {timestamp:7.3f}s (concurrent: {concurrent})")
 
                         # Verify that we never had more than 2 concurrent
                         max_concurrent_from_log = max(c for _, _, _, c in [e for e in execution_log if e[0] == 'start'])
@@ -164,9 +169,9 @@ class TestPopulationBatching:
                     use_vmap=True  # GPU mode
                 )
 
-                # In GPU mode with n_parallel_fighters=None, should default to 2
-                assert trainer.n_parallel_fighters == 2, \
-                    f"GPU mode should default to 2 parallel fighters, got {trainer.n_parallel_fighters}"
+                # In GPU vmap mode with n_parallel_fighters=None, default is sequential (1) for memory safety.
+                assert trainer.n_parallel_fighters == 1, \
+                    f"GPU mode should default to 1 parallel fighter, got {trainer.n_parallel_fighters}"
 
     def test_cpu_batching_uses_multiple_cores(self):
         """Test that CPU mode defaults to using multiple cores."""
