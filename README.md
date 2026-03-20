@@ -263,6 +263,10 @@ atom/
 │   ├── POPULATION_TRAINING.md   # Population evolution details
 │   ├── original_vision/         # Design philosophy & specs
 │   └── VISION_GAP_ANALYSIS.md   # Built vs planned features
+├── scripts/                    # Utility scripts (analysis + ops)
+│   ├── analysis/              # Training/run analysis helpers
+│   └── ops/                   # Operational helpers
+├── archived/                   # Historical diagnostics and legacy assets
 ├── outputs/                    # Training outputs (logs, models, fighters)
 └── tests/                      # Component tests
 ```

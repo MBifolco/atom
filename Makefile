@@ -1,4 +1,4 @@
-.PHONY: install-test-deps test test-unit test-integration test-training test-e2e test-slow baseline-local coverage coverage-report
+.PHONY: install-test-deps test test-unit test-integration test-training test-e2e test-slow baseline-local coverage coverage-report clean
 
 install-test-deps:
 	pip install -r requirements.txt
@@ -29,3 +29,7 @@ coverage:
 
 coverage-report:
 	coverage report --show-missing
+
+clean:
+	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+	rm -rf .pytest_cache htmlcov .coverage .coverage.*
