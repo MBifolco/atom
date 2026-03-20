@@ -9,6 +9,7 @@ longer part of the active training/runtime entrypoints.
 - `tests/`: one-off validation tests from earlier implementation phases
 - `setup_scripts/`: historical environment/setup helpers
 - `legacy_training/`: superseded training stack retained for reference
+  - includes `coaching/` prototypes moved from archived root
 - `diagnostics/`: archived one-off debug/fix scripts moved from repo root
 - `montage_legacy/`: superseded montage script versions
 - `media/`: generated media artifacts moved out of root

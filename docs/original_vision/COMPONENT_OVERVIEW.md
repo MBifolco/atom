@@ -1,5 +1,8 @@
 # Atom Combat - Component Architecture
 
+> Legacy note: This file is a historical architecture snapshot.
+> For the current high-level vision in this folder, start with `components.md`.
+
 ## Overview
 
 The Atom Combat system has been refactored from the POC into a modular component architecture with config-driven design.

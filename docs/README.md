@@ -40,6 +40,7 @@ Technical docs for training, runtime architecture, and project planning.
 - **[REFACTORING_PLAN_DETAILED.md](REFACTORING_PLAN_DETAILED.md)** - Detailed refactor sequencing
 - **[`future_implementation/`](future_implementation/)** - Future architecture and roadmap docs
 - **[`original_vision/`](original_vision/)** - Original design specifications
+- **[`original_vision/README.md`](original_vision/README.md)** - Guided index for original-vision docs
 - **[`analysis/`](analysis/)** - Research/analysis reports
 - **[analysis/GPU_MEMORY_GUIDE.md](analysis/GPU_MEMORY_GUIDE.md)** - GPU memory behavior and troubleshooting notes
 - **[analysis/NAN_FIX_SUMMARY.md](analysis/NAN_FIX_SUMMARY.md)** - NaN mitigation summary

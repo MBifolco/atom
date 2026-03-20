@@ -22,8 +22,10 @@ from pathlib import Path
 from typing import Dict, Optional
 import importlib.util
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent))
+# Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.arena.match_orchestrator import MatchOrchestrator
 from src.arena.arena import Arena
