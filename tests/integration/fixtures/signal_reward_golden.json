@@ -1,0 +1,95 @@
+[
+  {
+    "name": "mid_close_damage",
+    "input": {
+      "done": false,
+      "truncated": false,
+      "damage_dealt": 1.5,
+      "damage_taken": 0.25,
+      "fighter_hp_pct": 0.8,
+      "opponent_hp_pct": 0.6,
+      "stamina_pct": 0.9,
+      "opp_stamina_pct": 0.5,
+      "fighter_stance": 1,
+      "distance": 1.0,
+      "last_distance": 1.2,
+      "tick_count": 20,
+      "max_ticks": 250,
+      "arena_width": 15.0,
+      "episode_damage_dealt": 8.0,
+      "episode_stamina_used": 4.0
+    },
+    "expected": {
+      "reward": 15.593334197998047,
+      "damage_component": 15.5,
+      "proximity_component": 0.07333333790302277,
+      "stamina_component": 0.019999999552965164,
+      "stance_component": 0.0,
+      "inaction_component": 0.0,
+      "terminal_component": 0.0,
+      "next_last_distance": 1.0
+    }
+  },
+  {
+    "name": "terminal_win",
+    "input": {
+      "done": true,
+      "truncated": false,
+      "damage_dealt": 2.0,
+      "damage_taken": 0.0,
+      "fighter_hp_pct": 0.65,
+      "opponent_hp_pct": 0.0,
+      "stamina_pct": 0.7,
+      "opp_stamina_pct": 0.1,
+      "fighter_stance": 1,
+      "distance": 0.8,
+      "last_distance": 1.0,
+      "tick_count": 80,
+      "max_ticks": 250,
+      "arena_width": 15.0,
+      "episode_damage_dealt": 50.0,
+      "episode_stamina_used": 20.0
+    },
+    "expected": {
+      "reward": 149.25,
+      "damage_component": 0.0,
+      "proximity_component": 0.0,
+      "stamina_component": 0.0,
+      "stance_component": 0.0,
+      "inaction_component": 0.0,
+      "terminal_component": 149.25,
+      "next_last_distance": 0.800000011920929
+    }
+  },
+  {
+    "name": "timeout_clear_loss",
+    "input": {
+      "done": false,
+      "truncated": true,
+      "damage_dealt": 0.0,
+      "damage_taken": 0.0,
+      "fighter_hp_pct": 0.35,
+      "opponent_hp_pct": 0.65,
+      "stamina_pct": 0.4,
+      "opp_stamina_pct": 0.6,
+      "fighter_stance": 0,
+      "distance": 4.0,
+      "last_distance": 3.8,
+      "tick_count": 250,
+      "max_ticks": 250,
+      "arena_width": 15.0,
+      "episode_damage_dealt": 10.0,
+      "episode_stamina_used": 15.0
+    },
+    "expected": {
+      "reward": -115.0,
+      "damage_component": 0.0,
+      "proximity_component": 0.0,
+      "stamina_component": 0.0,
+      "stance_component": 0.0,
+      "inaction_component": 0.0,
+      "terminal_component": -115.0,
+      "next_last_distance": 4.0
+    }
+  }
+]

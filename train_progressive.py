@@ -10,6 +10,8 @@ Usage:
     python train_progressive.py --mode complete --timesteps 1000000
 """
 
+# Set runtime environment variables BEFORE importing training modules.
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +19,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.absolute()
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+# Configure CUDA/ROCm/CPU runtime defaults before importing modules that may touch JAX.
+from src.training.utils.runtime_platform import configure_runtime_gpu_env
+_detected_runtime_platform = configure_runtime_gpu_env(enable_gpu=True, memory_fraction=0.75)
 
 # Now we can import cleanly from src
 from src.training.trainers.curriculum_trainer import CurriculumTrainer
@@ -53,10 +59,16 @@ class ProgressiveTrainer:
                  output_dir: str = "outputs/progressive",
                  verbose: bool = True,
                  n_parallel_fighters: int = None,
+                 n_envs: int = None,
                  max_ticks: int = 250,
                  device: str = "auto",
                  use_vmap: bool = False,
-                 debug: bool = False):
+                 population_cpu_only: bool = False,
+                 debug: bool = False,
+                 record_replays: bool = False,
+                 replay_frequency: int = 5,
+                 override_episodes_per_level: int = None,
+                 checkpoint_interval: int = 100000):
         """
         Initialize the progressive trainer.
 
@@ -64,19 +76,28 @@ class ProgressiveTrainer:
             algorithm: RL algorithm to use ("ppo" or "sac")
             output_dir: Directory for all outputs
             verbose: Whether to print progress
-            n_parallel_fighters: Number of fighters to train in parallel (default: cpu_count - 1)
+            n_parallel_fighters: Number of fighters to train in parallel in population mode (default: 2 for GPU, cpu_count-1 for CPU)
+            n_envs: Number of parallel environments for PPO/SAC training (default: 8 for CPU, 250 for GPU)
             max_ticks: Maximum ticks per episode (default: 250)
             device: Device to use for training ("cpu", "cuda", or "auto")
             use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
+            record_replays: Whether to record fight replays for montage
+            replay_frequency: Record replays every N generations
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
         self.verbose = verbose
         self.n_parallel_fighters = n_parallel_fighters
+        self.n_envs = n_envs
         self.max_ticks = max_ticks
         self.device = device
         self.use_vmap = use_vmap
+        self.population_cpu_only = population_cpu_only
         self.debug = debug
+        self.record_replays = record_replays
+        self.replay_frequency = replay_frequency
+        self.override_episodes_per_level = override_episodes_per_level
+        self.checkpoint_interval = checkpoint_interval
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -92,20 +113,25 @@ class ProgressiveTrainer:
 
     def run_curriculum_training(self,
                               timesteps: int = 500_000,
-                              n_envs: int = None) -> Path:
+                              n_envs: int = None,
+                              resume_from_latest: bool = False) -> Path:
         """
         Run curriculum training phase.
 
         Args:
             timesteps: Total training timesteps
-            n_envs: Number of parallel environments (default: 8 for CPU, 250 for GPU)
+            n_envs: Number of parallel environments (default: from init or 8 for CPU, 250 for GPU)
+            resume_from_latest: Resume from latest curriculum checkpoint bundle.
 
         Returns:
             Path to the trained model
         """
-        # Set default n_envs based on vmap usage
+        # Use instance n_envs if not overridden, otherwise set default based on vmap usage
         if n_envs is None:
-            n_envs = 250 if self.use_vmap else 8
+            if self.n_envs is not None:
+                n_envs = self.n_envs
+            else:
+                n_envs = 250 if self.use_vmap else 8
 
         if self.verbose:
             print("\n" + "="*80)
@@ -132,17 +158,129 @@ class ProgressiveTrainer:
             verbose=self.verbose,
             device=self.device,
             use_vmap=self.use_vmap,
-            debug=self.debug
+            debug=self.debug,
+            record_replays=self.record_replays,
+            override_episodes_per_level=self.override_episodes_per_level,
+            checkpoint_interval=self.checkpoint_interval,
         )
 
         # Train through curriculum
-        self.curriculum_trainer.train(total_timesteps=timesteps)
+        self.curriculum_trainer.train(
+            total_timesteps=timesteps,
+            resume_from_latest=resume_from_latest,
+        )
 
         # Get the trained model path
         model_path = self.curriculum_dir / "models" / "curriculum_graduate.zip"
 
+        # COMPREHENSIVE CLEANUP - Free all GPU/CPU memory from curriculum training
+        print("\n💾 Cleaning up curriculum trainer resources...")
+
+        # 1. Close environments properly (this now calls vmap_env.close())
+        if hasattr(self.curriculum_trainer, 'envs') and self.curriculum_trainer.envs is not None:
+            try:
+                self.curriculum_trainer.envs.close()
+                print("  ✓ Closed curriculum environments")
+            except Exception as e:
+                print(f"  ⚠ Error closing environments: {e}")
+            finally:
+                del self.curriculum_trainer.envs
+                self.curriculum_trainer.envs = None
+
+        # 2. Delete the PPO model and its components
+        if hasattr(self.curriculum_trainer, 'model') and self.curriculum_trainer.model is not None:
+            # Delete policy network
+            if hasattr(self.curriculum_trainer.model, 'policy'):
+                del self.curriculum_trainer.model.policy
+
+            # Delete value network
+            if hasattr(self.curriculum_trainer.model, 'value_net'):
+                del self.curriculum_trainer.model.value_net
+
+            # Delete rollout buffer
+            if hasattr(self.curriculum_trainer.model, 'rollout_buffer'):
+                del self.curriculum_trainer.model.rollout_buffer
+
+            # Delete the model itself
+            del self.curriculum_trainer.model
+            self.curriculum_trainer.model = None
+            print("  ✓ Deleted PPO model")
+
+        # 3. Delete progress tracking and statistics
+        if hasattr(self.curriculum_trainer, 'progress'):
+            del self.curriculum_trainer.progress
+            self.curriculum_trainer.progress = None
+
+        if hasattr(self.curriculum_trainer, 'stats'):
+            del self.curriculum_trainer.stats
+            self.curriculum_trainer.stats = None
+
+        # 4. Delete the entire curriculum trainer
+        del self.curriculum_trainer
+        self.curriculum_trainer = None
+        print("  ✓ Deleted curriculum trainer")
+
+        # 5. Force garbage collection (Python)
+        import gc
+        gc.collect()
+        gc.collect()  # Run twice to ensure cleanup
+        print("  ✓ Ran garbage collection")
+
+        # 6. Clear PyTorch GPU cache if available
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Wait for all GPU operations to complete
+
+                # Get memory stats
+                if self.verbose:
+                    allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+                    reserved = torch.cuda.memory_reserved() / 1024**3  # GB
+                    print(f"  ✓ Cleared PyTorch GPU cache")
+                    print(f"    GPU Memory - Allocated: {allocated:.2f} GB, Reserved: {reserved:.2f} GB")
+        except Exception as e:
+            if self.verbose:
+                print(f"  ⚠ PyTorch GPU cleanup: {e}")
+
+        # 7. Clear JAX resources
+        try:
+            import jax
+            jax.clear_caches()
+
+            # Also clear JAX GPU memory if using GPU
+            try:
+                devices = jax.devices()
+                if any('gpu' in str(d).lower() or 'rocm' in str(d).lower() for d in devices):
+                    # Force JAX to release GPU memory
+                    jax.clear_backends()
+                    print("  ✓ Cleared JAX GPU resources")
+            except:
+                pass
+
+            print("  ✓ Cleared JAX compilation cache")
+        except Exception as e:
+            if self.verbose:
+                print(f"  ⚠ JAX cleanup: {e}")
+
+        # 8. ROCm/AMD GPU specific cleanup
+        try:
+            # Try to reset ROCm if available
+            import subprocess
+            result = subprocess.run(['rocm-smi', '--resetclocks'],
+                                  capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                print("  ✓ Reset ROCm GPU clocks")
+        except:
+            pass  # ROCm tools may not be available
+
+        # 9. Brief pause to ensure all resources are released
+        import time
+        time.sleep(1)
+        print("  ✓ Resource cleanup complete\n")
+
         if self.verbose:
-            print(f"\n✅ Curriculum training complete!")
+            print(f"✅ Curriculum training complete!")
             print(f"Model saved to: {model_path}")
 
         return model_path
@@ -178,7 +316,9 @@ class ProgressiveTrainer:
             verbose=self.verbose,
             n_parallel_fighters=self.n_parallel_fighters,
             use_vmap=self.use_vmap,  # Use GPU if enabled
-            n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+            n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+            record_replays=self.record_replays,
+            replay_recording_frequency=self.replay_frequency
         )
 
         # Initialize population with the curriculum model as base
@@ -194,7 +334,9 @@ class ProgressiveTrainer:
                               generations: int = 10,
                               episodes_per_generation: int = 500,
                               population_size: int = 8,
-                              keep_top: float = 0.5):
+                              keep_top: float = 0.5,
+                              evolution_frequency: int = 2,
+                              mutation_rate: float = 0.1):
         """
         Run population-based training phase.
 
@@ -203,6 +345,8 @@ class ProgressiveTrainer:
             episodes_per_generation: Training episodes per generation
             population_size: Size of the population
             keep_top: Fraction to keep during evolution
+            evolution_frequency: Evolve every N generations
+            mutation_rate: Strength of mutations (noise level for weights)
         """
         if self.verbose:
             print("\n" + "="*80)
@@ -212,12 +356,19 @@ class ProgressiveTrainer:
             print(f"Population size: {population_size}")
             print(f"Episodes per generation: {episodes_per_generation}")
             print(f"Selection pressure: Keep top {keep_top*100:.0f}%")
+            print(f"Mutation rate: {mutation_rate} (weight noise level)")
+            print(f"Evolution frequency: Every {evolution_frequency} generations")
             print()
 
         if not self.population_trainer:
             # Create population trainer if not already created
-            # NOTE: Population training uses GPU with reduced envs to fit memory
-            # 8 fighters × 45 envs = 360 total envs (~7.2 GB VRAM)
+            # Determine whether to use GPU for population training
+            population_use_vmap = self.use_vmap and not self.population_cpu_only
+
+            if self.population_cpu_only and self.use_vmap and self.verbose:
+                print("⚠️  Forcing CPU mode for population training (--population-cpu-only)")
+                print("   (This avoids GPU out-of-memory issues)")
+
             self.population_trainer = PopulationTrainer(
                 population_size=population_size,
                 algorithm=self.algorithm,
@@ -225,8 +376,10 @@ class ProgressiveTrainer:
                 max_ticks=self.max_ticks,
                 verbose=self.verbose,
                 n_parallel_fighters=self.n_parallel_fighters,
-                use_vmap=self.use_vmap,  # Use GPU if enabled
-                n_vmap_envs=45  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+                use_vmap=population_use_vmap,  # May be overridden by population_cpu_only
+                n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+                record_replays=self.record_replays,
+                replay_recording_frequency=self.replay_frequency
             )
 
         # Check if we have a base model from curriculum training
@@ -240,7 +393,8 @@ class ProgressiveTrainer:
             generations=generations,
             episodes_per_generation=episodes_per_generation,
             keep_top=keep_top,
-            evolution_frequency=2,  # Evolve every 2 generations
+            evolution_frequency=evolution_frequency,
+            mutation_rate=mutation_rate,
             base_model_path=base_model
         )
 
@@ -251,7 +405,11 @@ class ProgressiveTrainer:
                              curriculum_timesteps: int = 500_000,
                              population_generations: int = 10,
                              population_size: int = 8,
-                             episodes_per_generation: int = 2000):
+                             episodes_per_generation: int = 2000,
+                             keep_top: float = 0.5,
+                             evolution_frequency: int = 2,
+                             mutation_rate: float = 0.1,
+                             resume_curriculum: bool = False):
         """
         Run the complete progressive training pipeline.
 
@@ -268,6 +426,7 @@ class ProgressiveTrainer:
             print(f"\nConfiguration:")
             print(f"  Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
             print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
+            print(f"  Runtime Platform: {_detected_runtime_platform}")
             print(f"\nOutput directory: {self.output_dir}")
             print(f"Logs will be saved to:")
             print(f"  - {self.curriculum_dir / 'logs'}")
@@ -276,7 +435,8 @@ class ProgressiveTrainer:
 
         # Phase 1: Curriculum Training
         model_path = self.run_curriculum_training(
-            timesteps=curriculum_timesteps
+            timesteps=curriculum_timesteps,
+            resume_from_latest=resume_curriculum,
             # n_envs defaults to 8 for CPU or 250 for GPU (auto-configured)
         )
 
@@ -292,7 +452,9 @@ class ProgressiveTrainer:
             generations=population_generations,
             episodes_per_generation=episodes_per_generation,
             population_size=population_size,
-            keep_top=0.5
+            keep_top=keep_top,
+            evolution_frequency=evolution_frequency,
+            mutation_rate=mutation_rate
         )
 
         if self.verbose:
@@ -370,7 +532,13 @@ Examples:
         "--cores",
         type=int,
         default=None,
-        help="Number of CPU cores to use for parallel fighter training (default: cpu_count - 1)"
+        help="Number of CPU cores to use for PPO parallel environments (default: 8)"
+    )
+    parser.add_argument(
+        "--n-parallel-fighters",
+        type=int,
+        default=None,
+        help="Number of fighters to train in parallel in population mode (default: 2 for GPU, cpu_count-1 for CPU)"
     )
     parser.add_argument(
         "--episodes-per-gen",
@@ -389,17 +557,68 @@ Examples:
         type=str,
         choices=["cpu", "cuda", "auto"],
         default="cuda",
-        help="Device to use for training: cpu, cuda (GPU), or auto (default: cuda for ROCm)"
+        help="Device to use for training: cpu, cuda (GPU), or auto"
     )
     parser.add_argument(
         "--use-vmap",
         action="store_true",
-        help="Enable JAX vmap for GPU-accelerated training (77x speedup with GPU). Requires: source setup_gpu.sh"
+        help="Enable JAX vmap for GPU-accelerated training (CUDA or ROCm)"
+    )
+    parser.add_argument(
+        "--population-cpu-only",
+        action="store_true",
+        help="Force CPU-only training for population phase (avoids GPU OOM issues)"
     )
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug logging to see detailed fight information"
+    )
+    parser.add_argument(
+        "--record-replays",
+        action="store_true",
+        help="Record fight replays for creating a training montage (samples bottom/middle/top spectacle)"
+    )
+    parser.add_argument(
+        "--replay-frequency",
+        type=int,
+        default=5,
+        help="Record replays every N generations for population training (default: 5)"
+    )
+    parser.add_argument(
+        "--override-episodes-per-level",
+        type=int,
+        default=None,
+        help="Force graduation after N episodes (for testing). None for normal graduation."
+    )
+    parser.add_argument(
+        "--resume-curriculum",
+        action="store_true",
+        help="Resume curriculum training from latest checkpoint bundle in output dir."
+    )
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=100000,
+        help="Save curriculum checkpoint bundle every N timesteps (default: 100000)."
+    )
+    parser.add_argument(
+        "--keep-top",
+        type=float,
+        default=0.5,
+        help="Fraction of population to keep during evolution (default: 0.5 = top 50%%)"
+    )
+    parser.add_argument(
+        "--mutation-rate",
+        type=float,
+        default=0.1,
+        help="Mutation strength for evolved fighters (default: 0.1 = 10%% weight noise)"
+    )
+    parser.add_argument(
+        "--evolution-frequency",
+        type=int,
+        default=2,
+        help="Evolve population every N generations (default: 2)"
     )
 
     args = parser.parse_args()
@@ -416,11 +635,17 @@ Examples:
         algorithm=args.algorithm,
         output_dir=output_dir,
         verbose=True,
-        n_parallel_fighters=args.cores,
+        n_parallel_fighters=args.n_parallel_fighters,
+        n_envs=args.cores,
         max_ticks=args.max_ticks,
         device=args.device,
         use_vmap=args.use_vmap,
-        debug=args.debug
+        population_cpu_only=args.population_cpu_only,
+        debug=args.debug,
+        record_replays=args.record_replays,
+        replay_frequency=args.replay_frequency,
+        override_episodes_per_level=args.override_episodes_per_level,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
     # Run based on mode
@@ -430,18 +655,25 @@ Examples:
             curriculum_timesteps=10_000,
             population_generations=2,
             population_size=4,
-            episodes_per_generation=500  # Keep low for quick mode
+            episodes_per_generation=500,  # Keep low for quick mode
+            resume_curriculum=args.resume_curriculum,
         )
     elif args.mode == "curriculum":
         # Curriculum only
-        trainer.run_curriculum_training(timesteps=args.timesteps)
+        trainer.run_curriculum_training(
+            timesteps=args.timesteps,
+            resume_from_latest=args.resume_curriculum,
+        )
     elif args.mode == "population":
         # Population only
         print("Note: Population mode requires an existing curriculum graduate model.")
         trainer.run_population_training(
             generations=args.generations,
             episodes_per_generation=args.episodes_per_gen,
-            population_size=args.population
+            population_size=args.population,
+            keep_top=args.keep_top,
+            evolution_frequency=args.evolution_frequency,
+            mutation_rate=args.mutation_rate
         )
     else:  # complete
         # Full pipeline
@@ -449,7 +681,11 @@ Examples:
             curriculum_timesteps=args.timesteps,
             population_generations=args.generations,
             population_size=args.population,
-            episodes_per_generation=args.episodes_per_gen
+            episodes_per_generation=args.episodes_per_gen,
+            keep_top=args.keep_top,
+            evolution_frequency=args.evolution_frequency,
+            mutation_rate=args.mutation_rate,
+            resume_curriculum=args.resume_curriculum,
         )
 
 

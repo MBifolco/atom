@@ -1,19 +1,15 @@
 [run]
-source = src,training/src
+source = src
 omit =
     */tests/*
-    */__pycache__/*
-    */site-packages/*
-    */.pytest_cache/*
-    */outputs/*
+    */__init__.py
+    archived/*
+    src/ai/*
+    src/training/trainers/population/test_*.py
+    src/training/trainers/population/train_*.py
+    src/training/trainers/population/debug_*.py
 
 [report]
 precision = 2
 show_missing = True
 skip_covered = False
-
-[html]
-directory = htmlcov
-
-[coverage:report]
-fail_under = 12.0

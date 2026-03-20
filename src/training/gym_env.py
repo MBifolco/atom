@@ -9,10 +9,9 @@ import gymnasium as gym
 from gymnasium import spaces
 
 # Use relative imports within the src package
-from ..arena import WorldConfig, FighterState, Arena1D
-from ..arena.arena_1d_jax import Arena1DJAX
-from ..arena.arena_1d_jax_jit import Arena1DJAXJit
+from ..arena import WorldConfig, FighterState, Arena1DJAXJit
 from ..protocol.combat_protocol import generate_snapshot
+from .signal_engine import build_observation, compute_step_reward_scalar
 
 
 class AtomCombatEnv(gym.Env):
@@ -32,7 +31,7 @@ class AtomCombatEnv(gym.Env):
 
     Action Space:
         - acceleration: continuous [-1, 1] (scaled to max_acceleration)
-        - stance: discrete [0-3] (neutral, extended, retracted, defending)
+        - stance: discrete [0-2] (neutral, extended, defending)
     """
 
     metadata = {"render_modes": []}
@@ -44,9 +43,7 @@ class AtomCombatEnv(gym.Env):
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
         opponent_mass: float = 70.0,
-        seed: int = None,
-        use_jax: bool = False,
-        use_jax_jit: bool = False
+        seed: int = None
     ):
         """
         Initialize the environment.
@@ -58,8 +55,6 @@ class AtomCombatEnv(gym.Env):
             fighter_mass: Mass of the learning fighter
             opponent_mass: Mass of the opponent
             seed: Random seed
-            use_jax: Use JAX-accelerated physics Phase 1 (default: False)
-            use_jax_jit: Use JAX JIT-compiled physics Phase 3 (default: False, overrides use_jax)
         """
         super().__init__()
 
@@ -69,14 +64,14 @@ class AtomCombatEnv(gym.Env):
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self._seed = seed
-        self.use_jax = use_jax
-        self.use_jax_jit = use_jax_jit
 
-        # Define observation space (9 continuous values)
-        # Normalized to roughly [-1, 1] or [0, 1] range
+        # Define observation space (13 values for enhanced training)
+        # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
+        #  opp_hp_norm, opp_stamina_norm, arena_width,
+        #  wall_dist_left, wall_dist_right, opp_stance_int, recent_damage_dealt]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -85,17 +80,15 @@ class AtomCombatEnv(gym.Env):
         # PPO works well with continuous action spaces
         self.action_space = spaces.Box(
             low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 3.99], dtype=np.float32),
+            high=np.array([1.0, 2.99], dtype=np.float32),  # Changed from 3.99 to 2.99 for 3 stances
             dtype=np.float32
         )
 
-        # Stance mapping
-        self.stance_names = ["neutral", "extended", "retracted", "defending"]
+        # Stance mapping (3-stance system)
+        self.stance_names = ["neutral", "extended", "defending"]  # Removed retracted
 
         # State
         self.arena = None
-        self.fighter = None
-        self.opponent = None
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
@@ -112,6 +105,20 @@ class AtomCombatEnv(gym.Env):
         self.episode_stamina_reward = 0
         self.episode_stance_reward = 0
 
+    @property
+    def fighter(self):
+        """Get current fighter state from arena."""
+        if self.arena is None:
+            return None
+        return self.arena.state.fighter_a
+
+    @property
+    def opponent(self):
+        """Get current opponent state from arena."""
+        if self.arena is None:
+            return None
+        return self.arena.state.fighter_b
+
     def reset(self, seed=None, options=None):
         """Reset the environment for a new episode."""
         super().reset(seed=seed)
@@ -119,18 +126,13 @@ class AtomCombatEnv(gym.Env):
         if seed is not None:
             self._seed = seed
 
-        # Create fighters
-        self.fighter = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
-        self.opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
+        # Create initial fighters
+        fighter_init = FighterState.create("learner", self.fighter_mass, 2.0, self.config)
+        opponent_init = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)
 
         # Create arena (JAX JIT > JAX > Python)
-        if self.use_jax_jit:
-            ArenaClass = Arena1DJAXJit
-        elif self.use_jax:
-            ArenaClass = Arena1DJAX
-        else:
-            ArenaClass = Arena1D
-        self.arena = ArenaClass(self.fighter, self.opponent, self.config, seed=self._seed or 0)
+        # Always use JAX JIT implementation
+        self.arena = Arena1DJAXJit(fighter_init, opponent_init, self.config, seed=self._seed or 0)
 
         self.tick = 0
         self.episode_damage_dealt = 0
@@ -170,14 +172,25 @@ class AtomCombatEnv(gym.Env):
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * self.config.max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 3))  # Clip and convert to int
-        stance = self.stance_names[stance_idx]
+        stance_idx = int(np.clip(action[1], 0, 2))  # Clip to 2 for 3 stances (0,1,2)
 
-        fighter_action = {"acceleration": acceleration, "stance": stance}
+        # Use integer stance for JAX arena, string stance for Python arena
+        from ..arena.arena_1d_jax_jit import Arena1DJAXJit
+
+        if isinstance(self.arena, Arena1DJAXJit):
+            fighter_action = {"acceleration": acceleration, "stance": stance_idx}
+        else:
+            stance = self.stance_names[stance_idx]
+            fighter_action = {"acceleration": acceleration, "stance": stance}
 
         # Get opponent action
         snapshot_opp = generate_snapshot(self.opponent, self.fighter, self.tick, self.config.arena_width)
         opponent_action_dict = self.opponent_decide(snapshot_opp)
+
+        # Convert opponent stance to int if using JAX arena
+        if isinstance(self.arena, Arena1DJAXJit) and isinstance(opponent_action_dict.get("stance"), str):
+            opponent_action_dict = opponent_action_dict.copy()
+            opponent_action_dict["stance"] = self.stance_names.index(opponent_action_dict["stance"])
 
         # Execute tick in arena
         prev_fighter_hp = self.fighter.hp
@@ -187,9 +200,10 @@ class AtomCombatEnv(gym.Env):
         events = self.arena.step(fighter_action, opponent_action_dict)
 
         # Calculate damage dealt/taken this step
-        damage_dealt = prev_opponent_hp - self.opponent.hp
-        damage_taken = prev_fighter_hp - self.fighter.hp
-        stamina_spent = prev_fighter_stamina - self.fighter.stamina
+        # Convert to floats to handle JAX Arrays
+        damage_dealt = float(prev_opponent_hp - self.opponent.hp)
+        damage_taken = float(prev_fighter_hp - self.fighter.hp)
+        stamina_spent = float(prev_fighter_stamina - self.fighter.stamina)
 
         self.episode_damage_dealt += damage_dealt
         self.episode_damage_taken += damage_taken
@@ -206,148 +220,43 @@ class AtomCombatEnv(gym.Env):
         obs = self._get_observation()
 
         # Check termination
-        terminated = self.fighter.hp <= 0 or self.opponent.hp <= 0
-        truncated = self.tick >= self.max_ticks
+        terminated = bool(self.fighter.hp <= 0 or self.opponent.hp <= 0)
+        truncated = bool(self.tick >= self.max_ticks)
 
-        # Calculate reward based on outcome
-        # Use HP percentage (not absolute HP) since fighters can have different max HP
-        fighter_hp_pct = self.fighter.hp / self.fighter.max_hp
-        opponent_hp_pct = self.opponent.hp / self.opponent.max_hp
+        # Calculate normalized state needed by canonical reward engine.
+        fighter_hp_pct = float(self.fighter.hp) / float(self.fighter.max_hp)
+        opponent_hp_pct = float(self.opponent.hp) / float(self.opponent.max_hp)
+        stamina_pct = float(self.fighter.stamina) / float(self.fighter.max_stamina)
+        opp_stamina_pct = float(self.opponent.stamina) / float(self.opponent.max_stamina)
+        distance = float(abs(self.fighter.position - self.opponent.position))
 
-        if terminated:
-            # Someone died - determine winner
-            if fighter_hp_pct > opponent_hp_pct:
-                # WIN: Base bonus + time bonus + HP differential bonus + efficiency bonus
-                time_bonus = max(0, (self.max_ticks - self.tick) / 20)  # Up to +50 for quick wins
-                hp_diff = fighter_hp_pct - opponent_hp_pct  # 0.0 to 1.0 (100% margin)
-                hp_bonus = hp_diff * 100  # Up to +100 for perfect win (100% HP vs 0%)
+        reward_result = compute_step_reward_scalar(
+            done=terminated,
+            truncated=truncated,
+            damage_dealt=damage_dealt,
+            damage_taken=damage_taken,
+            fighter_hp_pct=fighter_hp_pct,
+            opponent_hp_pct=opponent_hp_pct,
+            stamina_pct=stamina_pct,
+            opp_stamina_pct=opp_stamina_pct,
+            fighter_stance=self.fighter.stance,
+            distance=distance,
+            last_distance=self.last_distance,
+            tick_count=self.tick,
+            max_ticks=self.max_ticks,
+            arena_width=self.config.arena_width,
+            episode_damage_dealt=self.episode_damage_dealt,
+            episode_stamina_used=self.stamina_used,
+        )
 
-                # Stamina efficiency bonus (up to +25 for stamina-efficient wins)
-                stamina_efficiency = 0
-                if self.stamina_used > 0:
-                    damage_per_stamina = self.episode_damage_dealt / max(self.stamina_used, 1)
-                    stamina_efficiency = min(25, damage_per_stamina * 5)
-
-                reward = 200.0 + time_bonus + hp_bonus + stamina_efficiency
-            elif fighter_hp_pct == opponent_hp_pct:
-                # TIE: Both died simultaneously - PENALTY
-                # Strongly discourages mutual destruction, encourages survival
-                reward = -50.0
-            else:
-                # LOSS: Penalty scales with how badly you lost
-                hp_diff = opponent_hp_pct - fighter_hp_pct  # 0.0 to 1.0
-                hp_penalty = hp_diff * 100  # Up to -100 for getting dominated
-                reward = -200.0 - hp_penalty
-            self.episode_terminal_reward = reward
-        elif truncated:
-            # Timeout - compare HP percentage
-            hp_pct_diff = fighter_hp_pct - opponent_hp_pct
-            if hp_pct_diff > 0.1:
-                # Clear win on HP (>10% margin) - significant reward
-                reward = 100.0 + (hp_pct_diff * 50)  # Up to 150 for large HP margin
-            elif hp_pct_diff > 0:
-                # Slight win on HP - neutral (didn't finish fight decisively)
-                reward = 0.0
-            elif hp_pct_diff < -0.1:
-                # Clear loss on HP
-                reward = -100.0 + (hp_pct_diff * 50)  # Down to -150 for bad loss
-            elif hp_pct_diff < 0:
-                # Slight loss on HP
-                reward = -50.0
-            else:
-                # Exact tie - very strong penalty (strongly discourage indecisive fights)
-                reward = -200.0
-            self.episode_terminal_reward = reward
-        else:
-            # Mid-episode rewards: Shaped to encourage good fighting behavior
-            reward = 0
-
-            # 1. Damage differential (core reward) - INCREASED
-            damage_reward = (damage_dealt - damage_taken) * 10.0  # Was 2.0, now 10.0
-            reward += damage_reward
-            self.episode_damage_reward += damage_reward
-
-            # 1b. Close-range engagement bonus - reward aggressive fighting
-            # Distance is calculated below, so we need to get it here
-            distance = abs(self.fighter.position - self.opponent.position)
-            arena_width = self.config.arena_width
-            if damage_dealt > 0 and distance < arena_width * 0.3:
-                close_range_bonus = damage_dealt * 2.0  # Double damage reward for close hits
-                reward += close_range_bonus
-                self.episode_damage_reward += close_range_bonus
-
-            # 2. Stamina-aware rewards - REDUCED (not core to basic combat)
-            stamina_pct = self.fighter.stamina / self.fighter.max_stamina
-            opp_stamina_pct = self.opponent.stamina / self.opponent.max_stamina
-
-            # Small reward for maintaining stamina advantage
-            if stamina_pct > opp_stamina_pct + 0.2:
-                stamina_bonus = 0.02  # Was 0.1, now 0.02 (5x reduction)
-                reward += stamina_bonus
-                self.episode_stamina_reward += stamina_bonus
-
-            # Small penalty for fighting at very low stamina (< 20%)
-            if stamina_pct < 0.2 and stance != "defending":
-                stamina_penalty = -0.05  # Was -0.2, now -0.05 (4x reduction)
-                reward += stamina_penalty
-                self.episode_stamina_reward += stamina_penalty
-
-            # 3. Smart proximity rewards (distance-aware)
-            # (distance and arena_width already calculated above for close-range bonus)
-
-            # Track closing/opening distance
-            if self.last_distance is not None:
-                distance_delta = self.last_distance - distance  # Positive = closing
-
-                # Reward closing distance when opponent is low HP or stamina
-                if opponent_hp_pct < 0.3 or opp_stamina_pct < 0.2:
-                    if distance_delta > 0.1:  # Closing in
-                        proximity_bonus = 0.2
-                        reward += proximity_bonus
-                        self.episode_proximity_reward += proximity_bonus
-
-                # Reward backing off when low on stamina
-                elif stamina_pct < 0.2:
-                    if distance_delta < -0.1:  # Backing away
-                        proximity_bonus = 0.1
-                        reward += proximity_bonus
-                        self.episode_proximity_reward += proximity_bonus
-
-                # Normal engagement distance reward (moderate, not overwhelming)
-                elif distance < arena_width * 0.25:  # Within ~3 meters
-                    proximity_bonus = 0.1 * (1.0 - distance / (arena_width * 0.25))
-                    reward += proximity_bonus
-                    self.episode_proximity_reward += proximity_bonus
-
-            self.last_distance = distance
-
-            # 4. Stance-appropriate rewards
-            stance_bonus = 0
-
-            # Reward aggressive stance when opponent is hurt
-            if stance == "extended" and opponent_hp_pct < 0.5:
-                stance_bonus = 0.05
-            # Reward defensive stance when recovering stamina
-            elif stance == "defending" and stamina_pct < 0.3:
-                stance_bonus = 0.05
-            # Reward retracted stance when countering
-            elif stance == "retracted" and damage_dealt > 0:
-                stance_bonus = 0.15
-
-            reward += stance_bonus
-            self.episode_stance_reward += stance_bonus
-
-            # 5. Inaction penalty (distance-aware) - STRONG ANTI-AVOIDANCE
-            # Heavy penalty for complete inaction to prevent passive/avoidance strategies
-            if damage_dealt == 0 and damage_taken == 0:
-                if distance < arena_width * 0.2:  # Very close
-                    inaction_penalty = -0.5  # Strong penalty for not engaging at close range
-                elif distance < arena_width * 0.4:  # Medium range
-                    inaction_penalty = -0.3  # Moderate penalty
-                else:  # Far away
-                    inaction_penalty = -0.1  # Light penalty for keeping distance
-                reward += inaction_penalty
-                self.episode_inaction_penalty += inaction_penalty
+        reward = reward_result.reward
+        self.last_distance = reward_result.next_last_distance
+        self.episode_damage_reward += reward_result.damage_component
+        self.episode_proximity_reward += reward_result.proximity_component
+        self.episode_stamina_reward += reward_result.stamina_component
+        self.episode_stance_reward += reward_result.stance_component
+        self.episode_inaction_penalty += reward_result.inaction_component
+        self.episode_terminal_reward += reward_result.terminal_component
 
         # Info dict
         info = {
@@ -356,10 +265,10 @@ class AtomCombatEnv(gym.Env):
             "damage_taken": damage_taken,
             "episode_damage_dealt": self.episode_damage_dealt,
             "episode_damage_taken": self.episode_damage_taken,
-            "fighter_hp": self.fighter.hp,
-            "opponent_hp": self.opponent.hp,
-            "fighter_stamina": self.fighter.stamina,
-            "opponent_stamina": self.opponent.stamina,
+            "fighter_hp": float(self.fighter.hp),
+            "opponent_hp": float(self.opponent.hp),
+            "fighter_stamina": float(self.fighter.stamina),
+            "opponent_stamina": float(self.opponent.stamina),
             "hits_landed": self.hits_landed,
             "hits_taken": self.hits_taken,
             "stamina_used": self.stamina_used,
@@ -378,47 +287,30 @@ class AtomCombatEnv(gym.Env):
             } if (terminated or truncated) else None
         }
 
+        # Ensure reward is a Python float (not a JAX Array)
+        reward = float(reward) if hasattr(reward, '__float__') else reward
+
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array."""
-        # Normalize HP and stamina to [0, 1]
-        you_hp_norm = self.fighter.hp / self.fighter.max_hp
-        you_stamina_norm = self.fighter.stamina / self.fighter.max_stamina
-        opp_hp_norm = self.opponent.hp / self.opponent.max_hp
-        opp_stamina_norm = self.opponent.stamina / self.opponent.max_stamina
-
-        # Calculate opponent distance and relative velocity
-        distance = abs(self.opponent.position - self.fighter.position)
-
-        # Relative velocity (negative = approaching)
-        if self.fighter.position < self.opponent.position:
-            rel_velocity = self.opponent.velocity - self.fighter.velocity
-        else:
-            rel_velocity = self.fighter.velocity - self.opponent.velocity
-
-        obs = np.array([
-            self.fighter.position,
-            self.fighter.velocity,
-            you_hp_norm,
-            you_stamina_norm,
-            distance,
-            rel_velocity,
-            opp_hp_norm,
-            opp_stamina_norm,
-            self.config.arena_width
-        ], dtype=np.float32)
-
-        return obs
-
-    def _calculate_reward(self, damage_dealt, damage_taken):
-        """
-        Calculate reward for this step.
-
-        NOTE: This is now only used for mid-episode rewards.
-        Episode-end rewards are calculated in step() based on win/loss/timeout.
-        """
-        return damage_dealt - damage_taken
+        """Get current observation as numpy array (13 dimensions)."""
+        return build_observation(
+            you_position=float(self.fighter.position),
+            you_velocity=float(self.fighter.velocity),
+            you_hp=float(self.fighter.hp),
+            you_max_hp=float(self.fighter.max_hp),
+            you_stamina=float(self.fighter.stamina),
+            you_max_stamina=float(self.fighter.max_stamina),
+            opponent_position=float(self.opponent.position),
+            opponent_velocity=float(self.opponent.velocity),
+            opponent_hp=float(self.opponent.hp),
+            opponent_max_hp=float(self.opponent.max_hp),
+            opponent_stamina=float(self.opponent.stamina),
+            opponent_max_stamina=float(self.opponent.max_stamina),
+            opponent_stance=self.opponent.stance,
+            arena_width=float(self.config.arena_width),
+            recent_damage=float(self.episode_damage_dealt),
+        )
 
     def render(self):
         """Rendering not implemented for training."""

@@ -1,34 +1,21 @@
 """
-Stamina Efficient
-
-Test dummy that maintains optimal stamina usage.
-Uses neutral stance primarily, only switching to extended
-when stamina is above 80%.
-
-Purpose: Test against conservative stamina management,
-long-duration combat, and endurance strategies.
+Conservative stamina management.
+Used for Level 3: Intermediate training.
 """
 
+def decide(state):
+    """Manages stamina conservatively."""
+    stamina_pct = state["you"]["stamina"] / state["you"]["max_stamina"]
 
-def decide(snapshot):
-    """
-    Stamina efficient test dummy.
-
-    Conserves stamina by using neutral stance mostly,
-    only attacking when stamina is very high.
-    """
-    my_stamina_pct = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
-
-    # Conservative stamina management
-    if my_stamina_pct > 0.8:
-        # High stamina: Can afford to attack briefly
-        stance = "extended"
-    elif my_stamina_pct < 0.3:
-        # Low stamina: Recovery mode
-        stance = "retracted"
+    # Choose stance based on stamina
+    if stamina_pct > 0.8:
+        stance = "extended"  # Attack when fresh
+    elif stamina_pct < 0.3:
+        stance = "defending"  # Defend when tired
     else:
-        # Normal operation: Neutral for efficiency
-        stance = "neutral"
+        stance = "neutral"  # Normal otherwise
 
-    # Stationary to focus on stamina pattern
-    return {"acceleration": 0.0, "stance": stance}
+    return {
+        "acceleration": 0.0,  # Stationary
+        "stance": stance
+    }

@@ -22,12 +22,7 @@ def stationary_extended_jax(state, config):
 
 def stationary_defending_jax(state, config):
     """Stationary defending stance - stands still in defending."""
-    return jnp.array([0.0, 3])  # [acceleration, stance_int]
-
-
-def stationary_retracted_jax(state, config):
-    """Stationary retracted stance - stands still in retracted."""
-    return jnp.array([0.0, 2])  # [acceleration, stance_int]
+    return jnp.array([0.0, 2])  # [acceleration, stance_int=2 for defending]
 
 
 def approach_slow_jax(state, config):
@@ -255,7 +250,7 @@ def distance_keeper_5m_jax(state, config):
 def stamina_efficient_jax(state, config):
     """Conservative stamina management."""
     my_stamina = state.fighter_b.stamina
-    max_stamina = config.max_stamina
+    max_stamina = state.fighter_b.max_stamina
     stamina_pct = my_stamina / max_stamina
 
     # Conservative stamina management
@@ -264,7 +259,7 @@ def stamina_efficient_jax(state, config):
         lambda _: 1,  # High stamina: extended
         lambda _: lax.cond(
             stamina_pct < 0.3,
-            lambda _: 2,  # Low stamina: retracted
+            lambda _: 2,  # Low stamina: defending
             lambda _: 0,  # Normal: neutral
             None
         ),
@@ -282,7 +277,7 @@ def stamina_waster_jax(state, config):
 def stamina_cycler_jax(state, config):
     """Cycles through stances based on stamina level."""
     my_stamina = state.fighter_b.stamina
-    max_stamina = config.max_stamina
+    max_stamina = state.fighter_b.max_stamina
     stamina_pct = my_stamina / max_stamina
 
     # Cycle stances based on stamina
@@ -292,7 +287,7 @@ def stamina_cycler_jax(state, config):
         lambda _: lax.cond(
             stamina_pct > 0.33,
             lambda _: 0,  # neutral
-            lambda _: 2,  # retracted (regens stamina)
+            lambda _: 2,  # defending (regens stamina)
             None
         ),
         None
@@ -403,30 +398,29 @@ def shuttle_medium_jax(state, config):
 
 # Opponent registry with integer IDs
 JAX_OPPONENT_REGISTRY = {
-    # Level 1: Fundamentals (stationary)
+    # Level 1: Fundamentals (stationary, 3-stance system)
     "stationary_neutral": (0, stationary_neutral_jax),
     "stationary_extended": (1, stationary_extended_jax),
     "stationary_defending": (2, stationary_defending_jax),
-    "stationary_retracted": (3, stationary_retracted_jax),
 
     # Level 2: Basic Skills (simple movement)
-    "approach_slow": (4, approach_slow_jax),
-    "flee_always": (5, flee_always_jax),
-    "shuttle_slow": (6, shuttle_slow_jax),
-    "shuttle_medium": (7, shuttle_medium_jax),
-    "circle_left": (8, circle_left_jax),
-    "circle_right": (9, circle_right_jax),
+    "approach_slow": (3, approach_slow_jax),
+    "flee_always": (4, flee_always_jax),
+    "shuttle_slow": (5, shuttle_slow_jax),
+    "shuttle_medium": (6, shuttle_medium_jax),
+    "circle_left": (7, circle_left_jax),
+    "circle_right": (8, circle_right_jax),
 
     # Level 3: Intermediate (distance/stamina)
-    "distance_keeper_1m": (10, distance_keeper_1m_jax),
-    "distance_keeper_3m": (11, distance_keeper_3m_jax),
-    "distance_keeper_5m": (12, distance_keeper_5m_jax),
-    "stamina_waster": (13, stamina_waster_jax),
-    "stamina_cycler": (14, stamina_cycler_jax),
-    "stamina_efficient": (15, stamina_efficient_jax),
-    "charge_on_approach": (16, charge_on_approach_jax),
-    "wall_hugger_left": (17, wall_hugger_left_jax),
-    "wall_hugger_right": (18, wall_hugger_right_jax),
+    "distance_keeper_1m": (9, distance_keeper_1m_jax),
+    "distance_keeper_3m": (10, distance_keeper_3m_jax),
+    "distance_keeper_5m": (11, distance_keeper_5m_jax),
+    "stamina_waster": (12, stamina_waster_jax),
+    "stamina_cycler": (13, stamina_cycler_jax),
+    "stamina_efficient": (14, stamina_efficient_jax),
+    "charge_on_approach": (15, charge_on_approach_jax),
+    "wall_hugger_left": (16, wall_hugger_left_jax),
+    "wall_hugger_right": (17, wall_hugger_right_jax),
 }
 
 

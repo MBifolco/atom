@@ -1,18 +1,11 @@
 """
-Stationary Extended
-
-Test dummy that stands perfectly still in extended stance.
-Never moves, always maintains extended stance.
-
-Purpose: Test extended stance reach, stamina drain,
-and attack damage at maximum extension.
+Stationary fighter in extended stance - stands still while attacking.
+Used for Level 1: Fundamentals training.
 """
 
-
-def decide(snapshot):
-    """
-    Stationary extended stance test dummy.
-
-    Always returns 0 acceleration and extended stance.
-    """
-    return {"acceleration": 0.0, "stance": "extended"}
+def decide(state):
+    """Always returns extended stance, no movement."""
+    return {
+        "acceleration": 0.0,
+        "stance": "extended"
+    }

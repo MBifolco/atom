@@ -77,12 +77,13 @@ class FighterRegistry:
     - JSON persistence
     """
 
-    def __init__(self, registry_path: Optional[Path] = None):
+    def __init__(self, registry_path: Optional[Path] = None, load_existing: bool = True):
         """
         Initialize the fighter registry.
 
         Args:
             registry_path: Path to registry.json file. If None, uses default location.
+            load_existing: Whether to load existing registry if it exists.
         """
         if registry_path is None:
             # Default to fighters/registry.json
@@ -92,8 +93,8 @@ class FighterRegistry:
         self.registry_path = Path(registry_path)
         self.fighters: Dict[str, FighterMetadata] = {}
 
-        # Load existing registry if it exists
-        if self.registry_path.exists():
+        # Load existing registry if it exists and requested
+        if load_existing and self.registry_path.exists():
             self.load()
 
     def register_fighter(self, metadata: FighterMetadata) -> None:
@@ -140,6 +141,10 @@ class FighterRegistry:
                       if any(tag in f.strategy_tags for tag in filter_tags)]
 
         return results
+
+    def clear(self) -> None:
+        """Clear all fighters from the registry."""
+        self.fighters = {}
 
     def scan_directory(self, directory: Path, fighter_type: str = "rule-based") -> int:
         """

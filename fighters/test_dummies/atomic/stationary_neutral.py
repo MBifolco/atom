@@ -1,18 +1,11 @@
 """
-Stationary Neutral
-
-Test dummy that stands perfectly still in neutral stance.
-Never moves, never changes stance.
-
-Purpose: Test basic collision detection, default damage values,
-and neutral stance properties.
+Stationary fighter in neutral stance - stands still.
+Used for Level 1: Fundamentals training.
 """
 
-
-def decide(snapshot):
-    """
-    Stationary neutral stance test dummy.
-
-    Always returns 0 acceleration and neutral stance.
-    """
-    return {"acceleration": 0.0, "stance": "neutral"}
+def decide(state):
+    """Always returns neutral stance, no movement."""
+    return {
+        "acceleration": 0.0,
+        "stance": "neutral"
+    }

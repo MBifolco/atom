@@ -18,13 +18,12 @@ Usage:
 import argparse
 import shutil
 from pathlib import Path
-from datetime import datetime
 import sys
-import os
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent))
 
+from train_progressive import ProgressiveTrainer
 from src.training.trainers.population.population_trainer import PopulationTrainer
 from stable_baselines3 import PPO, SAC
 
@@ -90,7 +89,7 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
         from stable_baselines3.common.monitor import Monitor
 
         env = DummyVecEnv([lambda: Monitor(AtomCombatEnv(
-            opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"},
+            opponent_decision_func=lambda _: {"acceleration": 0, "stance": "neutral"},
             max_ticks=250
         ))])
 
@@ -112,6 +111,8 @@ def load_population_from_checkpoint(trainer: PopulationTrainer, checkpoint_dir: 
         )
 
         trainer.population.append(fighter)
+        # Also add to ELO tracker to avoid duplicates later
+        trainer.elo_tracker.add_fighter(fighter_name)
 
     print(f"Loaded {len(trainer.population)} fighters from generation {generation}")
 
@@ -134,16 +135,36 @@ def resume_population_training(
     episodes_per_gen: int = 2000,
     n_envs: int = 45,
     use_vmap: bool = False,
+    force_cpu: bool = False,
     n_parallel_fighters: int = None,
-    output_dir: str = None
+    output_dir: str = None,
+    keep_top: float = 0.5,
+    mutation_rate: float = 0.1,
+    evolution_frequency: int = 2,
+    record_replays: bool = False,
+    replay_frequency: int = 5
 ):
-    """Resume or continue population training from a checkpoint."""
+    """Resume or continue population training from a checkpoint.
+
+    Uses ProgressiveTrainer to ensure same code paths as train_progressive.py
+    """
 
     # Detect original training configuration
     original_use_vmap, original_n_vmap_envs = detect_original_gpu_mode(checkpoint_dir)
 
-    # Warn if there's a mismatch in GPU mode
-    if original_use_vmap and not use_vmap:
+    # Handle force_cpu override
+    if force_cpu:
+        print("\n" + "="*80)
+        print("🚫 FORCING CPU MODE (--force-cpu flag)")
+        print("="*80)
+        if original_use_vmap:
+            print(f"Original training used GPU (vmap with {original_n_vmap_envs} envs)")
+            print("Overriding to CPU mode - this will be ~77x slower!")
+        use_vmap = False
+        print("="*80 + "\n")
+
+    # Warn if there's a mismatch in GPU mode (but only if not force_cpu)
+    elif original_use_vmap and not use_vmap:
         print("\n" + "="*80)
         print("⚠️  WARNING: GPU MODE MISMATCH DETECTED!")
         print("="*80)
@@ -165,54 +186,63 @@ def resume_population_training(
         print("Continuing with GPU mode as requested (this may give different results)")
         print("="*80 + "\n")
 
-    # Create output directory
+    # Use existing checkpoint directory or create new output directory
     if output_dir is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = f"outputs/resumed_{timestamp}"
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = checkpoint_dir
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy checkpoint data to new output directory if different
-    if checkpoint_dir != output_dir.parent:
-        print(f"\nCopying checkpoint data to {output_dir}")
+        # Copy checkpoint data if using new directory
+        if checkpoint_dir != output_dir:
+            print(f"\nCopying checkpoint data to {output_dir}")
+            src_models = checkpoint_dir / "population" / "models"
+            dst_models = output_dir / "population" / "models"
+            dst_models.mkdir(parents=True, exist_ok=True)
 
-        # Copy population models up to start_generation
-        src_models = checkpoint_dir / "population" / "models"
-        dst_models = output_dir / "population" / "models"
-        dst_models.mkdir(parents=True, exist_ok=True)
+            for gen in range(start_generation + 1):
+                src_gen = src_models / f"generation_{gen}"
+                if src_gen.exists():
+                    dst_gen = dst_models / f"generation_{gen}"
+                    if not dst_gen.exists():
+                        shutil.copytree(src_gen, dst_gen)
+                        print(f"  Copied generation_{gen}")
 
-        for gen in range(start_generation + 1):
-            src_gen = src_models / f"generation_{gen}"
-            if src_gen.exists():
-                dst_gen = dst_models / f"generation_{gen}"
-                if not dst_gen.exists():
-                    shutil.copytree(src_gen, dst_gen)
-                    print(f"  Copied generation_{gen}")
-
-    # Initialize population trainer
-    print(f"\nInitializing population trainer")
+    # Create ProgressiveTrainer instance (reuses same code as train_progressive.py)
+    print(f"\nInitializing ProgressiveTrainer...")
     print(f"  Algorithm: {algorithm}")
-    print(f"  Population size: {population_size}")
-    print(f"  Episodes per generation: {episodes_per_gen}")
-    print(f"  Starting from generation: {start_generation}")
-    print(f"  Training until generation: {total_generations}")
     print(f"  GPU acceleration: {'ENABLED' if use_vmap else 'DISABLED'}")
     if use_vmap:
         print(f"  Vmap environments: {n_envs}")
 
-    trainer = PopulationTrainer(
-        population_size=population_size,
+    progressive_trainer = ProgressiveTrainer(
+        output_dir=str(output_dir),
         algorithm=algorithm,
-        n_envs_per_fighter=n_envs if not use_vmap else 1,  # vmap handles parallelization differently
-        output_dir=output_dir / "population",
         use_vmap=use_vmap,
-        n_vmap_envs=n_envs if use_vmap else 250,  # Use detected or specified vmap envs
-        n_parallel_fighters=n_parallel_fighters,  # None = auto (2 for GPU, cpu_count-1 for CPU)
+        n_parallel_fighters=n_parallel_fighters,
         verbose=True
     )
 
+    # Create population trainer using same method as train_progressive.py
+    progressive_trainer.population_trainer = PopulationTrainer(
+        population_size=population_size,
+        algorithm=algorithm,
+        output_dir=str(output_dir / "population"),
+        verbose=True,
+        n_parallel_fighters=n_parallel_fighters,
+        use_vmap=use_vmap,
+        n_vmap_envs=n_envs if use_vmap else 45,
+        n_envs_per_fighter=n_envs if not use_vmap else 1,  # Critical: vmap handles parallelization
+        record_replays=record_replays,
+        replay_recording_frequency=replay_frequency
+    )
+
     # Load the population from checkpoint
-    trainer = load_population_from_checkpoint(trainer, checkpoint_dir, start_generation)
+    progressive_trainer.population_trainer = load_population_from_checkpoint(
+        progressive_trainer.population_trainer,
+        checkpoint_dir,
+        start_generation
+    )
 
     # Continue training from next generation
     remaining_generations = total_generations - start_generation
@@ -222,14 +252,21 @@ def resume_population_training(
         return
 
     print(f"\nResuming training for {remaining_generations} more generations")
+    print(f"Evolution Settings:")
+    print(f"  Keep top: {keep_top*100:.0f}% of population")
+    print(f"  Mutation rate: {mutation_rate} (weight noise level)")
+    print(f"  Evolution frequency: Every {evolution_frequency} generations")
     print("="*80)
 
-    # Run the remaining generations using the train() method
-    trainer.train(
+    # Run remaining generations using same method as train_progressive.py
+    # This ensures we use the exact same training logic and parameters
+    progressive_trainer.run_population_training(
         generations=remaining_generations,
         episodes_per_generation=episodes_per_gen,
-        evolution_frequency=2,  # Evolve every 2 generations
-        keep_top=0.5  # Keep top 50% during evolution
+        population_size=population_size,
+        keep_top=keep_top,
+        evolution_frequency=evolution_frequency,
+        mutation_rate=mutation_rate
     )
 
     print(f"\n{'='*80}")
@@ -315,6 +352,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--force-cpu",
+        action="store_true",
+        help="Force CPU mode even if checkpoint was trained with GPU (disables auto-detection)"
+    )
+
+    parser.add_argument(
         "--n-parallel-fighters",
         type=int,
         default=None,
@@ -326,6 +369,40 @@ Examples:
         type=str,
         default=None,
         help="Output directory (default: outputs/resumed_TIMESTAMP)"
+    )
+
+    parser.add_argument(
+        "--keep-top",
+        type=float,
+        default=0.5,
+        help="Fraction of population to keep during evolution (default: 0.5)"
+    )
+
+    parser.add_argument(
+        "--mutation-rate",
+        type=float,
+        default=0.1,
+        help="Mutation strength for evolved fighters (default: 0.1)"
+    )
+
+    parser.add_argument(
+        "--evolution-frequency",
+        type=int,
+        default=2,
+        help="Evolve population every N generations (default: 2)"
+    )
+
+    parser.add_argument(
+        "--record-replays",
+        action="store_true",
+        help="Record fight replays for creating a training montage (samples bottom/middle/top spectacle)"
+    )
+
+    parser.add_argument(
+        "--replay-frequency",
+        type=int,
+        default=5,
+        help="Record replays every N generations for population training (default: 5)"
     )
 
     args = parser.parse_args()
@@ -356,8 +433,14 @@ Examples:
         episodes_per_gen=args.episodes_per_gen,
         n_envs=args.n_envs,
         use_vmap=args.use_vmap,
+        force_cpu=args.force_cpu,
         n_parallel_fighters=args.n_parallel_fighters,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        keep_top=args.keep_top,
+        mutation_rate=args.mutation_rate,
+        evolution_frequency=args.evolution_frequency,
+        record_replays=args.record_replays,
+        replay_frequency=args.replay_frequency
     )
 
 

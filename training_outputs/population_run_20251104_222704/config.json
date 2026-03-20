@@ -1,0 +1,8 @@
+{
+  "population_size": 6,
+  "generations": 15,
+  "steps_per_generation": 20000,
+  "target_win_rate": 0.6,
+  "learning_rate": 0.0003,
+  "timestamp": "2025-11-04T22:27:04.749597"
+}

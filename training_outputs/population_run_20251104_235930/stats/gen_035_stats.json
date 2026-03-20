@@ -1,0 +1,327 @@
+{
+  "generation": 35,
+  "fighters": [
+    {
+      "name": "Awesome Archimedes",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 1.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.1
+    },
+    {
+      "name": "Loving Hugle",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Naughty Hypatia",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Elegant Kepler",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Musing Kowalevski",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Eloquent Noyce",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Distracted Montalcini",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Practical Mahavira",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Flamboyant Kapitsa",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Admiring Brattain",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Unruffled Murdock",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 1.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 1.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 1.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.3
+    },
+    {
+      "name": "Eloquent Zhukovsky",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 1.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.1
+    },
+    {
+      "name": "Elegant Proskuriakova",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Tender Lovelace",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Kind Lalande",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Vigorous Kilby",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Eloquent Wozniak",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Naughty Fermi",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Quirky Tesla",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Relaxed Hoover",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    }
+  ],
+  "best_score": 0.3,
+  "time": 658.2546005249023
+}

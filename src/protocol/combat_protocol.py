@@ -33,7 +33,7 @@ class Action:
     What a fighter can do each tick.
     """
     acceleration: float  # -MAX_ACCELERATION to +MAX_ACCELERATION
-    stance: str  # "neutral", "extended", "retracted", "defending"
+    stance: str  # "neutral", "extended", "defending"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -94,37 +94,57 @@ def generate_snapshot(
     In full implementation, this would apply sensor constraints
     (bucketing, precision, detection ranges, etc.)
     """
+    # Convert JAX fighters to proper format if needed
+    from ..arena.arena_1d_jax_jit import FighterStateJAX, stance_to_str
+
+    # Convert stance from int to string if needed
+    my_stance = my_fighter.stance
+    opp_stance = opp_fighter.stance
+
+    # Check if stance needs conversion (is an int)
+    if isinstance(my_stance, (int, float)):
+        my_stance = stance_to_str(int(my_stance))
+    if isinstance(opp_stance, (int, float)):
+        opp_stance = stance_to_str(int(opp_stance))
+
     distance = abs(opp_fighter.position - my_fighter.position)
 
-    # Determine relative velocity (negative if approaching)
+    # Determine direction to opponent (-1 if left, +1 if right, 0 if same position)
     if my_fighter.position < opp_fighter.position:
-        # I'm on the left
+        # Opponent is to the right
+        direction = 1.0
         rel_velocity = opp_fighter.velocity - my_fighter.velocity
-    else:
-        # I'm on the right
+    elif my_fighter.position > opp_fighter.position:
+        # Opponent is to the left
+        direction = -1.0
         rel_velocity = my_fighter.velocity - opp_fighter.velocity
+    else:
+        # Same position
+        direction = 0.0
+        rel_velocity = 0.0
 
     return {
         "tick": tick,
         "you": {
-            "position": my_fighter.position,
-            "velocity": my_fighter.velocity,
-            "hp": my_fighter.hp,
-            "max_hp": my_fighter.max_hp,
-            "stamina": my_fighter.stamina,
-            "max_stamina": my_fighter.max_stamina,
-            "stance": my_fighter.stance
+            "position": float(my_fighter.position),
+            "velocity": float(my_fighter.velocity),
+            "hp": float(my_fighter.hp),
+            "max_hp": float(my_fighter.max_hp),
+            "stamina": float(my_fighter.stamina),
+            "max_stamina": float(my_fighter.max_stamina),
+            "stance": my_stance
         },
         "opponent": {
-            "distance": distance,
-            "velocity": rel_velocity,
-            "hp": opp_fighter.hp,
-            "max_hp": opp_fighter.max_hp,
-            "stamina": opp_fighter.stamina,
-            "max_stamina": opp_fighter.max_stamina,
-            "stance_hint": opp_fighter.stance
+            "distance": float(distance),
+            "direction": float(direction),  # -1 (left), 0 (same), +1 (right)
+            "velocity": float(rel_velocity),
+            "hp": float(opp_fighter.hp),
+            "max_hp": float(opp_fighter.max_hp),
+            "stamina": float(opp_fighter.stamina),
+            "max_stamina": float(opp_fighter.max_stamina),
+            "stance_hint": opp_stance
         },
         "arena": {
-            "width": arena_width
+            "width": float(arena_width)
         }
     }

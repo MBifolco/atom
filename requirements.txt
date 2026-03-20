@@ -1,6 +1,6 @@
 # Atom Combat - Training Dependencies
 #
-# Install with: pip install -r requirements-training.txt
+# Install with: pip install -r requirements.txt
 
 # Reinforcement Learning
 stable-baselines3>=2.0.0
@@ -17,10 +17,12 @@ onnxscript>=0.5.0  # Required for ONNX model export from PyTorch
 
 # Utilities
 numpy>=1.24.0
+chex>=0.1.91
 
 pytest>=7.4.0
 pytest-cov>=4.1.0
 coverage>=7.3.0
 
-# Pure JAX RL dependencies (for future PureJaxRL integration)
-distrax>=0.1.7
+# Optional JAX RL dependencies (future PureJaxRL integration)
+# Install manually only when needed:
+#   pip install distrax>=0.1.7

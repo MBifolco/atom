@@ -7,7 +7,7 @@ Coordinates the match tick loop between fighters and arena.
 from typing import Callable, Dict, Any, List
 from dataclasses import dataclass
 
-from ..arena import Arena1D, FighterState, WorldConfig
+from ..arena import Arena1DJAXJit, FighterState, WorldConfig
 from ..protocol.combat_protocol import generate_snapshot, ProtocolValidator
 
 
@@ -88,7 +88,7 @@ class MatchOrchestrator:
         )
 
         # Create arena
-        arena = Arena1D(fighter_a, fighter_b, self.config, seed=seed)
+        arena = Arena1DJAXJit(fighter_a, fighter_b, self.config, seed=seed)
 
         # Initialize telemetry
         telemetry = {
@@ -101,9 +101,13 @@ class MatchOrchestrator:
 
         # Run tick loop
         for tick in range(self.max_ticks):
-            # Generate snapshots
-            snapshot_a = generate_snapshot(fighter_a, fighter_b, tick, self.config.arena_width)
-            snapshot_b = generate_snapshot(fighter_b, fighter_a, tick, self.config.arena_width)
+            # Get current fighter states from arena (updated each step)
+            current_fighter_a = arena.fighter_a
+            current_fighter_b = arena.fighter_b
+
+            # Generate snapshots with CURRENT state
+            snapshot_a = generate_snapshot(current_fighter_a, current_fighter_b, tick, self.config.arena_width)
+            snapshot_b = generate_snapshot(current_fighter_b, current_fighter_a, tick, self.config.arena_width)
 
             # Get actions from decision functions
             try:
@@ -132,12 +136,12 @@ class MatchOrchestrator:
             events = arena.step(action_a.to_dict(), action_b.to_dict())
             all_events.extend(events)
 
-            # Record telemetry
+            # Record telemetry (use CURRENT state from arena)
             if self.record_telemetry:
                 telemetry["ticks"].append({
                     "tick": tick,
-                    "fighter_a": fighter_a.to_dict(),
-                    "fighter_b": fighter_b.to_dict(),
+                    "fighter_a": current_fighter_a.to_dict(fighter_a.name),
+                    "fighter_b": current_fighter_b.to_dict(fighter_b.name),
                     "action_a": action_a.to_dict(),
                     "action_b": action_b.to_dict(),
                     "events": events
@@ -146,18 +150,25 @@ class MatchOrchestrator:
             # Check for match end
             if arena.is_finished():
                 winner = arena.get_winner()
+                # Get final states from arena
+                final_a = arena.fighter_a
+                final_b = arena.fighter_b
                 return MatchResult(
                     winner=winner,
                     total_ticks=tick + 1,
-                    final_hp_a=fighter_a.hp,
-                    final_hp_b=fighter_b.hp,
+                    final_hp_a=float(final_a.hp),
+                    final_hp_b=float(final_b.hp),
                     telemetry=telemetry,
                     events=all_events
                 )
 
         # Timeout - determine winner by HP percentage (not absolute HP)
-        hp_pct_a = fighter_a.hp / fighter_a.max_hp
-        hp_pct_b = fighter_b.hp / fighter_b.max_hp
+        # Get current state from arena
+        final_a = arena.fighter_a
+        final_b = arena.fighter_b
+
+        hp_pct_a = final_a.hp / final_a.max_hp
+        hp_pct_b = final_b.hp / final_b.max_hp
 
         if hp_pct_a > hp_pct_b:
             winner = fighter_a.name
@@ -169,8 +180,8 @@ class MatchOrchestrator:
         return MatchResult(
             winner=f"{winner} (timeout)",
             total_ticks=self.max_ticks,
-            final_hp_a=fighter_a.hp,
-            final_hp_b=fighter_b.hp,
+            final_hp_a=float(final_a.hp),
+            final_hp_b=float(final_b.hp),
             telemetry=telemetry,
             events=all_events
         )

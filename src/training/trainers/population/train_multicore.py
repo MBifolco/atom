@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Import gym environment and training utilities
 from training.src.gym_env import AtomCombatEnv
 from src.protocol.combat_protocol import generate_snapshot
+from src.training.signal_engine import build_observation_from_snapshot
 
 # Import fighter loading utility
 from fighter_loader import load_hardcoded_fighters
@@ -90,7 +91,7 @@ class PopulationFighter:
             # Random actions if no model
             return {
                 "acceleration": random.uniform(-4.5, 4.5),
-                "stance": random.choice(["neutral", "extended", "retracted", "defending"])
+                "stance": random.choice(["neutral", "extended", "defending"])
             }
 
         # Create a temporary environment if needed for observation conversion
@@ -98,24 +99,7 @@ class PopulationFighter:
             self.env_for_decision = AtomCombatEnv(opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"})
             self.env_for_decision.reset()
 
-        # Recreate observation from snapshot
-        # Based on gym_env._get_observation() logic
-        you_hp_norm = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
-        you_stamina_norm = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
-        opp_hp_norm = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
-        opp_stamina_norm = snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"]
-
-        obs = np.array([
-            snapshot["you"]["position"],
-            snapshot["you"]["velocity"],
-            you_hp_norm,
-            you_stamina_norm,
-            snapshot["opponent"]["distance"],
-            snapshot["opponent"]["velocity"],
-            opp_hp_norm,
-            opp_stamina_norm,
-            snapshot["arena"]["width"]
-        ], dtype=np.float32)
+        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
         # Get action from model
         action, _ = self.model.predict(obs, deterministic=False)
@@ -124,8 +108,8 @@ class PopulationFighter:
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * 4.5  # max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 3))
-        stances = ["neutral", "extended", "retracted", "defending"]
+        stance_idx = int(np.clip(action[1], 0, 2))
+        stances = ["neutral", "extended", "defending"]
         stance = stances[stance_idx]
 
         return {"acceleration": acceleration, "stance": stance}

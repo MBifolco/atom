@@ -5,7 +5,22 @@ Phase 3: Fully JIT-compiled JAX physics with integer stances for maximum perform
 Removes Python control flow to enable efficient JIT compilation and vectorization.
 """
 
+import os
 import jax
+
+# Force CPU if requested or if GPU fails
+if os.environ.get("ATOM_FORCE_CPU", "").lower() in ["1", "true", "yes"]:
+    jax.config.update('jax_platform_name', 'cpu')
+else:
+    # Try GPU first, fallback to CPU if it fails
+    try:
+        # Test if GPU works
+        test = jax.numpy.array([1.0])
+        _ = test + 1  # Force computation
+    except Exception as e:
+        print(f"GPU initialization failed ({e}), falling back to CPU")
+        jax.config.update('jax_platform_name', 'cpu')
+
 import jax.numpy as jnp
 from jax import jit, vmap
 from typing import List, Tuple, Dict, NamedTuple
@@ -16,17 +31,18 @@ from .world_config import WorldConfig
 # Stance constants (for JIT compilation - no Python strings)
 STANCE_NEUTRAL = 0
 STANCE_EXTENDED = 1
-STANCE_RETRACTED = 2
-STANCE_DEFENDING = 3
+STANCE_DEFENDING = 2  # Moved up from 3
 
 # Stance name mapping (for Python interface)
-STANCE_NAMES = ["neutral", "extended", "retracted", "defending"]
+STANCE_NAMES = ["neutral", "extended", "defending"]  # Removed retracted
 STANCE_TO_INT = {name: i for i, name in enumerate(STANCE_NAMES)}
 
 
-def stance_to_int(stance_str: str) -> int:
-    """Convert stance string to integer."""
-    return STANCE_TO_INT[stance_str]
+def stance_to_int(stance) -> int:
+    """Convert stance string to integer, or return if already int."""
+    if isinstance(stance, int):
+        return stance
+    return STANCE_TO_INT[stance]
 
 
 def stance_to_str(stance_int: int) -> str:
@@ -52,7 +68,8 @@ class FighterStateJAX:
     max_hp: float
     stamina: float
     max_stamina: float
-    stance: int  # Integer stance for JIT (0=neutral, 1=extended, 2=retracted, 3=defending)
+    stance: int  # Integer stance for JIT (0=neutral, 1=extended, 2=defending)
+    last_hit_tick: int  # Tick of last hit for cooldown tracking
 
     @classmethod
     def from_fighter_state(cls, fighter):
@@ -65,7 +82,8 @@ class FighterStateJAX:
             max_hp=float(fighter.max_hp),
             stamina=float(fighter.stamina),
             max_stamina=float(fighter.max_stamina),
-            stance=stance_to_int(fighter.stance)
+            stance=stance_to_int(fighter.stance),
+            last_hit_tick=int(fighter.last_hit_tick)
         )
 
     def to_dict(self, name: str = "Unknown") -> dict:
@@ -79,7 +97,8 @@ class FighterStateJAX:
             "max_hp": float(self.max_hp),
             "stamina": float(self.stamina),
             "max_stamina": float(self.max_stamina),
-            "stance": stance_to_str(int(self.stance))
+            "stance": stance_to_str(int(self.stance)),
+            "last_hit_tick": int(self.last_hit_tick)
         }
 
 
@@ -97,9 +116,9 @@ def create_stance_arrays(config: WorldConfig):
 
     Returns:
         (reach_array, defense_array, drain_array)
-        Each array indexed by stance int (0=neutral, 1=extended, 2=retracted, 3=defending)
+        Each array indexed by stance int (0=neutral, 1=extended, 2=defending)
     """
-    stances_order = ["neutral", "extended", "retracted", "defending"]
+    stances_order = ["neutral", "extended", "defending"]  # 3 stances now
 
     reach = jnp.array([config.stances[s].reach for s in stances_order])
     defense = jnp.array([config.stances[s].defense for s in stances_order])
@@ -210,8 +229,42 @@ class Arena1DJAXJit:
             stamina_neutral_bonus,
             self.stance_reach,
             self.stance_defense,
-            self.stance_drain
+            self.stance_drain,
+            self.config.hit_cooldown_ticks,
+            self.config.hit_impact_threshold,
+            self.config.base_collision_damage,  # Using existing param for base damage
+            self.config.hit_stamina_cost,
+            self.config.block_stamina_cost,
+            self.config.hit_recoil_multiplier
         )
+
+        # Generate events from state changes (JIT can't do this efficiently)
+        events = []
+
+        # Detect hits by checking HP changes
+        old_hp_a = self.state.fighter_a.hp
+        old_hp_b = self.state.fighter_b.hp
+        new_hp_a = new_state.fighter_a.hp
+        new_hp_b = new_state.fighter_b.hp
+
+        # Hit event if damage occurred
+        if new_hp_a < old_hp_a:
+            events.append({
+                "type": "HIT",
+                "attacker": self.name_b,
+                "defender": self.name_a,
+                "damage": float(old_hp_a - new_hp_a),
+                "tick": int(self.state.tick)
+            })
+
+        if new_hp_b < old_hp_b:
+            events.append({
+                "type": "HIT",
+                "attacker": self.name_a,
+                "defender": self.name_b,
+                "damage": float(old_hp_b - new_hp_b),
+                "tick": int(self.state.tick)
+            })
 
         # Update internal state
         self.state = new_state
@@ -234,7 +287,13 @@ class Arena1DJAXJit:
         stamina_neutral_bonus: float,
         stance_reach: jnp.ndarray,
         stance_defense: jnp.ndarray,
-        stance_drain: jnp.ndarray
+        stance_drain: jnp.ndarray,
+        hit_cooldown_ticks: int,
+        hit_impact_threshold: float,
+        base_damage: float,
+        hit_stamina_cost: float,
+        block_stamina_cost: float,
+        hit_recoil_multiplier: float
     ) -> Tuple[ArenaStateJAX, List[Dict]]:
         """
         Pure functional JIT-compiled step.
@@ -273,25 +332,26 @@ class Arena1DJAXJit:
         fighter_a = fighter_a.replace(stance=new_stance_a)
         fighter_b = fighter_b.replace(stance=new_stance_b)
 
-        # 4. Collision detection and damage
+        # 4. Collision detection and discrete hit processing
         footprint_a = Arena1DJAXJit._compute_footprint_jax(fighter_a, stance_reach)
         footprint_b = Arena1DJAXJit._compute_footprint_jax(fighter_b, stance_reach)
 
         collision = Arena1DJAXJit._check_collision_jax(footprint_a, footprint_b)
 
-        # Calculate damage if collision (using jnp.where for JIT)
-        # Note: Need to calculate separately since jnp.where doesn't work with tuples
-        damage_to_a_raw, damage_to_b_raw = Arena1DJAXJit._calculate_collision_damage_jax(
-            fighter_a, fighter_b, stance_defense
+        # Process hit mechanics (discrete, cooldown-based)
+        fighter_a, fighter_b, damage_to_a, damage_to_b = Arena1DJAXJit._process_collision_hit_jax(
+            fighter_a,
+            fighter_b,
+            tick,
+            collision,
+            stance_defense,
+            hit_cooldown_ticks,
+            hit_impact_threshold,
+            base_damage,
+            hit_stamina_cost,
+            block_stamina_cost,
+            hit_recoil_multiplier
         )
-        damage_to_a = jnp.where(collision, damage_to_a_raw, 0.0)
-        damage_to_b = jnp.where(collision, damage_to_b_raw, 0.0)
-
-        # Apply damage
-        new_hp_a = jnp.maximum(0.0, fighter_a.hp - damage_to_a)
-        new_hp_b = jnp.maximum(0.0, fighter_b.hp - damage_to_b)
-        fighter_a = fighter_a.replace(hp=new_hp_a)
-        fighter_b = fighter_b.replace(hp=new_hp_b)
 
         # 5. Update stamina
         fighter_a = Arena1DJAXJit._update_stamina_jax(
@@ -326,11 +386,17 @@ class Arena1DJAXJit:
         friction: float
     ) -> FighterStateJAX:
         """Update velocity with acceleration and friction (pure function)."""
-        # Clamp acceleration
-        accel = jnp.clip(action["acceleration"], -max_accel, max_accel)
+        # Clamp acceleration input
+        accel_input = jnp.clip(action["acceleration"], -max_accel, max_accel)
+
+        # Mass affects acceleration: for same force, lighter mass accelerates more
+        # F = m * a, so actual_accel = accel_input * (70.0 / mass)
+        # This makes 70kg the baseline - lighter fighters accelerate faster, heavier slower
+        mass_factor = 70.0 / fighter.mass
+        actual_accel = accel_input * mass_factor
 
         # Apply acceleration
-        new_velocity = fighter.velocity + accel * dt
+        new_velocity = fighter.velocity + actual_accel * dt
 
         # Apply friction
         new_velocity = new_velocity * (1.0 - friction * dt)
@@ -402,34 +468,183 @@ class Arena1DJAXJit:
         )
 
     @staticmethod
-    def _calculate_collision_damage_jax(
+    def _calculate_impact_force_jax(
+        fighter_a: FighterStateJAX,
+        fighter_b: FighterStateJAX
+    ) -> float:
+        """
+        Calculate impact force from collision using physics.
+        Force = relative_velocity * reduced_mass
+
+        This determines if a hit is "light" or "heavy" dynamically.
+        """
+        # Relative velocity (closing speed)
+        rel_velocity = jnp.abs(fighter_a.velocity - fighter_b.velocity)
+
+        # Reduced mass (m1*m2)/(m1+m2) - physics of collision
+        reduced_mass = (fighter_a.mass * fighter_b.mass) / (fighter_a.mass + fighter_b.mass)
+
+        # Impact force
+        impact_force = rel_velocity * reduced_mass
+
+        return impact_force
+
+    @staticmethod
+    def _check_hit_valid_jax(
+        fighter: FighterStateJAX,
+        current_tick: int,
+        impact_force: float,
+        hit_cooldown: int,
+        impact_threshold: float
+    ) -> bool:
+        """
+        Check if hit should register (cooldown + threshold).
+        """
+        ticks_since_last_hit = current_tick - fighter.last_hit_tick
+        cooldown_satisfied = ticks_since_last_hit >= hit_cooldown
+        impact_sufficient = impact_force >= impact_threshold
+
+        return jnp.logical_and(cooldown_satisfied, impact_sufficient)
+
+    @staticmethod
+    def _calculate_discrete_hit_damage_jax(
+        attacker: FighterStateJAX,
+        defender: FighterStateJAX,
+        impact_force: float,
+        stance_defense: jnp.ndarray,
+        base_damage: float
+    ) -> float:
+        """
+        Calculate damage from discrete hit event.
+        Damage scales with impact force (physics-based).
+        """
+        # Defense multiplier from stance
+        defense_mult = stance_defense[defender.stance]
+
+        # Stamina scaling (attacker)
+        stamina_pct = attacker.stamina / attacker.max_stamina
+        stamina_mult = 0.5 + 0.5 * stamina_pct  # 50-100% based on stamina
+
+        # Damage = base * (1 + impact_force/10) * stamina * (1/defense)
+        # Scale impact force to reasonable damage range
+        impact_mult = 1.0 + impact_force / 10.0
+        damage = base_damage * impact_mult * stamina_mult / defense_mult
+
+        return damage
+
+    @staticmethod
+    def _process_collision_hit_jax(
         fighter_a: FighterStateJAX,
         fighter_b: FighterStateJAX,
-        stance_defense: jnp.ndarray
-    ) -> Tuple[float, float]:
+        current_tick: int,
+        collision: bool,
+        stance_defense: jnp.ndarray,
+        hit_cooldown: int,
+        impact_threshold: float,
+        base_damage: float,
+        hit_stamina_cost: float,
+        block_stamina_cost: float,
+        hit_recoil: float
+    ) -> Tuple[FighterStateJAX, FighterStateJAX, float, float]:
         """
-        Calculate damage for both fighters in collision (JIT-friendly).
+        Process discrete hit mechanics on collision.
 
         Returns:
-            (damage_to_a, damage_to_b)
+            (updated_fighter_a, updated_fighter_b, damage_to_a, damage_to_b)
         """
-        # Damage to A (from B attacking)
-        is_b_extended = (fighter_b.stance == STANCE_EXTENDED)
-        damage_to_a = jnp.where(
-            is_b_extended,
-            Arena1DJAXJit._calculate_damage_jax(fighter_b, fighter_a, stance_defense),
+        # Calculate impact force (physics-based)
+        impact_force = Arena1DJAXJit._calculate_impact_force_jax(fighter_a, fighter_b)
+
+        # Check if A can hit B (cooldown + threshold)
+        a_can_hit = jnp.logical_and(
+            fighter_a.stance == STANCE_EXTENDED,
+            Arena1DJAXJit._check_hit_valid_jax(
+                fighter_a, current_tick, impact_force, hit_cooldown, impact_threshold
+            )
+        )
+
+        # Check if B can hit A
+        b_can_hit = jnp.logical_and(
+            fighter_b.stance == STANCE_EXTENDED,
+            Arena1DJAXJit._check_hit_valid_jax(
+                fighter_b, current_tick, impact_force, hit_cooldown, impact_threshold
+            )
+        )
+
+        # Calculate damage (only if hit valid and collision)
+        damage_to_b_raw = jnp.where(
+            jnp.logical_and(collision, a_can_hit),
+            Arena1DJAXJit._calculate_discrete_hit_damage_jax(
+                fighter_a, fighter_b, impact_force, stance_defense, base_damage
+            ),
             0.0
         )
 
-        # Damage to B (from A attacking)
-        is_a_extended = (fighter_a.stance == STANCE_EXTENDED)
-        damage_to_b = jnp.where(
-            is_a_extended,
-            Arena1DJAXJit._calculate_damage_jax(fighter_a, fighter_b, stance_defense),
+        damage_to_a_raw = jnp.where(
+            jnp.logical_and(collision, b_can_hit),
+            Arena1DJAXJit._calculate_discrete_hit_damage_jax(
+                fighter_b, fighter_a, impact_force, stance_defense, base_damage
+            ),
             0.0
         )
 
-        return damage_to_a, damage_to_b
+        # Apply damage
+        new_hp_a = jnp.maximum(0.0, fighter_a.hp - damage_to_a_raw)
+        new_hp_b = jnp.maximum(0.0, fighter_b.hp - damage_to_b_raw)
+
+        # Stamina costs
+        # Attacker loses stamina when landing hit
+        a_stamina_cost = jnp.where(damage_to_b_raw > 0, hit_stamina_cost, 0.0)
+        # Defender loses stamina when blocking hit (but less than attacker)
+        b_is_blocking = (fighter_b.stance == STANCE_DEFENDING) & (damage_to_b_raw > 0)
+        b_block_cost = jnp.where(b_is_blocking, block_stamina_cost, 0.0)
+
+        # Similar for B attacking A
+        b_stamina_cost = jnp.where(damage_to_a_raw > 0, hit_stamina_cost, 0.0)
+        a_is_blocking = (fighter_a.stance == STANCE_DEFENDING) & (damage_to_a_raw > 0)
+        a_block_cost = jnp.where(a_is_blocking, block_stamina_cost, 0.0)
+
+        # Total stamina deltas
+        a_stamina_delta = -(a_stamina_cost + a_block_cost)
+        b_stamina_delta = -(b_stamina_cost + b_block_cost)
+
+        new_stamina_a = jnp.maximum(0.0, fighter_a.stamina + a_stamina_delta)
+        new_stamina_b = jnp.maximum(0.0, fighter_b.stamina + b_stamina_delta)
+
+        # Recoil (reduce velocity after hit)
+        a_recoil = jnp.where(damage_to_b_raw > 0, hit_recoil, 0.0)
+        b_recoil = jnp.where(damage_to_a_raw > 0, hit_recoil, 0.0)
+
+        new_vel_a = fighter_a.velocity * (1.0 - a_recoil)
+        new_vel_b = fighter_b.velocity * (1.0 - b_recoil)
+
+        # Update last_hit_tick
+        new_last_hit_a = jnp.where(
+            jnp.logical_or(damage_to_b_raw > 0, damage_to_a_raw > 0),
+            current_tick,
+            fighter_a.last_hit_tick
+        )
+        new_last_hit_b = jnp.where(
+            jnp.logical_or(damage_to_a_raw > 0, damage_to_b_raw > 0),
+            current_tick,
+            fighter_b.last_hit_tick
+        )
+
+        # Create updated fighters
+        fighter_a = fighter_a.replace(
+            hp=new_hp_a,
+            stamina=new_stamina_a,
+            velocity=new_vel_a,
+            last_hit_tick=new_last_hit_a
+        )
+        fighter_b = fighter_b.replace(
+            hp=new_hp_b,
+            stamina=new_stamina_b,
+            velocity=new_vel_b,
+            last_hit_tick=new_last_hit_b
+        )
+
+        return fighter_a, fighter_b, damage_to_a_raw, damage_to_b_raw
 
     @staticmethod
     def _calculate_damage_jax(
@@ -447,9 +662,9 @@ class Arena1DJAXJit:
         # Defense multiplier (from stance array)
         defense_mult = stance_defense[defender.stance]
 
-        # Stamina scaling (25% to 100%)
+        # Stamina scaling (10% to 100%) - more severe penalty for low stamina
         stamina_pct = attacker.stamina / attacker.max_stamina
-        stamina_mult = 0.25 + 0.75 * stamina_pct
+        stamina_mult = 0.1 + 0.9 * stamina_pct
 
         # Fixed config values (hardcoded for JIT - WorldConfig not JIT-able)
         base_damage = 5.0  # config.base_collision_damage
@@ -490,10 +705,14 @@ class Arena1DJAXJit:
         # Stance drain (from array)
         drain = stance_drain[action["stance"]]
 
-        # Regen (bonus for neutral stance)
+        # Regen (bonus for neutral stance, extra bonus for resting)
         regen = stamina_base_regen
         is_neutral = (action["stance"] == STANCE_NEUTRAL)
         regen = jnp.where(is_neutral, regen * stamina_neutral_bonus, regen)
+
+        # Extra regen when resting (low velocity) - simulates catching breath
+        is_resting = jnp.abs(fighter.velocity) < 0.5
+        regen = jnp.where(is_resting, regen * 1.5, regen)
 
         # Apply delta
         delta = -accel_cost - drain + regen
@@ -503,10 +722,10 @@ class Arena1DJAXJit:
             fighter.max_stamina
         )
 
-        # If stamina hits zero, reduce velocity
+        # If stamina hits zero, reduce velocity (less harsh)
         new_velocity = jnp.where(
             new_stamina == 0.0,
-            fighter.velocity * 0.5,
+            fighter.velocity * 0.75,  # Reduced from 0.5 to 0.75
             fighter.velocity
         )
 

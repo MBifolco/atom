@@ -14,6 +14,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from typing import Callable, Tuple, List
+from types import SimpleNamespace
 
 from ..arena import WorldConfig, FighterState
 from ..arena.arena_1d_jax_jit import (
@@ -21,8 +22,12 @@ from ..arena.arena_1d_jax_jit import (
     FighterStateJAX,
     ArenaStateJAX,
     create_stance_arrays,
-    stance_to_int
 )
+from .signal_engine import (
+    build_observation_batch,
+    compute_step_rewards_batch,
+)
+from ..protocol.combat_protocol import generate_snapshot
 
 
 class VmapEnvWrapper(gym.Env):
@@ -91,6 +96,7 @@ class VmapEnvWrapper(gym.Env):
         self.debug = debug
 
         # Setup opponent system
+
         if opponent_models is not None and len(opponent_models) > 0:
             # Population training: Use trained models
             self.opponent_models = opponent_models
@@ -114,16 +120,16 @@ class VmapEnvWrapper(gym.Env):
             self.use_multi_opponent = False
             self.use_opponent_models = False
 
-        # Define observation/action spaces (same as AtomCombatEnv)
+        # Define observation/action spaces (enhanced to match AtomCombatEnv)
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
             dtype=np.float32
         )
 
         self.action_space = spaces.Box(
             low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 3.99], dtype=np.float32),
+            high=np.array([1.0, 2.99], dtype=np.float32),  # 3 stances (0-2.99)
             dtype=np.float32
         )
 
@@ -140,8 +146,16 @@ class VmapEnvWrapper(gym.Env):
         # Pre-compute stance arrays
         self.stance_reach, self.stance_defense, self.stance_drain = create_stance_arrays(self.config)
 
-        # Stance mapping
-        self.stance_names = ["neutral", "extended", "retracted", "defending"]
+        # Hit/damage parameters
+        self.hit_cooldown_ticks = self.config.hit_cooldown_ticks
+        self.hit_impact_threshold = self.config.hit_impact_threshold
+        self.base_damage = self.config.base_collision_damage
+        self.hit_stamina_cost = self.config.hit_stamina_cost
+        self.block_stamina_cost = self.config.block_stamina_cost
+        self.hit_recoil_multiplier = self.config.hit_recoil_multiplier
+
+        # Stance mapping (3-stance system)
+        self.stance_names = ["neutral", "extended", "defending"]
 
         # JAX states for all environments
         self.jax_states = None
@@ -166,6 +180,7 @@ class VmapEnvWrapper(gym.Env):
         self.episode_stamina_reward = None
         self.episode_stance_reward = None
         self.episode_inaction_penalty = None
+        self.episode_terminal_reward = None
 
         # Initialize environments
         self.reset()
@@ -223,6 +238,7 @@ class VmapEnvWrapper(gym.Env):
         self.episode_stamina_reward = np.zeros(self.n_envs, dtype=np.float32)
         self.episode_stance_reward = np.zeros(self.n_envs, dtype=np.float32)
         self.episode_inaction_penalty = np.zeros(self.n_envs, dtype=np.float32)
+        self.episode_terminal_reward = np.zeros(self.n_envs, dtype=np.float32)
 
         # Get initial observations
         obs = self._get_observations()
@@ -265,9 +281,10 @@ class VmapEnvWrapper(gym.Env):
             opponent_accel = opponent_actions[:, 0]
             opponent_stance = opponent_actions[:, 1].astype(jnp.int32)
         else:
-            # Legacy: single opponent (or no opponent)
-            opponent_accel = jnp.zeros(self.n_envs)
-            opponent_stance = jnp.zeros(self.n_envs, dtype=jnp.int32)  # Neutral
+            # Legacy single-opponent function path (used in unit/integration tests and some local runs).
+            opponent_accel_np, opponent_stance_np = self._compute_legacy_opponent_actions()
+            opponent_accel = jnp.array(opponent_accel_np, dtype=jnp.float32)
+            opponent_stance = jnp.array(opponent_stance_np, dtype=jnp.int32)
 
         # Stack actions
         actions_a = jnp.stack([accel, stance_int], axis=1)
@@ -340,7 +357,23 @@ class VmapEnvWrapper(gym.Env):
                     },
                     "won": won,  # Add win/loss flag for curriculum trainer
                     "fighter_hp": fighter_hp,
-                    "opponent_hp": opponent_hp
+                    "opponent_hp": opponent_hp,
+                    "reward_breakdown": {
+                        "proximity": float(self.episode_proximity_reward[i]),
+                        "damage": float(self.episode_damage_reward[i]),
+                        "stamina": float(self.episode_stamina_reward[i]),
+                        "stance": float(self.episode_stance_reward[i]),
+                        "inaction": float(self.episode_inaction_penalty[i]),
+                        "terminal": float(self.episode_terminal_reward[i]),
+                        "total": float(
+                            self.episode_proximity_reward[i]
+                            + self.episode_damage_reward[i]
+                            + self.episode_stamina_reward[i]
+                            + self.episode_stance_reward[i]
+                            + self.episode_inaction_penalty[i]
+                            + self.episode_terminal_reward[i]
+                        ),
+                    },
                 })
                 # Reset episode reward for this env
                 self.episode_rewards[i] = 0.0
@@ -359,8 +392,8 @@ class VmapEnvWrapper(gym.Env):
             print(f"⚠️  WARNING: NaN or Inf detected in observations! Clipping...")
             obs = np.nan_to_num(obs, nan=0.0, posinf=1000.0, neginf=-1000.0)
 
-        # Validate rewards - clip extreme values
-        rewards = np.clip(rewards, -10000, 10000)
+        # Clip rewards to prevent gradient explosion
+        rewards = np.clip(rewards, -1000.0, 1000.0)  # Safety clip only for extreme outliers
 
         return obs, rewards, dones, truncated, infos
 
@@ -387,7 +420,13 @@ class VmapEnvWrapper(gym.Env):
                 self.stamina_neutral_bonus,
                 self.stance_reach,
                 self.stance_defense,
-                self.stance_drain
+                self.stance_drain,
+                self.hit_cooldown_ticks,
+                self.hit_impact_threshold,
+                self.base_damage,
+                self.hit_stamina_cost,
+                self.block_stamina_cost,
+                self.hit_recoil_multiplier
             )
             return new_state
 
@@ -395,88 +434,44 @@ class VmapEnvWrapper(gym.Env):
         return vmap(single_step)(states, actions_a, actions_b)
 
     def _get_observations(self):
-        """Extract observations from JAX states."""
-        # Extract fighter and opponent states
-        fighter_pos = np.array(self.jax_states.fighter_a.position)
-        fighter_vel = np.array(self.jax_states.fighter_a.velocity)
-        fighter_hp = np.array(self.jax_states.fighter_a.hp)
-        fighter_stamina = np.array(self.jax_states.fighter_a.stamina)
-        fighter_max_hp = np.array(self.jax_states.fighter_a.max_hp)
-        fighter_max_stamina = np.array(self.jax_states.fighter_a.max_stamina)
-
-        opponent_pos = np.array(self.jax_states.fighter_b.position)
-        opponent_vel = np.array(self.jax_states.fighter_b.velocity)
-        opponent_hp = np.array(self.jax_states.fighter_b.hp)
-        opponent_stamina = np.array(self.jax_states.fighter_b.stamina)
-        opponent_max_hp = np.array(self.jax_states.fighter_b.max_hp)
-        opponent_max_stamina = np.array(self.jax_states.fighter_b.max_stamina)
-
-        # Compute relative metrics
-        distance = np.abs(opponent_pos - fighter_pos)
-        relative_velocity = opponent_vel - fighter_vel
-
-        # Normalize
-        hp_norm = fighter_hp / fighter_max_hp
-        stamina_norm = fighter_stamina / fighter_max_stamina
-        opp_hp_norm = opponent_hp / opponent_max_hp
-        opp_stamina_norm = opponent_stamina / opponent_max_stamina
-
-        # Stack observations
-        obs = np.stack([
-            fighter_pos,
-            fighter_vel,
-            hp_norm,
-            stamina_norm,
-            distance,
-            relative_velocity,
-            opp_hp_norm,
-            opp_stamina_norm,
-            np.full(self.n_envs, self.arena_width)
-        ], axis=1).astype(np.float32)
-
-        return obs
+        """Extract enhanced observations from JAX states."""
+        return build_observation_batch(
+            you_position=np.array(self.jax_states.fighter_a.position),
+            you_velocity=np.array(self.jax_states.fighter_a.velocity),
+            you_hp=np.array(self.jax_states.fighter_a.hp),
+            you_max_hp=np.array(self.jax_states.fighter_a.max_hp),
+            you_stamina=np.array(self.jax_states.fighter_a.stamina),
+            you_max_stamina=np.array(self.jax_states.fighter_a.max_stamina),
+            opponent_position=np.array(self.jax_states.fighter_b.position),
+            opponent_velocity=np.array(self.jax_states.fighter_b.velocity),
+            opponent_hp=np.array(self.jax_states.fighter_b.hp),
+            opponent_max_hp=np.array(self.jax_states.fighter_b.max_hp),
+            opponent_stamina=np.array(self.jax_states.fighter_b.stamina),
+            opponent_max_stamina=np.array(self.jax_states.fighter_b.max_stamina),
+            opponent_stance=np.array(self.jax_states.fighter_b.stance),
+            arena_width=self.arena_width,
+            recent_damage=np.array(self.episode_damage_dealt),
+        )
 
     def _get_opponent_observations(self):
         """Extract observations from opponent's perspective for model predictions."""
-        # Extract states (opponent is fighter_b)
-        opponent_pos = np.array(self.jax_states.fighter_b.position)
-        opponent_vel = np.array(self.jax_states.fighter_b.velocity)
-        opponent_hp = np.array(self.jax_states.fighter_b.hp)
-        opponent_stamina = np.array(self.jax_states.fighter_b.stamina)
-        opponent_max_hp = np.array(self.jax_states.fighter_b.max_hp)
-        opponent_max_stamina = np.array(self.jax_states.fighter_b.max_stamina)
-
-        fighter_pos = np.array(self.jax_states.fighter_a.position)
-        fighter_vel = np.array(self.jax_states.fighter_a.velocity)
-        fighter_hp = np.array(self.jax_states.fighter_a.hp)
-        fighter_stamina = np.array(self.jax_states.fighter_a.stamina)
-        fighter_max_hp = np.array(self.jax_states.fighter_a.max_hp)
-        fighter_max_stamina = np.array(self.jax_states.fighter_a.max_stamina)
-
-        # Compute relative metrics (from opponent's view)
-        distance = np.abs(fighter_pos - opponent_pos)
-        relative_velocity = fighter_vel - opponent_vel
-
-        # Normalize
-        hp_norm = opponent_hp / opponent_max_hp
-        stamina_norm = opponent_stamina / opponent_max_stamina
-        opp_hp_norm = fighter_hp / fighter_max_hp
-        opp_stamina_norm = fighter_stamina / fighter_max_stamina
-
-        # Stack observations (same format as _get_observations but from opponent's perspective)
-        obs = np.stack([
-            opponent_pos,
-            opponent_vel,
-            hp_norm,
-            stamina_norm,
-            distance,
-            relative_velocity,
-            opp_hp_norm,
-            opp_stamina_norm,
-            np.full(self.n_envs, self.arena_width)
-        ], axis=1).astype(np.float32)
-
-        return obs
+        return build_observation_batch(
+            you_position=np.array(self.jax_states.fighter_b.position),
+            you_velocity=np.array(self.jax_states.fighter_b.velocity),
+            you_hp=np.array(self.jax_states.fighter_b.hp),
+            you_max_hp=np.array(self.jax_states.fighter_b.max_hp),
+            you_stamina=np.array(self.jax_states.fighter_b.stamina),
+            you_max_stamina=np.array(self.jax_states.fighter_b.max_stamina),
+            opponent_position=np.array(self.jax_states.fighter_a.position),
+            opponent_velocity=np.array(self.jax_states.fighter_a.velocity),
+            opponent_hp=np.array(self.jax_states.fighter_a.hp),
+            opponent_max_hp=np.array(self.jax_states.fighter_a.max_hp),
+            opponent_stamina=np.array(self.jax_states.fighter_a.stamina),
+            opponent_max_stamina=np.array(self.jax_states.fighter_a.max_stamina),
+            opponent_stance=np.array(self.jax_states.fighter_a.stance),
+            arena_width=self.arena_width,
+            recent_damage=np.array(self.episode_damage_taken),
+        )
 
     def _predict_opponent_actions(self, opponent_observations):
         """
@@ -513,6 +508,60 @@ class VmapEnvWrapper(gym.Env):
 
         return all_actions
 
+    def _compute_legacy_opponent_actions(self):
+        """
+        Compute opponent actions via legacy `opponent_decision_func`.
+
+        This keeps behavior aligned with AtomCombatEnv when callers pass
+        a Python decision function instead of opponent_paths/opponent_models.
+        """
+        if self.opponent_decide is None:
+            return np.zeros(self.n_envs, dtype=np.float32), np.zeros(self.n_envs, dtype=np.int32)
+
+        accel = np.zeros(self.n_envs, dtype=np.float32)
+        stance = np.zeros(self.n_envs, dtype=np.int32)
+
+        for i in range(self.n_envs):
+            fighter_a = SimpleNamespace(
+                position=float(self.jax_states.fighter_a.position[i]),
+                velocity=float(self.jax_states.fighter_a.velocity[i]),
+                hp=float(self.jax_states.fighter_a.hp[i]),
+                max_hp=float(self.jax_states.fighter_a.max_hp[i]),
+                stamina=float(self.jax_states.fighter_a.stamina[i]),
+                max_stamina=float(self.jax_states.fighter_a.max_stamina[i]),
+                stance=int(self.jax_states.fighter_a.stance[i]),
+            )
+            fighter_b = SimpleNamespace(
+                position=float(self.jax_states.fighter_b.position[i]),
+                velocity=float(self.jax_states.fighter_b.velocity[i]),
+                hp=float(self.jax_states.fighter_b.hp[i]),
+                max_hp=float(self.jax_states.fighter_b.max_hp[i]),
+                stamina=float(self.jax_states.fighter_b.stamina[i]),
+                max_stamina=float(self.jax_states.fighter_b.max_stamina[i]),
+                stance=int(self.jax_states.fighter_b.stance[i]),
+            )
+
+            # Opponent controls fighter_b, observing fighter_a as "opponent".
+            snapshot = generate_snapshot(
+                fighter_b,
+                fighter_a,
+                int(self.tick_counts[i]),
+                float(self.arena_width),
+            )
+            action = self.opponent_decide(snapshot) or {}
+            accel[i] = float(np.clip(action.get("acceleration", 0.0), -self.max_accel, self.max_accel))
+
+            stance_value = action.get("stance", "neutral")
+            if isinstance(stance_value, str):
+                if stance_value in self.stance_names:
+                    stance[i] = self.stance_names.index(stance_value)
+                else:
+                    stance[i] = 0
+            else:
+                stance[i] = int(np.clip(int(stance_value), 0, 2))
+
+        return accel, stance
+
     def _calculate_rewards(self, dones, truncated):
         """
         Calculate rewards using the complete reward system from gym_env.py.
@@ -541,164 +590,59 @@ class VmapEnvWrapper(gym.Env):
         stamina_spent = self.prev_fighter_stamina - fighter_stamina
         self.episode_stamina_used += np.maximum(0, stamina_spent)
 
-        # Calculate HP percentages
-        fighter_hp_pct = fighter_hp / fighter_max_hp
-        opponent_hp_pct = opponent_hp / opponent_max_hp
+        # Calculate HP percentages with division protection
+        fighter_hp_pct = fighter_hp / np.maximum(fighter_max_hp, 1.0)
+        opponent_hp_pct = opponent_hp / np.maximum(opponent_max_hp, 1.0)
 
-        # Calculate stamina percentages
-        stamina_pct = fighter_stamina / fighter_max_stamina
-        opp_stamina_pct = opponent_stamina / opponent_max_stamina
+        # Calculate stamina percentages with division protection
+        stamina_pct = fighter_stamina / np.maximum(fighter_max_stamina, 1.0)
+        opp_stamina_pct = opponent_stamina / np.maximum(opponent_max_stamina, 1.0)
 
         # Get positions and calculate distance
         fighter_pos = np.array(self.jax_states.fighter_a.position, dtype=np.float32)
         opponent_pos = np.array(self.jax_states.fighter_b.position, dtype=np.float32)
         distance = np.abs(opponent_pos - fighter_pos)
 
-        # Get current stance (convert from int to string for logic)
-        # stance_int = np.array(self.jax_states.fighter_a.stance, dtype=np.int32)
-        # For now, we'll work with stance indices: 0=neutral, 1=extended, 2=retracted, 3=defending
+        reward_result = compute_step_rewards_batch(
+            dones=dones,
+            truncated=truncated,
+            damage_dealt=damage_dealt,
+            damage_taken=damage_taken,
+            fighter_hp_pct=fighter_hp_pct,
+            opponent_hp_pct=opponent_hp_pct,
+            stamina_pct=stamina_pct,
+            opp_stamina_pct=opp_stamina_pct,
+            fighter_stance=np.array(self.jax_states.fighter_a.stance, dtype=np.int32),
+            distance=distance,
+            last_distance=self.last_distance,
+            tick_counts=self.tick_counts,
+            max_ticks=self.max_ticks,
+            arena_width=self.arena_width,
+            episode_damage_dealt=self.episode_damage_dealt,
+            episode_stamina_used=self.episode_stamina_used,
+        )
 
-        # Initialize rewards array
-        rewards = np.zeros(self.n_envs, dtype=np.float32)
-
-        # === TERMINAL REWARDS (one fighter died) ===
-        terminal_mask = dones & ~truncated
-        if np.any(terminal_mask):
-            # Win condition
-            win_mask = terminal_mask & (fighter_hp_pct > opponent_hp_pct)
-            if np.any(win_mask):
-                # Base win reward + bonuses
-                time_bonus = np.clip((self.max_ticks - self.tick_counts) * 0.5, 0, 100)
-                hp_bonus = fighter_hp_pct * 100  # 0-100 based on remaining HP
-
-                # Stamina efficiency bonus (using accumulated stamina usage like gym_env.py line 228)
-                damage_per_stamina = self.episode_damage_dealt / np.maximum(self.episode_stamina_used, 1.0)
-                stamina_efficiency = np.minimum(25, damage_per_stamina * 5)
-
-                win_reward = 200.0 + time_bonus + hp_bonus + stamina_efficiency
-                rewards = np.where(win_mask, win_reward, rewards)
-
-            # Tie condition (both died simultaneously)
-            tie_mask = terminal_mask & (fighter_hp_pct == opponent_hp_pct)
-            rewards = np.where(tie_mask, -50.0, rewards)
-
-            # Loss condition
-            loss_mask = terminal_mask & (fighter_hp_pct < opponent_hp_pct)
-            if np.any(loss_mask):
-                hp_diff = opponent_hp_pct - fighter_hp_pct
-                hp_penalty = hp_diff * 100
-                loss_reward = -200.0 - hp_penalty
-                rewards = np.where(loss_mask, loss_reward, rewards)
-
-        # === TIMEOUT REWARDS (max ticks reached) ===
-        timeout_mask = truncated & ~dones
-        if np.any(timeout_mask):
-            hp_pct_diff = fighter_hp_pct - opponent_hp_pct
-
-            # Clear win (>10% HP margin)
-            clear_win_mask = timeout_mask & (hp_pct_diff > 0.1)
-            timeout_reward = 100.0 + (hp_pct_diff * 50)
-            rewards = np.where(clear_win_mask, timeout_reward, rewards)
-
-            # Slight win
-            slight_win_mask = timeout_mask & (hp_pct_diff > 0) & (hp_pct_diff <= 0.1)
-            rewards = np.where(slight_win_mask, 0.0, rewards)
-
-            # Clear loss (<-10% HP margin)
-            clear_loss_mask = timeout_mask & (hp_pct_diff < -0.1)
-            timeout_reward = -100.0 + (hp_pct_diff * 50)
-            rewards = np.where(clear_loss_mask, timeout_reward, rewards)
-
-            # Slight loss
-            slight_loss_mask = timeout_mask & (hp_pct_diff < 0) & (hp_pct_diff >= -0.1)
-            rewards = np.where(slight_loss_mask, -50.0, rewards)
-
-            # Exact tie
-            exact_tie_mask = timeout_mask & (hp_pct_diff == 0)
-            rewards = np.where(exact_tie_mask, -200.0, rewards)
-
-        # === MID-EPISODE REWARDS (shaped rewards for learning) ===
-        mid_episode_mask = ~dones & ~truncated
-        if np.any(mid_episode_mask):
-            mid_reward = np.zeros(self.n_envs, dtype=np.float32)
-
-            # 1. Damage differential (core reward)
-            damage_reward = (damage_dealt - damage_taken) * 10.0
-            mid_reward += damage_reward
-            self.episode_damage_reward += np.where(mid_episode_mask, damage_reward, 0.0)
-
-            # 1b. Close-range engagement bonus
-            close_range_mask = mid_episode_mask & (damage_dealt > 0) & (distance < self.arena_width * 0.3)
-            close_range_bonus = damage_dealt * 2.0
-            mid_reward += np.where(close_range_mask, close_range_bonus, 0.0)
-            self.episode_damage_reward += np.where(close_range_mask, close_range_bonus, 0.0)
-
-            # 2. Stamina-aware rewards
-            # Bonus for stamina advantage
-            stamina_adv_mask = mid_episode_mask & (stamina_pct > opp_stamina_pct + 0.2)
-            stamina_bonus = 0.02
-            mid_reward += np.where(stamina_adv_mask, stamina_bonus, 0.0)
-            self.episode_stamina_reward += np.where(stamina_adv_mask, stamina_bonus, 0.0)
-
-            # Penalty for fighting at very low stamina
-            # Note: stance checking requires stance data - skip for now or use stance index
-            low_stamina_mask = mid_episode_mask & (stamina_pct < 0.2)
-            stamina_penalty = -0.05
-            mid_reward += np.where(low_stamina_mask, stamina_penalty, 0.0)
-            self.episode_stamina_reward += np.where(low_stamina_mask, stamina_penalty, 0.0)
-
-            # 3. Smart proximity rewards (distance-aware)
-            if self.last_distance is not None:
-                distance_delta = self.last_distance - distance  # Positive = closing
-
-                # Reward closing when opponent low HP or stamina
-                closing_mask = mid_episode_mask & ((opponent_hp_pct < 0.3) | (opp_stamina_pct < 0.2)) & (distance_delta > 0.1)
-                proximity_bonus = 0.2
-                mid_reward += np.where(closing_mask, proximity_bonus, 0.0)
-                self.episode_proximity_reward += np.where(closing_mask, proximity_bonus, 0.0)
-
-                # Reward backing off when low stamina
-                backing_mask = mid_episode_mask & (stamina_pct < 0.2) & (distance_delta < -0.1)
-                proximity_bonus = 0.1
-                mid_reward += np.where(backing_mask, proximity_bonus, 0.0)
-                self.episode_proximity_reward += np.where(backing_mask, proximity_bonus, 0.0)
-
-                # Normal engagement distance reward
-                engagement_mask = mid_episode_mask & (distance < self.arena_width * 0.25)
-                proximity_bonus = 0.1 * (1.0 - distance / (self.arena_width * 0.25))
-                mid_reward += np.where(engagement_mask, proximity_bonus, 0.0)
-                self.episode_proximity_reward += np.where(engagement_mask, proximity_bonus, 0.0)
-
-            # 4. Stance-appropriate rewards (simplified - would need stance data)
-            # Skipping for now as stance requires mapping from JAX state
-
-            # 5. Inaction penalty (distance-aware)
-            no_action_mask = mid_episode_mask & (damage_dealt == 0) & (damage_taken == 0)
-
-            # Very close range
-            close_inaction_mask = no_action_mask & (distance < self.arena_width * 0.2)
-            mid_reward += np.where(close_inaction_mask, -0.5, 0.0)
-            self.episode_inaction_penalty += np.where(close_inaction_mask, -0.5, 0.0)
-
-            # Medium range
-            medium_inaction_mask = no_action_mask & (distance >= self.arena_width * 0.2) & (distance < self.arena_width * 0.4)
-            mid_reward += np.where(medium_inaction_mask, -0.3, 0.0)
-            self.episode_inaction_penalty += np.where(medium_inaction_mask, -0.3, 0.0)
-
-            # Far range
-            far_inaction_mask = no_action_mask & (distance >= self.arena_width * 0.4)
-            mid_reward += np.where(far_inaction_mask, -0.1, 0.0)
-            self.episode_inaction_penalty += np.where(far_inaction_mask, -0.1, 0.0)
-
-            # Apply mid-episode rewards only where not done/truncated
-            rewards = np.where(mid_episode_mask, mid_reward, rewards)
+        rewards = reward_result.rewards
+        self.episode_damage_reward += reward_result.damage_component
+        self.episode_proximity_reward += reward_result.proximity_component
+        self.episode_stamina_reward += reward_result.stamina_component
+        self.episode_stance_reward += reward_result.stance_component
+        self.episode_inaction_penalty += reward_result.inaction_component
+        self.episode_terminal_reward += reward_result.terminal_component
 
         # Update tracking
         self.prev_fighter_hp = fighter_hp.copy()
         self.prev_opponent_hp = opponent_hp.copy()
         self.prev_fighter_stamina = fighter_stamina.copy()
         self.prev_opponent_stamina = opponent_stamina.copy()
-        self.last_distance = distance.copy()
+        self.last_distance = reward_result.next_last_distance.copy()
+
+        # Validate rewards - replace any NaN or Inf with zeros
+        if np.isnan(rewards).any() or np.isinf(rewards).any():
+            print(f"⚠️  WARNING: NaN or Inf detected in rewards! Clipping...")
+            print(f"   NaN locations: {np.where(np.isnan(rewards))}")
+            print(f"   Inf locations: {np.where(np.isinf(rewards))}")
+            rewards = np.nan_to_num(rewards, nan=0.0, posinf=1000.0, neginf=-1000.0)
 
         return rewards.astype(np.float32)
 
@@ -766,8 +710,85 @@ class VmapEnvWrapper(gym.Env):
                 self.episode_stamina_reward[i] = 0.0
                 self.episode_stance_reward[i] = 0.0
                 self.episode_inaction_penalty[i] = 0.0
+                self.episode_terminal_reward[i] = 0.0
 
         # Note: last_distance doesn't need per-env reset, it's updated each step
+
+    def close(self):
+        """Clean up JAX resources and free memory."""
+        # Clear JAX states
+        if hasattr(self, 'jax_states') and self.jax_states is not None:
+            del self.jax_states
+            self.jax_states = None
+
+        # Clear tracking arrays
+        if hasattr(self, 'tick_counts') and self.tick_counts is not None:
+            del self.tick_counts
+            self.tick_counts = None
+
+        if hasattr(self, 'episode_rewards') and self.episode_rewards is not None:
+            del self.episode_rewards
+            self.episode_rewards = None
+
+        # Clear HP/stamina tracking
+        if hasattr(self, 'prev_fighter_hp'):
+            del self.prev_fighter_hp
+            self.prev_fighter_hp = None
+
+        if hasattr(self, 'prev_opponent_hp'):
+            del self.prev_opponent_hp
+            self.prev_opponent_hp = None
+
+        if hasattr(self, 'prev_fighter_stamina'):
+            del self.prev_fighter_stamina
+            self.prev_fighter_stamina = None
+
+        if hasattr(self, 'prev_opponent_stamina'):
+            del self.prev_opponent_stamina
+            self.prev_opponent_stamina = None
+
+        # Clear opponent decision function
+        if hasattr(self, 'opponent_decide') and self.opponent_decide is not None:
+            del self.opponent_decide
+            self.opponent_decide = None
+
+        # Clear stance arrays
+        if hasattr(self, 'stance_reach'):
+            del self.stance_reach
+            self.stance_reach = None
+
+        if hasattr(self, 'stance_defense'):
+            del self.stance_defense
+            self.stance_defense = None
+
+        if hasattr(self, 'stance_drain'):
+            del self.stance_drain
+            self.stance_drain = None
+
+        # Clear all episode tracking arrays
+        for attr in ['episode_damage_dealt', 'episode_damage_taken', 'episode_stamina_used',
+                     'episode_damage_reward', 'episode_proximity_reward',
+                     'episode_stamina_reward', 'episode_stance_reward',
+                     'episode_inaction_penalty', 'episode_terminal_reward', 'last_distance',
+                     'hits_landed', 'hits_taken']:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
+        # Clear JAX PRNG key
+        if hasattr(self, 'rng'):
+            del self.rng
+            self.rng = None
+
+        # Force garbage collection of JAX arrays
+        import gc
+        gc.collect()
+
+        # Clear JAX compilation cache if possible
+        try:
+            import jax
+            jax.clear_caches()
+        except:
+            pass
 
 
 # Standalone test

@@ -51,12 +51,18 @@ class WorldConfig:
     stamina_max: float = 12.3595
     stamina_min: float = 5.7635
 
-    # Stances
+    # Discrete hit system
+    hit_cooldown_ticks: int = 5  # Minimum ticks between hits
+    hit_impact_threshold: float = 0.5  # Minimum impact force to register hit
+    hit_recoil_multiplier: float = 0.3  # Velocity reduction on hit
+    hit_stamina_cost: float = 2.0  # Stamina cost when landing hit
+    block_stamina_cost: float = 1.0  # Stamina cost when blocking hit
+
+    # Stances (3-stance system for boxing-style combat)
     stances: Dict[str, StanceConfig] = field(default_factory=lambda: {
         "neutral": StanceConfig(reach=0.2768, width=0.4428, drain=0.0, defense=1.0612),
-        "extended": StanceConfig(reach=0.8189, width=0.1681, drain=0.08, defense=0.8872),
-        "retracted": StanceConfig(reach=0.1005, width=0.1185, drain=0.03, defense=1.1542),
-        "defending": StanceConfig(reach=0.3811, width=0.5421, drain=0.12, defense=1.6290),
+        "extended": StanceConfig(reach=0.8189, width=0.1681, drain=0.08, defense=0.8872),  # Vulnerable when attacking
+        "defending": StanceConfig(reach=0.3811, width=0.5421, drain=0.0, defense=1.50),  # No stamina change while defending
     })
 
     def calculate_fighter_stats(self, mass: float) -> dict:

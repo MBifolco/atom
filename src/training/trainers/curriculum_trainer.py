@@ -5,8 +5,6 @@ Implements progressive training using test dummies before advancing to
 hardcoded fighters and eventually population-based training.
 """
 
-import os
-import sys
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple, Any
@@ -14,28 +12,32 @@ import logging
 from datetime import datetime
 import time
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-# Phase 2: Try SBX (JAX) first, fall back to SB3 (PyTorch)
-# SBX requires JAX < 0.7.0, incompatible with ROCm JAX 0.7.1
-try:
-    from sbx import PPO, SAC  # JAX-accelerated (if available)
-    _using_sbx = True
-except ImportError:
-    from stable_baselines3 import PPO, SAC  # PyTorch fallback
-    _using_sbx = False
+# Use Stable Baselines3 with PyTorch (JAX is in physics engine)
+from stable_baselines3 import PPO, SAC
 
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecEnv
+from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.monitor import Monitor
 
 # Import test dummy loader
 import importlib.util
 
 # Level 3: JAX vmap support
-from ..vmap_env_wrapper import VmapEnvWrapper
-from ...arena import WorldConfig
+from .curriculum_components import (
+    CallbackStepProcessor,
+    CurriculumTrainingError,
+    EnvFactory,
+    GraduationPolicy,
+    LevelRunner,
+    LevelTransitionStateMachine,
+    ModelFactory,
+    ProgressReporter,
+    ReplayEvaluationService,
+    RecoveryManager,
+)
+from ..utils.nan_detector import NaNDetector
 
 
 class VmapEnvAdapter(VecEnv):
@@ -66,7 +68,12 @@ class VmapEnvAdapter(VecEnv):
         return obs, rewards, dones, infos
 
     def close(self):
-        pass  # VmapEnvWrapper doesn't need cleanup
+        """Clean up vmap environment resources."""
+        if hasattr(self, 'vmap_env') and self.vmap_env is not None:
+            if hasattr(self.vmap_env, 'close'):
+                self.vmap_env.close()
+            del self.vmap_env
+            self.vmap_env = None
 
     def env_is_wrapped(self, wrapper_class, indices=None):
         """Required for VecEnv interface."""
@@ -141,6 +148,15 @@ class CurriculumCallback(BaseCallback):
         self.recent_reward_components = []
         self.last_rollout_time = None
         self.last_train_time = None
+        self.replay_evaluation_service = ReplayEvaluationService(self.curriculum_trainer)
+        self.step_processor = CallbackStepProcessor(
+            curriculum_trainer=self.curriculum_trainer,
+            replay_evaluation_service=self.replay_evaluation_service,
+            record_evaluation_replay_fn=lambda episode_num, total_episodes: self._record_evaluation_replay(
+                episode_num,
+                total_episodes,
+            ),
+        )
 
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
@@ -197,35 +213,43 @@ class CurriculumCallback(BaseCallback):
                 print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
-        for info in self.locals.get("infos", []):
-            if "episode" in info:
-                # Track episode completion
-                reward = info["episode"]["r"]
-                self.episode_rewards.append(reward)
+        # Check for NaN in observations, actions, and rewards
+        if hasattr(self.curriculum_trainer, 'nan_detector'):
+            detector = self.curriculum_trainer.nan_detector
 
-                # Check if won (use the "won" key from environment)
-                won = info.get("won", False)
-                self.episode_wins.append(won)
+            # Check observations
+            obs = self.locals.get("obs_tensor", None)
+            if obs is not None:
+                if detector.check_observations(obs, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in observations at step {self.n_calls}!")
 
-                # Track reward breakdown if available
-                if "reward_breakdown" in info:
-                    self.recent_reward_components.append(info["reward_breakdown"])
-                    if len(self.recent_reward_components) > 100:
-                        self.recent_reward_components.pop(0)
+            # Check actions
+            actions = self.locals.get("actions", None)
+            if actions is not None:
+                if detector.check_actions(actions, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in actions at step {self.n_calls}!")
 
-                # Update curriculum progress with additional info
-                self.curriculum_trainer.update_progress(won, reward, info)
+            # Check rewards
+            rewards = self.locals.get("rewards", None)
+            if rewards is not None:
+                if detector.check_rewards(rewards, self.n_calls):
+                    self.curriculum_trainer.logger.error(f"NaN detected in rewards at step {self.n_calls}!")
 
-                # Check for level graduation
-                if self.curriculum_trainer.should_graduate():
-                    self.curriculum_trainer.advance_level()
+        return self.step_processor.process_infos(
+            infos=self.locals.get("infos", []),
+            episode_rewards=self.episode_rewards,
+            episode_wins=self.episode_wins,
+            recent_reward_components=self.recent_reward_components,
+        )
 
-                    # Stop training if curriculum is complete
-                    if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
-                        self.curriculum_trainer.logger.info("Curriculum complete - stopping training early")
-                        return False
-
-        return True
+    def _record_evaluation_replay(self, episode_num: int, total_episodes: int):
+        """Compatibility wrapper used by tests and callback processing."""
+        self.replay_evaluation_service.record_evaluation_replay(
+            episode_num=episode_num,
+            total_episodes=total_episodes,
+            episode_rewards=self.episode_rewards,
+            episode_wins=self.episode_wins,
+        )
 
 
 class CurriculumTrainer:
@@ -249,18 +273,26 @@ class CurriculumTrainer:
                  verbose: bool = True,
                  device: str = "auto",
                  use_vmap: bool = False,
-                 debug: bool = False):
+                 debug: bool = False,
+                 record_replays: bool = False,
+                 replay_matches_per_opponent: int = 3,
+                 override_episodes_per_level: int = None,
+                 checkpoint_interval: int = 100000):
         """
         Initialize the curriculum trainer.
 
         Args:
-            algorithm: "ppo" or "sac"
+            algorithm: "ppo" (only PPO supported)
             output_dir: Directory for saving models and logs
             n_envs: Number of parallel environments (or vmap batch size)
             max_ticks: Maximum ticks per episode
             verbose: Whether to print progress
             device: Device to use for training ("cpu", "cuda", or "auto")
             use_vmap: Use JAX vmap for parallel environments (Level 3/4 optimization)
+            record_replays: Whether to record fight replays for montage
+            replay_matches_per_opponent: Number of evaluation matches per opponent for replay recording
+            override_episodes_per_level: Force graduation after N episodes (for testing). None for normal graduation.
+            checkpoint_interval: Save checkpoint bundle every N timesteps.
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -270,6 +302,16 @@ class CurriculumTrainer:
         self.device = device
         self.use_vmap = use_vmap
         self.debug = debug
+        self.record_replays = record_replays
+        self.replay_matches_per_opponent = replay_matches_per_opponent
+        self.override_episodes_per_level = override_episodes_per_level
+        self.checkpoint_interval = checkpoint_interval
+
+        # Validate override
+        if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
+            raise ValueError("override_episodes_per_level must be positive")
+        if self.checkpoint_interval <= 0:
+            raise ValueError("checkpoint_interval must be positive")
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -286,8 +328,71 @@ class CurriculumTrainer:
         self.model = None
         self.envs = None
 
+        # Replay recorder (if enabled)
+        self.replay_recorder = None
+        if self.record_replays:
+            from ..replay_recorder import ReplayRecorder
+            self.replay_recorder = ReplayRecorder(
+                output_dir=str(self.output_dir),
+                max_ticks=max_ticks,
+                verbose=verbose
+            )
+
+        # Progressive replay recorder for tracking learning progression
+        self.progressive_recorder = None
+        if self.record_replays:
+            from ..progressive_replay_recorder import ProgressiveReplayRecorder
+            self.progressive_recorder = ProgressiveReplayRecorder(
+                output_dir=str(self.output_dir),
+                max_ticks=max_ticks,
+                verbose=verbose
+            )
+
+        # Initialize NaN detector for debugging
+        self.nan_detector = NaNDetector(
+            log_dir=str(self.logs_dir / "nan_debug"),
+            verbose=True
+        )
+
         # Setup logging
         self._setup_logging()
+
+        # Phase 2 components: policy/reporting/recovery orchestration
+        self.graduation_policy = GraduationPolicy(
+            override_episodes_per_level=self.override_episodes_per_level,
+            min_overall_win_rate=0.5,
+        )
+        self.progress_reporter = ProgressReporter(self.logger)
+        self.recovery_manager = RecoveryManager(
+            models_dir=self.models_dir,
+            logs_dir=self.logs_dir,
+            logger=self.logger,
+            checkpoint_interval=self.checkpoint_interval,
+            max_retries=3,
+        )
+        self.level_runner = LevelRunner(
+            logger=self.logger,
+            recovery_manager=self.recovery_manager,
+        )
+        self.env_factory = EnvFactory(
+            n_envs=self.n_envs,
+            max_ticks=self.max_ticks,
+            use_vmap=self.use_vmap,
+            debug=self.debug,
+            logs_dir=self.logs_dir,
+            verbose=self.verbose,
+            create_env_fn=self.create_env,
+            vmap_adapter_cls=VmapEnvAdapter,
+        )
+        self.model_factory = ModelFactory(
+            logs_dir=self.logs_dir,
+            verbose=self.verbose,
+        )
+        self.level_transition_state_machine = LevelTransitionStateMachine()
+
+        # Log override setting
+        if self.override_episodes_per_level is not None and self.verbose:
+            self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
         """Build the training curriculum."""
@@ -304,7 +409,6 @@ class CurriculumTrainer:
                 str(test_dummy_dir / "atomic/stationary_neutral.py"),
                 str(test_dummy_dir / "atomic/stationary_extended.py"),
                 str(test_dummy_dir / "atomic/stationary_defending.py"),
-                str(test_dummy_dir / "atomic/stationary_retracted.py"),
             ],
             min_episodes=200,
             graduation_win_rate=0.9,  # Should easily beat stationary targets
@@ -336,14 +440,12 @@ class CurriculumTrainer:
             difficulty=DifficultyLevel.INTERMEDIATE,
             opponents=[
                 str(test_dummy_dir / "atomic/distance_keeper_1m.py"),
-                str(test_dummy_dir / "atomic/distance_keeper_3m.py"),
-                str(test_dummy_dir / "atomic/distance_keeper_5m.py"),
-                str(test_dummy_dir / "atomic/stamina_waster.py"),
-                str(test_dummy_dir / "atomic/stamina_cycler.py"),
                 str(test_dummy_dir / "atomic/stamina_efficient.py"),
                 str(test_dummy_dir / "atomic/charge_on_approach.py"),
-                str(test_dummy_dir / "atomic/wall_hugger_left.py"),
-                str(test_dummy_dir / "atomic/wall_hugger_right.py"),
+                # Using some Level 2 opponents as substitutes for missing files
+                str(test_dummy_dir / "atomic/forward_mover.py"),
+                str(test_dummy_dir / "atomic/backward_mover.py"),
+                str(test_dummy_dir / "atomic/sideways_mover_smooth.py"),
             ],
             min_episodes=400,
             graduation_win_rate=0.85,  # Maintained high standards
@@ -351,17 +453,17 @@ class CurriculumTrainer:
             description="Learn spacing control, resource management, and wall combat"
         ))
 
-        # Level 4: Advanced (behavioral fighters)
+        # Level 4: Advanced (stance switchers and complex movement)
         curriculum.append(CurriculumLevel(
             name="Advanced",
             difficulty=DifficultyLevel.ADVANCED,
             opponents=[
-                str(test_dummy_dir / "behavioral/perfect_defender.py"),
-                str(test_dummy_dir / "behavioral/burst_attacker.py"),
-                str(test_dummy_dir / "behavioral/perfect_kiter.py"),
-                str(test_dummy_dir / "behavioral/stamina_optimizer.py"),
-                str(test_dummy_dir / "behavioral/wall_fighter.py"),
-                str(test_dummy_dir / "behavioral/adaptive_fighter.py"),
+                str(test_dummy_dir / "atomic/aggressive_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/balanced_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/defensive_stance_switcher.py"),
+                str(test_dummy_dir / "atomic/forward_charger.py"),
+                str(test_dummy_dir / "atomic/oscillator.py"),
+                str(test_dummy_dir / "atomic/retreater.py"),
             ],
             min_episodes=500,
             graduation_win_rate=0.83,  # Staying near 85% standards
@@ -369,18 +471,16 @@ class CurriculumTrainer:
             description="Learn complex strategies and counter-strategies"
         ))
 
-        # Level 5: Expert (hardcoded fighters)
+        # Level 5: Expert (example fighters)
         curriculum.append(CurriculumLevel(
             name="Expert",
             difficulty=DifficultyLevel.EXPERT,
             opponents=[
-                str(example_dir / "tank.py"),
-                str(example_dir / "rusher.py"),
-                str(example_dir / "balanced.py"),
-                str(example_dir / "grappler.py"),
-                str(example_dir / "zoner.py"),
-                str(example_dir / "dodger.py"),
-                str(example_dir / "berserker.py"),
+                str(example_dir / "boxer.py"),
+                str(example_dir / "counter_puncher.py"),
+                str(example_dir / "out_fighter.py"),
+                str(example_dir / "slugger.py"),
+                str(example_dir / "swarmer.py"),
             ],
             min_episodes=600,
             graduation_win_rate=0.80,  # Excellence required even at final level
@@ -416,7 +516,7 @@ class CurriculumTrainer:
         self.logger.info("="*80)
         self.logger.info("CURRICULUM TRAINING INITIALIZED")
         self.logger.info(f"Algorithm: {self.algorithm}")
-        self.logger.info(f"Training Backend: {'SBX (JAX)' if _using_sbx else 'SB3 (PyTorch)'}")
+        self.logger.info(f"Training Backend: SB3 (PyTorch) with JAX physics")
         self.logger.info(f"GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
         self.logger.info(f"Curriculum Levels: {len(self.curriculum)}")
         self.logger.info("="*80)
@@ -448,193 +548,25 @@ class CurriculumTrainer:
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
         """Create parallel environments for the current level."""
-
-        if self.use_vmap:
-            # Level 3/4: Use JAX vmap for GPU-accelerated parallelization
-            # Now supports multiple opponents distributed across environments!
-            opponent_paths = level.opponents
-
-            if self.verbose:
-                print(f"🚀 Creating {self.n_envs} parallel JAX vmap environments...")
-                print(f"   Opponents: {len(opponent_paths)} different types")
-                if len(opponent_paths) > 1:
-                    envs_per_opponent = self.n_envs // len(opponent_paths)
-                    print(f"   Distribution: ~{envs_per_opponent} envs per opponent")
-                    for i, path in enumerate(opponent_paths):
-                        print(f"     {i+1}. {Path(path).stem}")
-
-            vmap_env = VmapEnvWrapper(
-                n_envs=self.n_envs,
-                opponent_paths=opponent_paths,  # Pass list of paths instead of single func
-                config=WorldConfig(),
-                max_ticks=self.max_ticks,
-                fighter_mass=70.0,
-                opponent_mass=70.0,
-                seed=42,
-                debug=self.debug
-            )
-
-            # Wrap with adapter for SBX compatibility
-            return VmapEnvAdapter(vmap_env)
-
-        else:
-            # Level 1/2: Use DummyVecEnv with multiple opponents
-            # Create environments with different opponents from the level
-            env_fns = []
-            for i in range(self.n_envs):
-                opponent_idx = i % len(level.opponents)
-                opponent_path = level.opponents[opponent_idx]
-
-                # Use Monitor with unique level-based filenames to avoid file handle conflicts
-                # The allow_early_resets=True is important for level transitions
-                level_name = level.name.replace(" ", "_").lower()
-                monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
-
-                env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
-                    self.create_env(opp_path),
-                    mfile,
-                    allow_early_resets=True
-                )
-                env_fns.append(env_fn)
-
-            # ALWAYS use DummyVecEnv for curriculum training
-            # SubprocVecEnv has too many pickle/process issues during curriculum progression
-            return DummyVecEnv(env_fns)
+        return self.env_factory.create_envs_for_level(level)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
-        if self.algorithm == "ppo":
-            # IMPORTANT: Force CPU for MlpPolicy as GPU is 1.4x slower for simple MLPs
-            # The main speedup comes from JAX physics simulation (77x), not NN training
-            # See: https://github.com/DLR-RM/stable-baselines3/issues/1245
-            actual_device = "cpu" if self.device == "auto" else self.device
-
-            # Debug: Print device being used
-            if self.verbose:
-                print(f"Initializing PPO with device: {actual_device} (forced CPU for MlpPolicy)")
-
-            self.model = PPO(
-                "MlpPolicy",
-                self.envs,
-                learning_rate=3e-4,
-                n_steps=2048,
-                batch_size=64,
-                n_epochs=10,
-                gamma=0.99,
-                gae_lambda=0.95,
-                clip_range=0.2,
-                max_grad_norm=0.5,  # Gradient clipping to prevent NaN
-                verbose=2 if self.verbose else 0,  # Set to 2 for detailed NN training logs
-                tensorboard_log=str(self.logs_dir / "tensorboard"),
-                device=actual_device
-            )
-        elif self.algorithm == "sac":
-            # Same CPU optimization for SAC with MlpPolicy
-            actual_device = "cpu" if self.device == "auto" else self.device
-
-            # Debug: Print device being used
-            if self.verbose:
-                print(f"Initializing SAC with device: {actual_device} (forced CPU for MlpPolicy)")
-
-            self.model = SAC(
-                "MlpPolicy",
-                self.envs,
-                learning_rate=3e-4,
-                buffer_size=50000,      # Smaller buffer for faster initial learning
-                learning_starts=100,    # Start learning much earlier (was 1000)
-                batch_size=64,          # Smaller batch size like PPO (was 256)
-                tau=0.01,               # Faster target network updates (was 0.005)
-                gamma=0.99,
-                ent_coef='auto',        # Auto-tune entropy for exploration
-                target_update_interval=1,  # Update target network every step
-                gradient_steps=1,       # One gradient step per env step
-                verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard"),
-                device=actual_device
-            )
-        else:
-            raise ValueError(f"Unknown algorithm: {self.algorithm}")
+        self.model = self.model_factory.create_model(
+            algorithm=self.algorithm,
+            envs=self.envs,
+            device=self.device,
+        )
 
     def update_progress(self, won: bool, reward: float = 0, info: dict = None):
         """Update training progress for the current episode."""
-        self.progress.episodes_at_level += 1
-        self.progress.total_episodes += 1
-
-        if won:
-            self.progress.wins_at_level += 1
-            self.progress.total_wins += 1
-
-        # Track recent episodes for graduation check
-        self.progress.recent_episodes.append(won)
-        if len(self.progress.recent_episodes) > self.get_current_level().graduation_episodes:
-            self.progress.recent_episodes.pop(0)
-
-        # Track recent rewards for analysis
-        if not hasattr(self.progress, 'recent_rewards'):
-            self.progress.recent_rewards = []
-            self.progress.recent_reward_breakdowns = []
-
-        self.progress.recent_rewards.append(reward)
-        if len(self.progress.recent_rewards) > 100:
-            self.progress.recent_rewards.pop(0)
-
-        # Track reward breakdown if available
-        if info and "reward_breakdown" in info:
-            self.progress.recent_reward_breakdowns.append(info["reward_breakdown"])
-            if len(self.progress.recent_reward_breakdowns) > 20:
-                self.progress.recent_reward_breakdowns.pop(0)
-
-        # Log progress every 100 episodes
-        if self.progress.episodes_at_level % 100 == 0:
-            level = self.get_current_level()
-            overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
-
-            # Recent win rate (if we have enough data)
-            if len(self.progress.recent_episodes) >= level.graduation_episodes:
-                recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-                mean_reward = np.mean(self.progress.recent_rewards) if self.progress.recent_rewards else 0
-
-                self.logger.info(
-                    f"Progress: Episode {self.progress.episodes_at_level} | "
-                    f"Overall WR: {overall_win_rate:.1%} | "
-                    f"Recent WR: {recent_win_rate:.1%} "
-                    f"(need {level.graduation_win_rate:.1%}) | "
-                    f"Mean Reward: {mean_reward:.1f}"
-                )
-
-                # Log detailed reward breakdown every 100 episodes
-                if self.progress.recent_reward_breakdowns:
-                    # Average the components
-                    avg_breakdown = {}
-                    for breakdown in self.progress.recent_reward_breakdowns:
-                        for key, value in breakdown.items():
-                            if key not in avg_breakdown:
-                                avg_breakdown[key] = []
-                            avg_breakdown[key].append(value)
-
-                    # Calculate averages
-                    reward_summary = []
-                    for key, values in avg_breakdown.items():
-                        if key != "total":
-                            avg_val = np.mean(values)
-                            if abs(avg_val) > 0.1:  # Only show significant components
-                                reward_summary.append(f"{key}={avg_val:+.1f}")
-
-                    if reward_summary:
-                        self.logger.info(f"  Reward Components: {', '.join(reward_summary)}")
-
-                # Log win/loss/draw counts
-                recent_wins = sum(self.progress.recent_episodes)
-                recent_losses = len(self.progress.recent_episodes) - recent_wins
-                self.logger.info(
-                    f"  Last {len(self.progress.recent_episodes)} episodes: "
-                    f"{recent_wins} wins, {recent_losses} losses"
-                )
-            else:
-                self.logger.info(
-                    f"Progress: Episode {self.progress.episodes_at_level} | "
-                    f"Overall WR: {overall_win_rate:.1%}"
-                )
+        self.progress_reporter.update_progress(
+            progress=self.progress,
+            level=self.get_current_level(),
+            won=won,
+            reward=reward,
+            info=info,
+        )
 
     def get_current_level(self) -> CurriculumLevel:
         """Get the current curriculum level."""
@@ -644,46 +576,20 @@ class CurriculumTrainer:
 
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
-        # Don't graduate if already completed all curriculum levels
-        if self.progress.current_level >= len(self.curriculum):
-            return False
-
         level = self.get_current_level()
+        decision = self.graduation_policy.evaluate(
+            progress=self.progress,
+            level=level,
+            curriculum_size=len(self.curriculum),
+        )
 
-        # Check minimum episodes
-        if self.progress.episodes_at_level < level.min_episodes:
-            return False
+        should_log = decision.should_graduate or (
+            decision.recent_passed and self.progress.episodes_at_level % 100 == 0
+        )
+        if should_log and decision.reason != "override":
+            self.progress_reporter.log_graduation_decision(decision)
 
-        # Check recent win rate
-        if len(self.progress.recent_episodes) < level.graduation_episodes:
-            return False
-
-        recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-        recent_wins = sum(self.progress.recent_episodes)
-        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
-
-        # Require BOTH recent AND overall performance to be good
-        # Overall must be within 10% of graduation threshold to prevent lucky streaks
-        overall_threshold = max(0.5, level.graduation_win_rate - 0.15)  # At least 50%, or 15% below requirement
-
-        recent_passed = recent_win_rate >= level.graduation_win_rate
-        overall_passed = overall_win_rate >= overall_threshold
-
-        # Debug logging for graduation decisions
-        will_graduate = recent_passed and overall_passed
-
-        # Only log if graduating OR every 100 episodes when recent passes (to reduce spam)
-        should_log = will_graduate or (recent_passed and self.progress.episodes_at_level % 100 == 0)
-
-        if should_log:
-            status = "✅ PASSED" if will_graduate else "❌ FAILED (overall too low)"
-            self.logger.info(f"🎓 GRADUATION CHECK {status}")
-            self.logger.info(f"   Recent wins: {recent_wins}/{len(self.progress.recent_episodes)}")
-            self.logger.info(f"   Recent WR: {recent_win_rate:.2%} (need {level.graduation_win_rate:.1%}) {'✓' if recent_passed else '✗'}")
-            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {overall_threshold:.1%}) {'✓' if overall_passed else '✗'}")
-            self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
-
-        return will_graduate
+        return decision.should_graduate
 
     def advance_level(self):
         """Advance to the next curriculum level."""
@@ -695,14 +601,25 @@ class CurriculumTrainer:
         self.logger.info(f"Win Rate: {self.progress.wins_at_level / max(1, self.progress.episodes_at_level):.2%}")
         self.logger.info("="*60)
 
-        # Record graduation
-        self.progress.graduated_levels.append(current.name)
+        # Record replays if enabled (BEFORE moving to next level)
+        if self.replay_recorder:
+            try:
+                self.replay_recorder.record_curriculum_stage(
+                    stage_name=current.name,
+                    level_num=self.progress.current_level + 1,  # 1-indexed
+                    model=self.model,
+                    opponent_paths=current.opponents,
+                    num_matches_per_opponent=self.replay_matches_per_opponent
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to record replays for {current.name}: {e}")
+                import traceback
+                self.logger.debug(f"Traceback: {traceback.format_exc()}")
 
-        # Move to next level
-        self.progress.current_level += 1
-        self.progress.episodes_at_level = 0
-        self.progress.wins_at_level = 0
-        self.progress.recent_episodes = []
+        transition = self.level_transition_state_machine.advance(
+            progress=self.progress,
+            curriculum=self.curriculum,
+        )
 
         # Log the reset for debugging
         self.logger.info("📊 METRICS RESET FOR NEW LEVEL:")
@@ -711,7 +628,7 @@ class CurriculumTrainer:
         self.logger.info(f"   Recent episodes buffer: {len(self.progress.recent_episodes)} episodes")
 
         # Check if completed curriculum
-        if self.progress.current_level >= len(self.curriculum):
+        if transition.completed:
             self.logger.info("🎉 CURRICULUM COMPLETED! 🎉")
             self.on_curriculum_complete()
         else:
@@ -764,6 +681,14 @@ class CurriculumTrainer:
         self.model.save(final_model_path)
         self.logger.info(f"Final model saved to: {final_model_path}")
 
+        # Save replay index if recording was enabled
+        if self.replay_recorder:
+            self.replay_recorder.save_replay_index()
+
+        # Save progressive replay index
+        if self.progressive_recorder:
+            self.progressive_recorder.save_progressive_index()
+
         # Save training report
         self.save_training_report()
 
@@ -795,12 +720,112 @@ class CurriculumTrainer:
 
         self.logger.info(f"Training report saved to: {report_path}")
 
-    def train(self, total_timesteps: int = 1_000_000):
+    def _log_training_loop_error(self, exc: CurriculumTrainingError):
+        """Emit a consistent structured error block for training loop failures."""
+        details = exc.details
+        self.logger.error("=" * 80)
+        self.logger.error("CURRICULUM TRAINING LOOP FAILED")
+        self.logger.error("=" * 80)
+        self.logger.error(f"Error Type: {exc.__class__.__name__}")
+        self.logger.error(f"Error: {exc}")
+        self.logger.error(f"Current level: {details.level}")
+        self.logger.error(f"Completed steps: {details.completed_steps}/{details.total_timesteps}")
+        self.logger.error(f"NaN retries: {details.nan_retries}")
+        if details.checkpoint_path is not None:
+            self.logger.error(f"Checkpoint path: {details.checkpoint_path}")
+        if details.debug_path is not None:
+            self.logger.error(f"Debug dump: {details.debug_path}")
+        self.logger.error("=" * 80)
+
+    def _capture_training_state(self, callback: CurriculumCallback) -> dict:
+        """Capture curriculum + callback state for checkpoint resume."""
+        progress_state = asdict(self.progress)
+        progress_state["recent_rewards"] = list(getattr(self.progress, "recent_rewards", []))
+        progress_state["recent_reward_breakdowns"] = list(
+            getattr(self.progress, "recent_reward_breakdowns", [])
+        )
+
+        callback_state = {
+            "episode_rewards": list(callback.episode_rewards),
+            "episode_wins": list(callback.episode_wins),
+            "recent_reward_components": list(callback.recent_reward_components),
+            "rollout_count": getattr(callback, "rollout_count", 0),
+        }
+        return {
+            "schema_version": 1,
+            "progress": progress_state,
+            "callback": callback_state,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def _sync_environment_to_level(self):
+        """Ensure env/model opponents are aligned with restored curriculum level."""
+        if self.envs is None or self.model is None:
+            return
+        if self.progress.current_level >= len(self.curriculum):
+            return
+
+        restored_level = self.get_current_level()
+        if self.use_vmap:
+            self.logger.info("Restoring vmap environments to checkpoint level state...")
+            old_envs = self.envs
+            self.envs = self.create_envs_for_level(restored_level)
+            self.model.set_env(self.envs)
+            if old_envs is not self.envs and hasattr(old_envs, "close"):
+                old_envs.close()
+            return
+
+        for env_idx in range(self.n_envs):
+            opponent_idx = env_idx % len(restored_level.opponents)
+            opponent_path = restored_level.opponents[opponent_idx]
+            opponent_func = self.load_opponent(opponent_path)
+            self.envs.env_method("set_opponent", opponent_func, indices=[env_idx])
+
+    def _restore_training_state(self, callback: CurriculumCallback, state: dict):
+        """Restore curriculum + callback state from checkpoint payload."""
+        progress_state = state.get("progress", {})
+        previous_level = self.progress.current_level
+
+        for field_name in [
+            "current_level",
+            "episodes_at_level",
+            "wins_at_level",
+            "total_episodes",
+            "total_wins",
+            "start_time",
+        ]:
+            if field_name in progress_state:
+                setattr(self.progress, field_name, progress_state[field_name])
+
+        self.progress.recent_episodes = list(progress_state.get("recent_episodes", []))
+        self.progress.graduated_levels = list(progress_state.get("graduated_levels", []))
+        self.progress.recent_rewards = list(progress_state.get("recent_rewards", []))
+        self.progress.recent_reward_breakdowns = list(
+            progress_state.get("recent_reward_breakdowns", [])
+        )
+
+        callback_state = state.get("callback", {})
+        callback.episode_rewards = list(callback_state.get("episode_rewards", []))
+        callback.episode_wins = list(callback_state.get("episode_wins", []))
+        callback.recent_reward_components = list(
+            callback_state.get("recent_reward_components", [])
+        )
+        callback.rollout_count = int(callback_state.get("rollout_count", 0))
+
+        if self.progress.current_level != previous_level:
+            self.logger.info(
+                "Checkpoint restored level transition context: "
+                f"{previous_level} -> {self.progress.current_level}"
+            )
+            self._sync_environment_to_level()
+
+    def train(self, total_timesteps: int = 1_000_000, resume_from_latest: bool = False):
         """
         Train the fighter through the curriculum.
 
         Args:
             total_timesteps: Total training timesteps across all levels
+            resume_from_latest: Load latest checkpoint bundle before training.
         """
         self.logger.info("Starting curriculum training...")
 
@@ -818,16 +843,45 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
-        # Train
-        self.model.learn(
-            total_timesteps=total_timesteps,
-            callback=callback,
-            progress_bar=self.verbose
-        )
+        initial_step = 0
+        if resume_from_latest:
+            latest_bundle = self.recovery_manager.find_latest_checkpoint_bundle()
+            if latest_bundle is None:
+                self.logger.info("Resume requested but no checkpoint bundle found; starting fresh run.")
+            else:
+                self.logger.info(f"Resuming from checkpoint bundle: {latest_bundle.model_path}")
+                self.model = self.model.__class__.load(latest_bundle.model_path, env=self.envs)
+                checkpoint_state = self.recovery_manager.load_checkpoint_training_state(latest_bundle)
+                if checkpoint_state is not None:
+                    self._restore_training_state(callback, checkpoint_state)
+                initial_step = int(latest_bundle.step)
+                if self.verbose:
+                    self.logger.info(
+                        f"Resume state loaded from step {initial_step}; "
+                        f"remaining timesteps target: {max(0, total_timesteps - initial_step)}"
+                    )
 
-        # Close environments
-        if self.envs:
-            self.envs.close()
+        try:
+            # Train with retry/recovery orchestration.
+            self.model = self.level_runner.run(
+                model=self.model,
+                envs=self.envs,
+                callback=callback,
+                total_timesteps=total_timesteps,
+                initial_step=initial_step,
+                verbose=self.verbose,
+                current_level_getter=lambda: self.progress.current_level,
+                training_state_getter=lambda: self._capture_training_state(callback),
+                training_state_restorer=lambda state: self._restore_training_state(callback, state),
+                model_update_fn=lambda recovered_model: setattr(self, "model", recovered_model),
+                env_getter=lambda: self.envs,
+            )
+        except CurriculumTrainingError as exc:
+            self._log_training_loop_error(exc)
+            raise
+        finally:
+            if self.envs:
+                self.envs.close()
 
         self.logger.info("Training complete!")
 

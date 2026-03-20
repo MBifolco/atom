@@ -1,120 +1,70 @@
 # Atom Combat Test Suite
 
-Comprehensive unit and integration tests for the Atom Combat game engine.
+The test suite now supports a local-first workflow so we can move quickly
+without depending on Colab for every change.
 
-## Running Tests
+## Test Tiers
 
-Run all tests:
+- `unit`: fastest deterministic logic tests.
+- `integration`: local component tests across modules.
+- `training`: opt-in training smoke/regression tests.
+- `e2e`: opt-in full pipeline checks.
+- `slow`: longer-running tests across any tier.
+- `colab`: tests that require a Colab environment.
+
+Legacy flat tests are auto-marked as `integration` in `tests/conftest.py`.
+
+## Default Behavior
+
+`pytest.ini` skips `training`, `e2e`, and `colab` tests by default:
+
 ```bash
-python3 -m pytest tests/ -v
+python -m pytest
 ```
 
-Run specific test file:
+This keeps local loops fast while still running the broad integration surface.
+
+## Common Commands
+
+Run only unit tests:
+
 ```bash
-python3 -m pytest tests/test_world_dynamics.py -v
+python -m pytest -m unit
 ```
 
-Run specific test class:
+Run integration tests (excluding slow):
+
 ```bash
-python3 -m pytest tests/test_world_dynamics.py::TestStaminaMechanics -v
+python -m pytest -m "integration and not slow"
 ```
 
-Run specific test:
+Run all local tests including slow (still excluding training/e2e/colab):
+
 ```bash
-python3 -m pytest tests/test_world_dynamics.py::TestStaminaMechanics::test_stamina_drain_from_acceleration -v
+python -m pytest -m "not training and not e2e and not colab"
 ```
 
-## Test Coverage
+Run training smoke tests explicitly:
 
-### test_world_dynamics.py (26 tests)
+```bash
+python -m pytest tests/training -m training -s
+```
 
-Comprehensive tests ensuring world dynamics yield expected results.
+Run end-to-end checks explicitly:
 
-#### TestStaminaMechanics (7 tests)
-- ✓ Stamina drain from acceleration (scaled by mass)
-- ✓ Heavier fighters consume more stamina for same acceleration
-- ✓ Extended stance drains stamina
-- ✓ Neutral stance regenerates stamina faster (bonus multiplier)
-- ✓ Cannot attack (extended stance) at 0 stamina
-- ✓ Can defend (defensive stances) at 0 stamina
-- ✓ Stamina caps at maximum value
+```bash
+python -m pytest tests/e2e -m e2e -s
+```
 
-#### TestDamageCalculation (6 tests)
-- ✓ Equal fighters deal equal damage at full stamina
-- ✓ Heavier fighters have mass advantage in damage
-- ✓ Defending stance provides damage reduction
-- ✓ Extended vs non-extended creates massive damage asymmetry (attack advantage)
-- ✓ Stamina affects damage output (low stamina = reduced damage)
-- ✓ Zero stamina still deals minimum damage (25% baseline)
+## Reproducibility
 
-#### TestPhysics (7 tests)
-- ✓ Positive acceleration increases velocity
-- ✓ Negative acceleration decreases velocity
-- ✓ Friction reduces velocity over time
-- ✓ Velocity updates position correctly
-- ✓ Wall collisions stop movement and reset velocity
-- ✓ Velocity is clamped to max_velocity
-- ✓ Acceleration is clamped to max_acceleration
-
-#### TestCombatScenarios (3 tests)
-- ✓ Pure aggression exhausts stamina (validates stamina management is critical)
-- ✓ Match ends when fighter reaches 0 HP
-- ✓ Mutual KO results in draw
-
-#### TestStaminaIntegration (3 tests)
-- ✓ Spamming extended stance exhausts stamina
-- ✓ Neutral stance recovers stamina effectively
-- ✓ Stamina management matters in long fights
-
-## Key Insights from Tests
-
-### Stamina Management is Critical
-The tests reveal that pure aggression (constantly attacking + accelerating) actually LOSES to passive stance management due to stamina exhaustion. This confirms the game properly incentivizes strategic stamina management.
-
-### Attack Advantage Asymmetry
-When only one fighter uses extended stance (attacking), they gain massive advantage (~100x damage multiplier). This creates high-risk, high-reward offensive play.
-
-### Mass Effects
-Heavier fighters:
-- Deal more damage (mass ratio in damage formula)
-- Consume more stamina for same acceleration
-- Have more HP (calculated from mass by world config)
-
-### Stamina-Damage Scaling
-- 100% stamina = 100% damage output
-- 0% stamina = 25% damage output
-- Linear scaling in between
-
-## Adding New Tests
-
-When adding new tests, follow the existing patterns:
-
-1. **Test Class Organization**: Group related tests into classes
-2. **setup_method()**: Create fresh test fixtures for each test
-3. **Descriptive Names**: Use clear, descriptive test names that explain what's being tested
-4. **Assertions**: Include helpful failure messages with actual vs expected values
-5. **Comments**: Explain WHY behavior is expected, not just WHAT is expected
+- `ATOM_TEST_SEED` controls deterministic Python/NumPy seeding in tests.
+- `tests/conftest.py` applies seed fixtures and optional torch seeding fixture.
+- Local baseline training runs can be launched with `run_local_baseline.py`.
 
 Example:
-```python
-def test_new_mechanic(self):
-    """Test that new mechanic behaves as expected."""
-    # Setup
-    fighter = FighterState.create("Test", mass=70.0, position=5.0, world_config=self.config)
 
-    # Execute
-    result = some_function(fighter)
-
-    # Assert
-    assert result == expected_value, \
-        f"Mechanic should produce {expected_value}, got {result}"
+```bash
+ATOM_TEST_SEED=1337 python -m pytest -m unit
+python run_local_baseline.py --mode curriculum --timesteps 10000 --seed 1337
 ```
-
-## CI/CD Integration
-
-These tests should be run:
-- Before every commit (pre-commit hook)
-- On every pull request
-- Before every deployment
-
-All tests must pass before merging code changes.

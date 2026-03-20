@@ -1,28 +1,20 @@
 """
-Circle Right
-
-Test dummy that always moves right at constant speed.
-Will bounce off right wall and continue circling.
-
-Purpose: Test wall collision mechanics on right side,
-constant velocity movement, and wall damage.
+Always circles right.
+Used for Level 2: Basic Skills training.
 """
 
-
-def decide(snapshot):
-    """
-    Circle right test dummy.
-
-    Always accelerates right at speed 2.0, bounces off walls.
-    """
-    my_position = snapshot["you"]["position"]
-    arena_width = snapshot["arena"]["width"]
-
-    # Default: move right
-    acceleration = 2.0
+def decide(state):
+    """Always moves right, bouncing off walls."""
+    my_pos = state["you"]["position"]
+    arena_width = state["arena"]["width"]
 
     # Bounce off right wall
-    if my_position > arena_width - 1.0:
-        acceleration = -2.0  # Bounce left
+    if my_pos > arena_width - 1.0:
+        accel = -2.0  # Bounce left
+    else:
+        accel = 2.0  # Default right
 
-    return {"acceleration": acceleration, "stance": "neutral"}
+    return {
+        "acceleration": accel,
+        "stance": "neutral"
+    }

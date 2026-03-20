@@ -2,29 +2,7 @@
 
 Technical documentation for the Atom Combat AI fighting game.
 
-## 🚀 Quick Start (NEW - GPU Acceleration)
 
-**77x faster training with AMD GPU!**
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** ⭐ - GPU training quick start
-- **[FINAL_RESULTS_ALL_LEVELS.md](FINAL_RESULTS_ALL_LEVELS.md)** - Complete optimization results
-- **[FIGHTERS_QUICK_REFERENCE.md](FIGHTERS_QUICK_REFERENCE.md)** - Fighter development guide
-
-## ⚡ JAX Optimization (77x Speedup)
-
-### Results & Guides
-- **[FINAL_RESULTS_ALL_LEVELS.md](FINAL_RESULTS_ALL_LEVELS.md)** - Complete results (all 4 levels, 77x speedup)
-- **[JAX_OPTIMIZATION_ROADMAP.md](JAX_OPTIMIZATION_ROADMAP.md)** - Complete optimization roadmap
-- **[JAX_BEST_PRACTICES.md](JAX_BEST_PRACTICES.md)** - Best practices and coding patterns
-- **[GPU_SETUP_GUIDE.md](GPU_SETUP_GUIDE.md)** - AMD ROCm GPU setup guide
-
-### Implementation Details
-- **[LEVELS_1-4_COMPLETE.md](LEVELS_1-4_COMPLETE.md)** - Detailed implementation log
-- **[JAX_PHASE1_COMPLETE.md](JAX_PHASE1_COMPLETE.md)** - Phase 1: JAX Physics Engine
-- **[JAX_PHASE2_COMPLETE.md](JAX_PHASE2_COMPLETE.md)** - Phase 2: SBX Training (2.6x)
-- **[JAX_PHASE3_COMPLETE.md](JAX_PHASE3_COMPLETE.md)** - Phase 3: JIT + vmap
-- **[INTEGRATION_AND_GPU_RESULTS.md](INTEGRATION_AND_GPU_RESULTS.md)** - Integration results
-
-**Performance**: 100M timesteps in 20 minutes (was 25 hours)
 
 ## 📚 Training & AI
 
@@ -32,6 +10,11 @@ Technical documentation for the Atom Combat AI fighting game.
 - **[REWARD_STRUCTURE.md](REWARD_STRUCTURE.md)** - Complete reward system
 - **[PROGRESSIVE_TRAINING.md](PROGRESSIVE_TRAINING.md)** - Progressive curriculum
 - **[POPULATION_TRAINING.md](POPULATION_TRAINING.md)** - Population-based training
+- **[TRAINING_REFACTOR_ROADMAP.md](TRAINING_REFACTOR_ROADMAP.md)** - Stability refactor phases + local-first testing strategy
+- **[LOCAL_TESTING_WORKFLOW.md](LOCAL_TESTING_WORKFLOW.md)** - Local deterministic workflow to reduce Colab dependency
+- **[COLAB_SETUP.md](COLAB_SETUP.md)** - Google Colab workflow with persistent Drive cache
+- **[COLAB_VALIDATION_CHECKLIST.md](COLAB_VALIDATION_CHECKLIST.md)** - Milestone gate checklist for Colab validation (Phases 1/3/5)
+- **[../notebooks/Atom_Training_Colab.ipynb](../notebooks/Atom_Training_Colab.ipynb)** - Ready-to-run Colab notebook
 - **[CONTINUAL_LEARNING.md](CONTINUAL_LEARNING.md)** - Catastrophic forgetting prevention
 - **[STAMINA_ISSUE.md](STAMINA_ISSUE.md)** - Stamina exhaustion fix
 - **[IMPROVEMENTS.md](IMPROVEMENTS.md)** - Historical improvements

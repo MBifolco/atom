@@ -41,8 +41,8 @@ def main():
     print("FIGHTER REGISTRY BUILDER")
     print("="*60)
 
-    # Create registry
-    registry = FighterRegistry(registry_path)
+    # Create registry (don't load existing - rebuild from scratch)
+    registry = FighterRegistry(registry_path, load_existing=False)
 
     # Scan directories
     fighters_dir = project_root / "fighters"

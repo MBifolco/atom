@@ -64,6 +64,11 @@ class EloTracker:
         if name not in self.fighters:
             self.fighters[name] = FighterStats(name=name, elo=self.initial_elo)
 
+    def remove_fighter(self, name: str) -> None:
+        """Remove a fighter from the tracker."""
+        if name in self.fighters:
+            del self.fighters[name]
+
     def expected_score(self, rating_a: float, rating_b: float) -> float:
         """
         Calculate expected score for fighter A against fighter B.
@@ -191,17 +196,23 @@ class EloTracker:
             "favorite": fighter_a if prob_a > 0.5 else fighter_b
         }
 
-    def suggest_balanced_matches(self, num_matches: int = 4) -> List[Tuple[str, str]]:
+    def suggest_balanced_matches(self, num_matches: int = 4, active_fighters: List[str] = None) -> List[Tuple[str, str]]:
         """
         Suggest balanced matches based on similar ELO ratings.
+
+        Args:
+            num_matches: Number of matches to suggest
+            active_fighters: List of active fighter names to choose from (if None, uses all)
 
         Returns list of (fighter_a, fighter_b) tuples.
         """
         if len(self.fighters) < 2:
             return []
 
-        # Sort fighters by ELO
+        # Sort fighters by ELO, but filter to only active ones if specified
         ranked = self.get_rankings()
+        if active_fighters:
+            ranked = [f for f in ranked if f.name in active_fighters]
         matches = []
         used_fighters = set()
 
@@ -251,9 +262,19 @@ class EloTracker:
 
         return metrics
 
-    def print_leaderboard(self, top_n: int = None) -> None:
-        """Print a formatted leaderboard."""
+    def print_leaderboard(self, top_n: int = None, active_only: List[str] = None) -> None:
+        """
+        Print a formatted leaderboard.
+
+        Args:
+            top_n: Number of top fighters to show (None = all)
+            active_only: List of active fighter names to show (None = all)
+        """
         rankings = self.get_rankings()
+
+        # Filter to only active fighters if requested
+        if active_only:
+            rankings = [f for f in rankings if f.name in active_only]
 
         if top_n:
             rankings = rankings[:top_n]

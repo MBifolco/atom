@@ -1,0 +1,327 @@
+{
+  "generation": 1,
+  "fighters": [
+    {
+      "name": "Flamboyant Beaver",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 1.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.1
+    },
+    {
+      "name": "Focused Leakey",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Elastic Kowalevski",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Modest Poincare",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Naughty Kirch",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Dazzling Easley",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Youthful Jang",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Compassionate Ride",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Sharp Swartz",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Nostalgic Austin",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Amazing Kalam",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Gifted Shirley",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Quirky Almeida",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Relaxed Bose",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Wonderful Fermat",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Confident Kowalevski",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Inspiring Minsky",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Naughty Morse",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Competent Williams",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    },
+    {
+      "name": "Relaxed Swanson",
+      "test_results": {
+        "tank": 0.0,
+        "rusher": 0.0,
+        "balanced": 0.0,
+        "dodger": 0.0,
+        "stamina_manager": 0.0,
+        "counter_puncher": 0.0,
+        "berserker": 0.0,
+        "zoner": 0.0,
+        "grappler": 0.0,
+        "hit_and_run": 0.0
+      },
+      "avg_win_rate": 0.0
+    }
+  ],
+  "best_score": 0.1,
+  "time": 941.0187113285065
+}
