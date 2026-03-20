@@ -69,7 +69,11 @@ if [[ "$is_dirty" -eq 1 ]]; then
   case "$SYNC_MODE" in
     stash)
       stash_name="colab-bootstrap-$(date +%Y%m%d_%H%M%S)"
-      git stash push -u -m "$stash_name" >/dev/null || true
+      if ! git stash push -u -m "$stash_name" >/dev/null; then
+        echo "ERROR: Failed to stash Drive cache changes."
+        echo "Try rerunning with: ATOM_DRIVE_REPO_SYNC_MODE=reset"
+        exit 1
+      fi
       echo "Stashed local changes as: $stash_name"
       ;;
     reset)
@@ -88,6 +92,24 @@ if [[ "$is_dirty" -eq 1 ]]; then
       exit 1
       ;;
   esac
+fi
+
+# Ensure working tree is clean before branch checkout/sync.
+if [[ "$skip_branch_sync" -eq 0 ]]; then
+  still_dirty=0
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    still_dirty=1
+  fi
+  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    still_dirty=1
+  fi
+  if [[ "$still_dirty" -eq 1 ]]; then
+    echo "ERROR: Drive repo cache is still dirty after sync preparation."
+    echo "Current status:"
+    git status --short
+    echo "Try rerunning with: ATOM_DRIVE_REPO_SYNC_MODE=reset"
+    exit 1
+  fi
 fi
 
 if [[ "$skip_branch_sync" -eq 0 ]]; then
