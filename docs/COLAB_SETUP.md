@@ -33,6 +33,8 @@ export ATOM_BRANCH="colab"
 bash colab_bootstrap.sh
 ```
 
+The root script is a compatibility wrapper; the implementation now lives at `scripts/colab/bootstrap.sh`.
+
 Notes:
 - `ATOM_REPO_URL` is required only when Drive cache does not exist yet.
 - The script updates your Drive cache (`git pull`) then syncs to `/content/atom`.

@@ -35,6 +35,7 @@ Technical docs for training, runtime architecture, and project planning.
 
 ## Planning and Historical Context
 
+- **[REPO_REORGANIZATION_PLAN.md](REPO_REORGANIZATION_PLAN.md)** - Proposed repo layout organized around runtime, training, platform, and app boundaries
 - **[VISION_GAP_ANALYSIS.md](VISION_GAP_ANALYSIS.md)** - Historical gap snapshot (Nov 2025)
 - **[REFACTORING_OPPORTUNITIES.md](REFACTORING_OPPORTUNITIES.md)** - Candidate refactors
 - **[REFACTORING_PLAN_DETAILED.md](REFACTORING_PLAN_DETAILED.md)** - Detailed refactor sequencing
@@ -59,3 +60,7 @@ Technical docs for training, runtime architecture, and project planning.
 - **[../scripts/README.md](../scripts/README.md)** - Utility scripts
 - **[../tests/README.md](../tests/README.md)** - Test suite docs
 - **[../archived/README.md](../archived/README.md)** - Archived scripts, benchmarks, and tests
+## Import Guidance
+
+For new code and current docs, prefer the `src.atom.*` namespaces. The older `src.*` paths remain available as compatibility aliases during the reorganization, but they are no longer the preferred imports.
+

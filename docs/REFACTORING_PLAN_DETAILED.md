@@ -56,8 +56,8 @@ def _load_opponent_models(opponent_data: List[Tuple], algorithm: str) -> List[Tu
 ```python
 def _create_vmap_environment(fighter_mass, opponent_models, config, n_vmap_envs, max_ticks):
     """Create JAX vmap vectorized environment for GPU training."""
-    from src.training.trainers.curriculum_trainer import VmapEnvAdapter
-    from src.training.vmap_env_wrapper import VmapEnvWrapper
+    from src.atom.training.trainers.curriculum_trainer import VmapEnvAdapter
+    from src.atom.training.vmap_env_wrapper import VmapEnvWrapper
 
     # Configure JAX memory
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'

@@ -139,7 +139,7 @@ This is a clean break from the previous system. All trained models will need to 
 ## Quick Start
 
 ```python
-from src.arena import WorldConfig, FighterState, Arena1DJAXJit
+from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
 
 # Create fighters
 config = WorldConfig()

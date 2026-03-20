@@ -1,5 +1,5 @@
 """Training pipeline orchestration modules."""
 
-from .progressive_trainer import ProgressiveTrainer
+from src.atom.training.pipelines import ProgressiveTrainer
 
 __all__ = ["ProgressiveTrainer"]

@@ -687,8 +687,8 @@ self.weights = {
 ### Programmatic Access
 
 ```python
-from src.telemetry.replay_store import load_replay
-from src.evaluator.spectacle_evaluator import SpectacleEvaluator
+from src.atom.runtime.telemetry import load_replay
+from src.atom.runtime.evaluator import SpectacleEvaluator
 import json
 
 # Load replay index

@@ -37,6 +37,7 @@ A modern web interface for selecting fighters and running Atom Combat matches.
 ```bash
 cd web
 pip install -r requirements.txt
+# The Python implementation now lives in apps/web, but web/ remains the static asset and compatibility home.
 ```
 
 ### 2. Build Fighter Registry
@@ -52,10 +53,11 @@ This scans `fighters/` directory and creates `fighters/registry.json`.
 
 ```bash
 # Development mode (with auto-reload)
-uvicorn web.app:app --reload
+uvicorn apps.web.app:app --reload
+# Legacy compatibility path: uvicorn web.app:app --reload
 
 # Production mode
-uvicorn web.app:app --host 0.0.0.0 --port 8000 --workers 4
+uvicorn apps.web.app:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### 4. Open in Browser

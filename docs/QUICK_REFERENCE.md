@@ -25,16 +25,16 @@ python train_progressive.py --use-vmap --mode complete
 
 **Direct Training (Advanced)**:
 ```python
-from src.training.trainers.ppo.trainer import train_fighter
+from src.atom.training.pipelines import ProgressiveTrainer
 
-train_fighter(
-    opponent_files=["fighters/test_dummies/atomic/stationary_neutral.py"],
-    output_path="outputs/model.zip",
-    episodes=10000,
-    n_envs=250,      # 250 parallel environments on GPU
-    use_vmap=True,   # Enable GPU acceleration
-    verbose=True
+trainer = ProgressiveTrainer(
+    output_dir="outputs/gpu_curriculum",
+    verbose=True,
+    use_vmap=True,
+    n_envs=250,
+    device="auto",
 )
+trainer.run_curriculum_training(timesteps=500_000)
 ```
 
 ---

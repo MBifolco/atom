@@ -107,7 +107,7 @@ Expert opponents in `fighters/examples/`:
 ### Implementation
 
 ```python
-from src.training.trainers.curriculum_trainer import CurriculumTrainer
+from src.atom.training.trainers.curriculum_trainer import CurriculumTrainer
 
 trainer = CurriculumTrainer(
     algorithm="ppo",
@@ -150,7 +150,7 @@ Generation Loop:
 ### Implementation
 
 ```python
-from src.training.trainers.population.population_trainer import PopulationTrainer
+from src.atom.training.trainers.population.population_trainer import PopulationTrainer
 
 trainer = PopulationTrainer(
     population_size=8,
@@ -178,7 +178,7 @@ trainer.train(
 The `ProgressiveTrainer` class orchestrates both phases:
 
 ```python
-from src.training.pipelines import ProgressiveTrainer
+from src.atom.training.pipelines import ProgressiveTrainer
 
 trainer = ProgressiveTrainer(
     algorithm="ppo",
@@ -346,7 +346,7 @@ If fighters stop improving:
 ### Custom Curriculum Levels
 
 ```python
-from src.training.trainers.curriculum_trainer import CurriculumLevel
+from src.atom.training.trainers.curriculum_trainer import CurriculumLevel
 
 custom_level = CurriculumLevel(
     name="Custom Challenge",

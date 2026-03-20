@@ -1,10 +1,5 @@
-"""
-Atom Combat - Fighter Registry
+"""Atom Combat fighter registry compatibility exports."""
 
-Provides fighter discovery, metadata management, and registry system
-for organizing and accessing fighters across the platform.
-"""
+from src.atom.registry import FighterMetadata, FighterRegistry
 
-from .fighter_registry import FighterRegistry, FighterMetadata
-
-__all__ = ['FighterRegistry', 'FighterMetadata']
+__all__ = ["FighterMetadata", "FighterRegistry"]

@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.training.utils.baseline_harness import BaselineRunConfig, run_baseline
+from src.atom.training.utils.baseline_harness import BaselineRunConfig, run_baseline
 
 
 def parse_args() -> argparse.Namespace:

@@ -125,7 +125,8 @@ pip install -r requirements.txt
 cd ..
 
 # Start the web server
-uvicorn web.app:app --reload
+uvicorn apps.web.app:app --reload  # preferred
+# Legacy compatibility path: uvicorn web.app:app --reload
 
 # Open http://localhost:8000 in your browser
 ```
@@ -233,8 +234,13 @@ See **[fighters/README.md](fighters/README.md)** for complete fighter guide and 
 
 ```
 atom/
-├── atom_fight.py               # CLI fight runner (START HERE!)
-├── train_progressive.py        # Progressive training pipeline (curriculum + population)
+├── atom_fight.py               # Compatibility wrapper for the fight CLI
+├── train_progressive.py        # Compatibility wrapper for progressive training
+├── colab_bootstrap.sh          # Compatibility wrapper for the Colab bootstrap
+├── apps/                       # User-facing application entrypoints
+│   ├── cli/                   # Fight CLI implementation
+│   ├── training/            # Training CLI implementation
+│   └── web/                 # FastAPI web app implementation
 ├── fighters/                   # Fighter collection
 │   ├── examples/              # Hardcoded example fighters
 │   │   ├── boxer.py          # Pressure-focused baseline
@@ -245,14 +251,21 @@ atom/
 │   │   └── atomic/           # Atomic behavior fighters used by curriculum levels
 │   ├── AIs/                   # Trained AI fighters (auto-exported)
 │   └── README.md             # Fighter guide
-├── src/                        # Core components
-│   ├── arena/                 # Physics engine
-│   ├── protocol/              # Combat contract
-│   ├── orchestrator/          # Match coordinator
-│   ├── telemetry/             # Replay storage
-│   ├── evaluator/             # Spectacle scoring
-│   ├── renderer/              # ASCII + HTML5 visualization
-│   └── training/              # Training infrastructure
+├── src/                        # Core packages and platform modules
+│   ├── atom/                  # Transitional Atom package namespace
+│   │   ├── runtime/          # Runtime core namespace
+│   │   ├── training/         # Training namespace
+│   │   ├── registry/         # Platform registry namespace
+│   │   └── coaching/         # Coaching namespace
+│   ├── arena/                 # Legacy compatibility wrappers for runtime arena
+│   ├── protocol/              # Legacy compatibility wrappers for the combat contract
+│   ├── orchestrator/          # Legacy compatibility wrappers for match orchestration
+│   ├── telemetry/             # Legacy compatibility wrappers for replay storage
+│   ├── evaluator/             # Legacy compatibility wrappers for spectacle scoring
+│   ├── renderer/              # Legacy compatibility wrappers for ASCII + HTML5 visualization
+│   ├── registry/              # Legacy compatibility wrappers for fighter registry
+│   ├── coaching/              # Legacy compatibility wrappers for coaching utilities
+│   └── training/              # Training infrastructure and compatibility wrappers
 │       ├── gym_env.py         # Gymnasium environment wrapper
 │       ├── trainers/          # Training algorithms
 │       │   ├── curriculum_trainer.py  # Curriculum learning
@@ -267,6 +280,7 @@ atom/
 │   ├── analysis/              # Training/run analysis helpers
 │   ├── training/              # Registry, baseline, resume helpers
 │   ├── montage/               # Replay rendering and montage generation
+│   ├── colab/                 # Colab bootstrap implementation
 │   └── ops/                   # Operational helpers
 ├── archived/                   # Historical diagnostics and legacy assets
 ├── outputs/                    # Training outputs (logs, models, fighters)
@@ -341,6 +355,7 @@ make test-integration
 
 - **[Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
 - **[NaN Investigation](docs/NAN_ERROR_INVESTIGATION.md)** - Reward scaling and NaN mitigation details
+- **[Repo Reorganization Plan](docs/REPO_REORGANIZATION_PLAN.md)** - Proposed layout for runtime, training, platform, and app boundaries
 - **[Fighter Guide](fighters/README.md)** - Fighter collection & testing commands
 - **[Test Dummies](fighters/test_dummies/README.md)** - Training curriculum opponents
 - **[Vision Documents](docs/original_vision/)** - Original design philosophy

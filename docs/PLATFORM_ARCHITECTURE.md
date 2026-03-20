@@ -154,11 +154,11 @@ class FighterState:
 - Maintain stance state
 - Serialize to dictionary for telemetry
 
-##### 3. Arena1D (`arena_1d.py`)
+##### 3. Arena1DJAXJit (`arena_1d.py`)
 The main physics engine that executes combat simulation.
 
 ```python
-class Arena1D:
+class Arena1DJAXJit:
     def __init__(self, fighter_a: FighterState, fighter_b: FighterState,
                  config: WorldConfig, seed: int = 42):
         """Initialize arena with two fighters"""
@@ -672,7 +672,7 @@ sequenceDiagram
 
     User->>Orchestrator: run_match(fighter_a_spec, fighter_b_spec, ai_a, ai_b)
 
-    Orchestrator->>Arena: Create Arena1D
+    Orchestrator->>Arena: Create Arena1DJAXJit
     Arena->>Fighter A: Create from spec
     Arena->>Fighter B: Create from spec
 
@@ -734,12 +734,12 @@ graph TB
 Here's how all components work together:
 
 ```python
-from src.arena import WorldConfig, FighterState, Arena1D
-from src.protocol.combat_protocol import generate_snapshot
-from src.orchestrator import MatchOrchestrator
-from src.evaluator import SpectacleEvaluator
-from src.renderer import HtmlRenderer, AsciiRenderer
-from src.telemetry import ReplayStore
+from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
+from src.atom.runtime.protocol import generate_snapshot
+from src.atom.runtime.orchestrator import MatchOrchestrator
+from src.atom.runtime.evaluator import SpectacleEvaluator
+from src.atom.runtime.renderer import HtmlRenderer, AsciiRenderer
+from src.atom.runtime.telemetry import ReplayStore
 
 # Define custom AI functions
 def aggressive_ai(snapshot):

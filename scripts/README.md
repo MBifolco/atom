@@ -3,6 +3,8 @@
 Lightweight utilities that are useful operationally but are not primary project
 entrypoints.
 
+When touching or adding scripts, prefer `src.atom.*` imports. Legacy `src.*` imports are still supported as compatibility aliases during the repository transition.
+
 ## Layout
 
 - `analysis/`
@@ -16,6 +18,8 @@ entrypoints.
   - `create_montage.py`: create montage videos from replay telemetry
   - `create_html_montage.py`: generate progressive training HTML montage artifacts
   - `create_html_montage_from_existing.py`: build montage HTML from historical replay index data
+- `colab/`
+  - `bootstrap.sh`: Colab Drive-cache sync and environment bootstrap implementation
 - `ops/`
   - `clear_gpu_memory.py`: clear framework caches and print GPU status (primarily ROCm-focused)
   - `check_markdown_links.py`: validate relative markdown links across the repo
@@ -28,6 +32,7 @@ entrypoints.
 python scripts/analysis/analyze_population_progress.py outputs/progressive_YYYYMMDD_HHMMSS
 python scripts/training/run_local_baseline.py --mode curriculum --timesteps 10000
 python scripts/montage/render_replays.py --run-dir outputs/progressive_YYYYMMDD_HHMMSS
+bash scripts/colab/bootstrap.sh
 source scripts/ops/setup_gpu.sh
 python scripts/ops/clear_gpu_memory.py
 python scripts/ops/check_markdown_links.py
