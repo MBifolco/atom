@@ -896,24 +896,35 @@ class PopulationTrainer:
         self.logger.info("="*80)
 
     def _create_fighter_name(self, index: int, generation: int = 0) -> str:
-        """Generate a unique name for a fighter using funkybob."""
+        """Generate a deterministic fighter name with optional funkybob support."""
         import random
-        import funkybob
 
-        # Set random seed for reproducible names based on index and generation
+        # Reproducible seed based on index and generation.
         seed = index + (generation * 1000)
-        random.seed(seed)
+        rng = random.Random(seed)
 
-        # Create name generator with 2 members and underscore separator
-        # (e.g., "Happy_Panda", "Swift_Eagle")
-        name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
-        name_iter = iter(name_generator)
-
-        # Generate a name
-        base_name = next(name_iter)
-
-        # Reset random state to avoid affecting other random operations
-        random.seed()
+        try:
+            import funkybob
+        except ImportError:
+            # Fallback path for environments where funkybob is unavailable (e.g., some Colab runtimes).
+            adjectives = [
+                "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
+                "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
+            ]
+            animals = [
+                "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
+                "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
+            ]
+            base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
+        else:
+            # funkybob uses global random state; isolate and restore it.
+            previous_state = random.getstate()
+            random.seed(seed)
+            try:
+                name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
+                base_name = next(iter(name_generator))
+            finally:
+                random.setstate(previous_state)
 
         # Add generation suffix if not first generation
         if generation > 0:

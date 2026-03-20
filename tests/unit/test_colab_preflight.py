@@ -5,6 +5,10 @@ from pathlib import Path
 from src.training.utils import colab_preflight
 
 
+class _FakeSpec:
+    pass
+
+
 def _base_env(tmp_path: Path) -> dict[str, str]:
     drive_root = tmp_path / "drive"
     drive_repo = drive_root / "dev" / "atom"
@@ -49,8 +53,9 @@ def test_invalid_sync_mode_fails(tmp_path: Path):
     assert any(check.name == "drive-sync-mode" and check.status == colab_preflight.FAIL for check in report.checks)
 
 
-def test_smoke_stage_requires_training_entrypoint(tmp_path: Path):
+def test_smoke_stage_requires_training_entrypoint(tmp_path: Path, monkeypatch):
     env = _base_env(tmp_path)
+    monkeypatch.setattr(colab_preflight.importlib.util, "find_spec", lambda _: _FakeSpec())
     Path(env["ATOM_WORK_REPO"]).mkdir(parents=True, exist_ok=True)
     output_dir = tmp_path / "outputs" / "quick_test"
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -67,8 +72,9 @@ def test_smoke_stage_requires_training_entrypoint(tmp_path: Path):
     )
 
 
-def test_smoke_stage_passes_with_entrypoint_and_output_dir(tmp_path: Path):
+def test_smoke_stage_passes_with_entrypoint_and_output_dir(tmp_path: Path, monkeypatch):
     env = _base_env(tmp_path)
+    monkeypatch.setattr(colab_preflight.importlib.util, "find_spec", lambda _: _FakeSpec())
     work_repo = Path(env["ATOM_WORK_REPO"])
     work_repo.mkdir(parents=True, exist_ok=True)
     (work_repo / "train_progressive.py").write_text("print('ok')\n")
@@ -84,8 +90,9 @@ def test_smoke_stage_passes_with_entrypoint_and_output_dir(tmp_path: Path):
     assert not any(check.status == colab_preflight.FAIL for check in report.checks)
 
 
-def test_resume_stage_requires_checkpoint_markers(tmp_path: Path):
+def test_resume_stage_requires_checkpoint_markers(tmp_path: Path, monkeypatch):
     env = _base_env(tmp_path)
+    monkeypatch.setattr(colab_preflight.importlib.util, "find_spec", lambda _: _FakeSpec())
     work_repo = Path(env["ATOM_WORK_REPO"])
     work_repo.mkdir(parents=True, exist_ok=True)
     (work_repo / "train_progressive.py").write_text("print('ok')\n")
@@ -115,3 +122,24 @@ def test_gpu_requirement_fails_when_platform_is_cpu(tmp_path: Path, monkeypatch)
     )
 
     assert any(check.name == "gpu-runtime" and check.status == colab_preflight.FAIL for check in report.checks)
+
+
+def test_smoke_stage_fails_when_chex_missing(tmp_path: Path, monkeypatch):
+    env = _base_env(tmp_path)
+    work_repo = Path(env["ATOM_WORK_REPO"])
+    work_repo.mkdir(parents=True, exist_ok=True)
+    (work_repo / "train_progressive.py").write_text("print('ok')\n")
+    output_dir = tmp_path / "outputs" / "quick_test"
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(colab_preflight.importlib.util, "find_spec", lambda _: None)
+
+    report = colab_preflight.run_preflight(
+        stage="smoke",
+        env=env,
+        output_dir=str(output_dir),
+    )
+
+    assert any(
+        check.name == "python-module-chex" and check.status == colab_preflight.FAIL
+        for check in report.checks
+    )

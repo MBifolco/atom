@@ -7,6 +7,7 @@ Designed to fail fast with actionable fixes before long-running jobs start.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -110,6 +111,11 @@ def run_preflight(
     if stage in {"smoke", "full", "resume"}:
         _append_work_repo_check(checks, work_repo=work_repo)
         _append_train_entrypoint_check(checks, work_repo=work_repo)
+        _append_python_module_check(
+            checks,
+            module="chex",
+            action="Run bootstrap again (it installs requirements) or run: python -m pip install chex>=0.1.91",
+        )
 
     if stage in {"smoke", "full"}:
         _append_output_dir_check(checks, output_dir=output_dir)
@@ -319,6 +325,20 @@ def _append_train_entrypoint_check(checks: list[CheckResult], *, work_repo: str)
             FAIL,
             f"Missing training entrypoint: {train_file}",
             action="Re-run bootstrap to sync the latest repository into ATOM_WORK_REPO.",
+        )
+    )
+
+
+def _append_python_module_check(checks: list[CheckResult], *, module: str, action: str) -> None:
+    if importlib.util.find_spec(module) is not None:
+        checks.append(CheckResult(f"python-module-{module}", PASS, "installed"))
+        return
+    checks.append(
+        CheckResult(
+            f"python-module-{module}",
+            FAIL,
+            f"Required Python module '{module}' is not installed.",
+            action=action,
         )
     )
 
