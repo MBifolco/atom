@@ -754,7 +754,7 @@ Both are included in the montage to show the complete learning journey.
 
 ## See Also
 
-- [MONTAGE_CREATION.md](../MONTAGE_CREATION.md) - Quick start guide
+- [MONTAGE_CREATION.md](MONTAGE_CREATION.md) - Quick start guide
 - [POPULATION_TRAINING.md](POPULATION_TRAINING.md) - Population training details
 - [Spectacle Evaluator](../src/evaluator/spectacle_evaluator.py) - Scoring implementation
 - [Replay Recorder](../src/training/replay_recorder.py) - Recording implementation

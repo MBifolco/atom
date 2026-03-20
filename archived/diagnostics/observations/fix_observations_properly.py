@@ -237,9 +237,9 @@ def create_9d_opponent_observations_patch():
     return _get_opponent_observations
 '''
 
-patch_file = project_root / "vmap_obs_patch.py"
+patch_file = project_root / "archived/diagnostics/observations/vmap_obs_patch.py"
 patch_file.write_text(vmap_obs_fix)
-print("\n3. Created vmap_obs_patch.py with 9-dimensional observation methods")
+print("\n3. Created archived/diagnostics/observations/vmap_obs_patch.py with 9-dimensional observation methods")
 
 print("\n" + "=" * 60)
 print("✅ Observation dimensions fixed!")

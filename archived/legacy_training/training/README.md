@@ -2,7 +2,7 @@
 
 **Train AI fighters using reinforcement learning (PPO).**
 
-**📖 New to ML training? Read [../docs/HOW_TRAINING_WORKS.md](../docs/HOW_TRAINING_WORKS.md) first!**
+**📖 New to ML training? Start with [../../../docs/PROGRESSIVE_TRAINING.md](../../../docs/PROGRESSIVE_TRAINING.md).**
 *Explains how AI training works with simple language and diagrams.*
 
 ---

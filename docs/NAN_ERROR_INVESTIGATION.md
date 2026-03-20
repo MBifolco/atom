@@ -167,16 +167,16 @@ Hard clipping destroys the signal - a dominant win becomes indistinguishable fro
 
 ```bash
 # Test if rewards are causing issues
-python diagnose_training_nan.py
+python archived/diagnostics/nan/diagnose_training_nan.py
 
 # Check reward patterns vs size
-python diagnose_reward_patterns.py
+python archived/diagnostics/nan/diagnose_reward_patterns.py
 
 # Test VecNormalize effectiveness
-python test_proper_nan_fix.py
+python archived/diagnostics/nan/test_proper_nan_fix.py
 
 # See how VecNormalize adapts
-python explain_vecnormalize.py
+python archived/diagnostics/nan/explain_vecnormalize.py
 ```
 
 ## Key Takeaways

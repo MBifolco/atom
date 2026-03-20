@@ -108,7 +108,7 @@ Quick command-line testing:
 # Fight your AI against an example fighter
 python atom_fight.py \
     fighters/AIs/your_fighter_name/fighter.py \
-    fighters/examples/tank.py \
+    fighters/examples/boxer.py \
     --html my_fight.html
 
 # Open my_fight.html in browser to watch replay
@@ -187,23 +187,17 @@ python train_progressive.py --mode complete --use-vmap
 
 See **[fighters/README.md](fighters/README.md)** for complete fighter guide and testing commands.
 
-**Rusher** (`fighters/examples/rusher.py`) - Aggressive pressure fighter
-- Constantly advances
-- Strikes when close
-- Backs away from walls
-- Retreats when HP critical
+**Boxer** (`fighters/examples/boxer.py`) - Pressure-focused baseline
+- Prioritizes close-range exchanges
+- Uses stance transitions to stay active
 
-**Tank** (`fighters/examples/tank.py`) - Defensive counter-puncher
-- Maintains optimal distance (2-4m)
-- Defends when charged
-- Counter-attacks on openings
-- Strategic positioning
+**Counter Puncher** (`fighters/examples/counter_puncher.py`) - Reactive punisher
+- Waits for openings and punishes overextension
+- Focuses on timing over constant aggression
 
-**Balanced** (`fighters/examples/balanced.py`) - Adaptive tactician
-- Aggressive when winning
-- Defensive when losing
-- Smart stamina management
-- Adapts to situation
+**Swarmer** (`fighters/examples/swarmer.py`) - High-tempo pressure style
+- Maintains forward momentum
+- Tries to overwhelm with sustained engagement
 
 ---
 
@@ -243,13 +237,12 @@ atom/
 ├── train_progressive.py        # Progressive training pipeline (curriculum + population)
 ├── fighters/                   # Fighter collection
 │   ├── examples/              # Hardcoded example fighters
-│   │   ├── rusher.py         # Aggressive pressure fighter
-│   │   ├── tank.py           # Defensive counter-puncher
-│   │   ├── balanced.py       # Adaptive tactician
-│   │   └── ...               # 7 total example fighters
+│   │   ├── boxer.py          # Pressure-focused baseline
+│   │   ├── counter_puncher.py# Reactive punisher
+│   │   ├── slugger.py        # Power-focused style
+│   │   └── ...               # Additional built-in styles
 │   ├── test_dummies/          # Training curriculum opponents
-│   │   ├── atomic/           # 23 simple behavior test dummies
-│   │   └── behavioral/       # 6 complex strategy test dummies
+│   │   └── atomic/           # Atomic behavior fighters used by curriculum levels
 │   ├── AIs/                   # Trained AI fighters (auto-exported)
 │   └── README.md             # Fighter guide
 ├── src/                        # Core components
@@ -267,7 +260,7 @@ atom/
 │       └── onnx_fighter.py    # ONNX export/inference
 ├── docs/                       # Documentation
 │   ├── PROGRESSIVE_TRAINING.md  # Training system guide
-│   ├── REWARD_STRUCTURE.md      # Reward system details
+│   ├── POPULATION_TRAINING.md   # Population evolution details
 │   ├── original_vision/         # Design philosophy & specs
 │   └── VISION_GAP_ANALYSIS.md   # Built vs planned features
 ├── outputs/                    # Training outputs (logs, models, fighters)
@@ -293,7 +286,6 @@ atom/
 ### Stances
 - **Neutral** ● - Balanced, best regen, moderate reach
 - **Extended** ▶ - Long reach, high drain, low defense
-- **Retracted** ◀ - Short reach, low drain, good defense
 - **Defending** ■ - Moderate reach, high drain, best defense
 
 ### Mass Tradeoffs
@@ -327,17 +319,14 @@ Matches are evaluated on entertainment value (not just who wins):
 ## 🧪 Testing & Development
 
 ```bash
-# Run component tests
-python test_arena_component.py
-python test_orchestrator.py
-python test_evaluator.py
-python test_improved_combat.py
+# Run the full automated test suite
+make test
 
-# Generate test replays
-python generate_html_replay.py
+# Fast unit-only run
+make test-unit
 
-# Run parameter search (advanced)
-python poc/param_search.py
+# Integration slice
+make test-integration
 ```
 
 ---
@@ -345,7 +334,7 @@ python poc/param_search.py
 ## 📚 Documentation
 
 - **[Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
-- **[Reward Structure](docs/REWARD_STRUCTURE.md)** - Reward system and balancing details
+- **[NaN Investigation](docs/NAN_ERROR_INVESTIGATION.md)** - Reward scaling and NaN mitigation details
 - **[Fighter Guide](fighters/README.md)** - Fighter collection & testing commands
 - **[Test Dummies](fighters/test_dummies/README.md)** - Training curriculum opponents
 - **[Vision Documents](docs/original_vision/)** - Original design philosophy
@@ -368,7 +357,7 @@ python poc/param_search.py
 
 ## 🚧 Roadmap
 
-See [VISION_GAP_ANALYSIS.md](VISION_GAP_ANALYSIS.md) for full gap analysis.
+See [docs/VISION_GAP_ANALYSIS.md](docs/VISION_GAP_ANALYSIS.md) for full gap analysis.
 
 **Next Priorities:**
 - [ ] Fighter spec & artifact system (metadata, versioning)
@@ -409,8 +398,8 @@ MIT (for now - TBD based on project direction)
 ---
 
 **Quick Links:**
-- 🎮 Run a fight: `python atom_fight.py fighters/examples/rusher.py fighters/examples/tank.py --html replay.html`
-- 📖 Create a fighter: Copy `fighters/examples/rusher.py` and modify the `decide` function
+- 🎮 Run a fight: `python atom_fight.py fighters/examples/boxer.py fighters/examples/slugger.py --html replay.html`
+- 📖 Create a fighter: Copy `fighters/examples/boxer.py` and modify the `decide` function
 - 🎬 Watch replays: Open generated `.html` files in browser
 - 📊 View scores: Matches automatically show spectacle ratings
 

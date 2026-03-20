@@ -145,7 +145,7 @@ print("Testing complete!")
 '''
 
 # Save the test file
-test_file = project_root / "test_nan_protection.py"
+test_file = project_root / "archived/diagnostics/nan/test_nan_protection.py"
 test_file.write_text(test_code)
 print(f"Created test file: {test_file}")
 
@@ -155,4 +155,4 @@ print("\nSummary of fixes applied:")
 print("1. Added division-by-zero protection to normalization code")
 print("2. Added NaN/Inf validation to opponent observations")
 print("3. Created test script to validate edge cases")
-print("\nRun the test with: python test_nan_protection.py")
+print("\nRun the test with: python archived/diagnostics/nan/test_nan_protection.py")

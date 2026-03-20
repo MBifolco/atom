@@ -1005,6 +1005,6 @@ All components are designed to work together seamlessly while remaining modular 
 ---
 
 **Next Steps:**
-- See [HOW_TRAINING_WORKS.md](./HOW_TRAINING_WORKS.md) for ML training details
-- See [NEW_FIGHTERS_GUIDE.md](./NEW_FIGHTERS_GUIDE.md) for creating custom AI
+- See [PROGRESSIVE_TRAINING.md](./PROGRESSIVE_TRAINING.md) for ML training details
+- See [../fighters/examples/NEW_FIGHTERS_GUIDE.md](../fighters/examples/NEW_FIGHTERS_GUIDE.md) for creating custom AI
 - See test files in `tests/` for usage examples
