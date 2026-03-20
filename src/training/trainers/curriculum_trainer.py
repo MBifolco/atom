@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 import time
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 # Use Stable Baselines3 with PyTorch (JAX is in physics engine)
@@ -732,6 +732,88 @@ class CurriculumTrainer:
             self.logger.error(f"Debug dump: {details.debug_path}")
         self.logger.error("=" * 80)
 
+    def _capture_training_state(self, callback: CurriculumCallback) -> dict:
+        """Capture curriculum + callback state for checkpoint resume."""
+        progress_state = asdict(self.progress)
+        progress_state["recent_rewards"] = list(getattr(self.progress, "recent_rewards", []))
+        progress_state["recent_reward_breakdowns"] = list(
+            getattr(self.progress, "recent_reward_breakdowns", [])
+        )
+
+        callback_state = {
+            "episode_rewards": list(callback.episode_rewards),
+            "episode_wins": list(callback.episode_wins),
+            "recent_reward_components": list(callback.recent_reward_components),
+            "rollout_count": getattr(callback, "rollout_count", 0),
+        }
+        return {
+            "schema_version": 1,
+            "progress": progress_state,
+            "callback": callback_state,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def _sync_environment_to_level(self):
+        """Ensure env/model opponents are aligned with restored curriculum level."""
+        if self.envs is None or self.model is None:
+            return
+        if self.progress.current_level >= len(self.curriculum):
+            return
+
+        restored_level = self.get_current_level()
+        if self.use_vmap:
+            self.logger.info("Restoring vmap environments to checkpoint level state...")
+            old_envs = self.envs
+            self.envs = self.create_envs_for_level(restored_level)
+            self.model.set_env(self.envs)
+            if old_envs is not self.envs and hasattr(old_envs, "close"):
+                old_envs.close()
+            return
+
+        for env_idx in range(self.n_envs):
+            opponent_idx = env_idx % len(restored_level.opponents)
+            opponent_path = restored_level.opponents[opponent_idx]
+            opponent_func = self.load_opponent(opponent_path)
+            self.envs.env_method("set_opponent", opponent_func, indices=[env_idx])
+
+    def _restore_training_state(self, callback: CurriculumCallback, state: dict):
+        """Restore curriculum + callback state from checkpoint payload."""
+        progress_state = state.get("progress", {})
+        previous_level = self.progress.current_level
+
+        for field_name in [
+            "current_level",
+            "episodes_at_level",
+            "wins_at_level",
+            "total_episodes",
+            "total_wins",
+            "start_time",
+        ]:
+            if field_name in progress_state:
+                setattr(self.progress, field_name, progress_state[field_name])
+
+        self.progress.recent_episodes = list(progress_state.get("recent_episodes", []))
+        self.progress.graduated_levels = list(progress_state.get("graduated_levels", []))
+        self.progress.recent_rewards = list(progress_state.get("recent_rewards", []))
+        self.progress.recent_reward_breakdowns = list(
+            progress_state.get("recent_reward_breakdowns", [])
+        )
+
+        callback_state = state.get("callback", {})
+        callback.episode_rewards = list(callback_state.get("episode_rewards", []))
+        callback.episode_wins = list(callback_state.get("episode_wins", []))
+        callback.recent_reward_components = list(
+            callback_state.get("recent_reward_components", [])
+        )
+        callback.rollout_count = int(callback_state.get("rollout_count", 0))
+
+        if self.progress.current_level != previous_level:
+            self.logger.info(
+                "Checkpoint restored level transition context: "
+                f"{previous_level} -> {self.progress.current_level}"
+            )
+            self._sync_environment_to_level()
+
     def train(self, total_timesteps: int = 1_000_000):
         """
         Train the fighter through the curriculum.
@@ -764,6 +846,9 @@ class CurriculumTrainer:
                 total_timesteps=total_timesteps,
                 verbose=self.verbose,
                 current_level_getter=lambda: self.progress.current_level,
+                training_state_getter=lambda: self._capture_training_state(callback),
+                training_state_restorer=lambda state: self._restore_training_state(callback, state),
+                model_update_fn=lambda recovered_model: setattr(self, "model", recovered_model),
             )
         except CurriculumTrainingError as exc:
             self._log_training_loop_error(exc)

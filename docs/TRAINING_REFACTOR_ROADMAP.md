@@ -137,6 +137,19 @@ Exit criteria:
 - Forced-failure resume tests pass.
 - Recovery no longer depends on stale initial checkpoints.
 
+Phase 3 status (updated 2026-03-19):
+- Completed (slice 1): added periodic checkpoint callback (`PeriodicCheckpointCallback`) integrated into `LevelRunner` to persist checkpoint bundles throughout training (not only loop start).
+- Completed (slice 1): checkpoint bundles now persist:
+  - model snapshot (`.zip`, includes optimizer-relevant state managed by SB3)
+  - training resume state payload (`.state.json`)
+  - VecNormalize stats (`.vecnormalize.pkl`) when available
+- Completed (slice 1): recovery retries now apply bounded exponential backoff policy via `RecoveryManager.backoff_seconds`.
+- Completed (slice 1): `CurriculumTrainer` now captures/restores progress + callback state for resume and re-syncs environment level when restored state crosses level boundaries.
+- Completed (slice 1): added focused resume/recovery tests for:
+  - mid-level checkpoint state roundtrip
+  - post-level-transition checkpoint state roundtrip
+  - NaN restart state restoration path in `LevelRunner`
+
 ### Phase 4: Population Trainer Refactor
 
 Goals:

@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 from src.training.trainers.curriculum_components import (
     CallbackStepProcessor,
+    CheckpointBundle,
     CheckpointRecoveryError,
     GraduationPolicy,
     NaNRecoveryError,
@@ -354,6 +355,165 @@ def test_level_runner_wraps_unexpected_errors_with_context():
             assert exc.details.level == 1
             assert exc.details.completed_steps == 5
             assert exc.details.total_timesteps == 500
+
+
+def test_recovery_manager_checkpoint_roundtrip_mid_level_state():
+    logger = _make_logger()
+
+    class FakeModel:
+        def save(self, path):
+            Path(path).write_text("model")
+
+    class FakeVecNormalize:
+        def save(self, path):
+            Path(path).write_text("vecnorm")
+
+    class FakeVecWrapper:
+        def __init__(self):
+            self.venv = FakeVecNormalize()
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=10,
+        )
+
+        state = {
+            "schema_version": 1,
+            "progress": {
+                "current_level": 2,
+                "episodes_at_level": 321,
+                "wins_at_level": 199,
+            },
+            "callback": {
+                "episode_rewards": [1.0, 2.0, 3.0],
+            },
+        }
+
+        bundle = manager.save_checkpoint_bundle(
+            model=FakeModel(),
+            envs=FakeVecWrapper(),
+            step=1234,
+            training_state=state,
+            verbose=False,
+        )
+
+        assert isinstance(bundle, CheckpointBundle)
+        assert bundle.model_path.exists()
+        assert bundle.state_path is not None and bundle.state_path.exists()
+        assert bundle.vecnormalize_path is not None and bundle.vecnormalize_path.exists()
+
+        restored_state = manager.load_checkpoint_training_state(bundle)
+        assert restored_state == state
+        assert restored_state["progress"]["current_level"] == 2
+        assert restored_state["progress"]["episodes_at_level"] == 321
+
+
+def test_recovery_manager_checkpoint_roundtrip_post_transition_state():
+    logger = _make_logger()
+
+    class FakeModel:
+        def save(self, path):
+            Path(path).write_text("model")
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=10,
+        )
+
+        transitioned_state = {
+            "schema_version": 1,
+            "progress": {
+                "current_level": 3,
+                "episodes_at_level": 0,
+                "wins_at_level": 0,
+                "graduated_levels": ["Fundamentals", "Basic Skills", "Intermediate"],
+                "recent_episodes": [],
+            },
+            "callback": {
+                "episode_rewards": [10.0, 20.0],
+                "episode_wins": [True, False],
+            },
+        }
+
+        bundle = manager.save_checkpoint_bundle(
+            model=FakeModel(),
+            envs=object(),
+            step=2000,
+            training_state=transitioned_state,
+            verbose=False,
+        )
+
+        restored = manager.load_checkpoint_training_state(bundle)
+        assert restored == transitioned_state
+        assert restored["progress"]["current_level"] == 3
+        assert restored["progress"]["graduated_levels"][-1] == "Intermediate"
+
+
+def test_level_runner_restores_training_state_on_nan_restart():
+    logger = _make_logger()
+
+    class FakeModel:
+        load_calls = 0
+        nan_raised = False
+
+        def __init__(self):
+            self.learning_rate = 1e-3
+
+        def save(self, path):
+            Path(path).write_text("model")
+
+        def learn(self, **kwargs):
+            if not FakeModel.nan_raised:
+                FakeModel.nan_raised = True
+                raise ValueError("invalid values in Normal distribution: nan")
+            return self
+
+        @classmethod
+        def load(cls, path, env=None):
+            cls.load_calls += 1
+            return cls()
+
+    with TemporaryDirectory() as tmpdir:
+        manager = RecoveryManager(
+            models_dir=Path(tmpdir),
+            logs_dir=Path(tmpdir),
+            logger=logger,
+            checkpoint_interval=1,
+            max_retries=3,
+            base_backoff_seconds=0.0,
+        )
+        runner = LevelRunner(logger=logger, recovery_manager=manager)
+        callback = SimpleNamespace(n_calls=64, episode_rewards=[1.0, 2.0], episode_wins=[True])
+
+        restored_states = []
+        current_state = {
+            "schema_version": 1,
+            "progress": {"current_level": 1, "episodes_at_level": 42},
+            "callback": {"episode_rewards": [5.0], "episode_wins": [True]},
+        }
+
+        runner.run(
+            model=FakeModel(),
+            envs=object(),
+            callback=callback,
+            total_timesteps=200,
+            verbose=False,
+            current_level_getter=lambda: 1,
+            training_state_getter=lambda: current_state,
+            training_state_restorer=lambda state: restored_states.append(state),
+            model_update_fn=lambda _model: None,
+            sleep_fn=lambda _seconds: None,
+        )
+
+        assert FakeModel.load_calls == 1
+        assert len(restored_states) == 1
+        assert restored_states[0] == current_state
 
 
 def test_level_transition_state_machine_resets_level_metrics():

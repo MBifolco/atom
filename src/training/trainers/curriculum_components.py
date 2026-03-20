@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import random
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 from stable_baselines3 import PPO, SAC
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecCheckNan, VecNormalize
 
@@ -58,6 +60,16 @@ class TrainingErrorDetails:
     debug_path: Optional[Path] = None
 
 
+@dataclass(frozen=True)
+class CheckpointBundle:
+    """Tracks model/training-state artifacts for a checkpoint step."""
+
+    step: int
+    model_path: Path
+    state_path: Optional[Path] = None
+    vecnormalize_path: Optional[Path] = None
+
+
 class CurriculumTrainingError(RuntimeError):
     """Base error for curriculum training loop failures."""
 
@@ -76,6 +88,37 @@ class CheckpointRecoveryError(CurriculumTrainingError):
 
 class TrainingLoopExecutionError(CurriculumTrainingError):
     """Raised for unexpected non-NaN execution failures in the training loop."""
+
+
+class PeriodicCheckpointCallback(BaseCallback):
+    """SB3 callback that persists checkpoint bundles every N timesteps."""
+
+    def __init__(
+        self,
+        *,
+        interval_steps: int,
+        save_checkpoint_fn: Callable[[int], Optional[CheckpointBundle]],
+        initial_step: int = 0,
+        verbose: int = 0,
+    ):
+        super().__init__(verbose)
+        self.interval_steps = max(1, int(interval_steps))
+        self.save_checkpoint_fn = save_checkpoint_fn
+        self.last_checkpoint_step = int(initial_step)
+
+    def _on_step(self) -> bool:
+        current_step = int(self.num_timesteps)
+        if current_step <= 0:
+            return True
+        if current_step - self.last_checkpoint_step < self.interval_steps:
+            return True
+
+        bundle = self.save_checkpoint_fn(current_step)
+        if bundle is not None:
+            self.last_checkpoint_step = int(bundle.step)
+        else:
+            self.last_checkpoint_step = current_step
+        return True
 
 
 class GraduationPolicy:
@@ -285,21 +328,110 @@ class ProgressReporter:
 class RecoveryManager:
     """Handles checkpointing and recovery for training loops."""
 
-    def __init__(self, *, models_dir: Path, logs_dir: Path, logger, checkpoint_interval: int = 100000, max_retries: int = 3):
+    def __init__(
+        self,
+        *,
+        models_dir: Path,
+        logs_dir: Path,
+        logger,
+        checkpoint_interval: int = 100000,
+        max_retries: int = 3,
+        base_backoff_seconds: float = 1.0,
+        max_backoff_seconds: float = 8.0,
+    ):
         self.models_dir = Path(models_dir)
         self.logs_dir = Path(logs_dir)
         self.logger = logger
         self.checkpoint_interval = checkpoint_interval
         self.max_retries = max_retries
+        self.base_backoff_seconds = base_backoff_seconds
+        self.max_backoff_seconds = max_backoff_seconds
+        self.checkpoints_dir = self.models_dir / "checkpoints"
+        self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
-    def maybe_save_checkpoint(self, model, start_timestep: int, verbose: bool) -> Optional[Path]:
-        if start_timestep % self.checkpoint_interval != 0 or model is None:
+    def maybe_save_checkpoint(
+        self,
+        *,
+        model,
+        envs,
+        step: int,
+        verbose: bool,
+        training_state: Optional[dict] = None,
+    ) -> Optional[CheckpointBundle]:
+        if step % self.checkpoint_interval != 0 or model is None:
             return None
-        checkpoint_path = self.models_dir / f"checkpoint_{start_timestep}.zip"
-        model.save(checkpoint_path)
+        return self.save_checkpoint_bundle(
+            model=model,
+            envs=envs,
+            step=step,
+            training_state=training_state,
+            verbose=verbose,
+        )
+
+    def save_checkpoint_bundle(
+        self,
+        *,
+        model,
+        envs,
+        step: int,
+        training_state: Optional[dict],
+        verbose: bool,
+    ) -> CheckpointBundle:
+        checkpoint_base = self.checkpoints_dir / f"checkpoint_{step}"
+        model_path = checkpoint_base.with_suffix(".zip")
+        state_path = checkpoint_base.with_suffix(".state.json")
+        vecnormalize_path = checkpoint_base.with_suffix(".vecnormalize.pkl")
+
+        model.save(model_path)
+
+        persisted_state_path: Optional[Path] = None
+        if training_state is not None:
+            with open(state_path, "w") as f:
+                json.dump(training_state, f, indent=2)
+            persisted_state_path = state_path
+
+        persisted_vecnormalize_path: Optional[Path] = None
+        vecnormalize_env = self._extract_vecnormalize_env(envs)
+        if vecnormalize_env is not None:
+            try:
+                vecnormalize_env.save(str(vecnormalize_path))
+                persisted_vecnormalize_path = vecnormalize_path
+            except Exception as exc:
+                self.logger.warning(f"Failed to save VecNormalize stats at step {step}: {exc}")
+
+        bundle = CheckpointBundle(
+            step=int(step),
+            model_path=model_path,
+            state_path=persisted_state_path,
+            vecnormalize_path=persisted_vecnormalize_path,
+        )
         if verbose:
-            self.logger.info(f"Checkpoint saved: {checkpoint_path}")
-        return checkpoint_path
+            self.logger.info(f"Checkpoint saved: {bundle.model_path}")
+            if bundle.state_path is not None:
+                self.logger.info(f"Checkpoint state saved: {bundle.state_path}")
+        return bundle
+
+    @staticmethod
+    def _extract_vecnormalize_env(envs):
+        current = envs
+        for _ in range(20):
+            if current is None:
+                return None
+            if isinstance(current, VecNormalize):
+                return current
+            if callable(getattr(current, "save", None)):
+                return current
+            current = getattr(current, "venv", None)
+        return None
+
+    @staticmethod
+    def load_checkpoint_training_state(bundle: CheckpointBundle) -> Optional[dict]:
+        if bundle.state_path is None:
+            return None
+        if not Path(bundle.state_path).exists():
+            return None
+        with open(bundle.state_path) as f:
+            return json.load(f)
 
     @staticmethod
     def is_nan_error(exc: Exception) -> bool:
@@ -309,6 +441,12 @@ class RecoveryManager:
     @staticmethod
     def is_progress_conflict_error(exc: Exception) -> bool:
         return "Only one live display may be active at once" in str(exc)
+
+    def backoff_seconds(self, retry_number: int) -> float:
+        if self.base_backoff_seconds <= 0:
+            return 0.0
+        exponent = max(0, int(retry_number) - 1)
+        return min(self.base_backoff_seconds * (2 ** exponent), self.max_backoff_seconds)
 
     def recover_model_from_checkpoint(self, model, checkpoint_path: Path, envs) -> Tuple[Any, Optional[float]]:
         recovered_model = model.__class__.load(checkpoint_path, env=envs)
@@ -358,19 +496,52 @@ class LevelRunner:
         total_timesteps: int,
         verbose: bool,
         current_level_getter,
+        training_state_getter: Optional[Callable[[], dict]] = None,
+        training_state_restorer: Optional[Callable[[dict], None]] = None,
+        model_update_fn: Optional[Callable[[Any], None]] = None,
+        sleep_fn: Optional[Callable[[float], None]] = None,
     ):
+        if sleep_fn is None:
+            sleep_fn = time.sleep
+
         remaining_timesteps = total_timesteps
         start_timestep = 0
         nan_retries = 0
         disable_sb3_progress_bar = False
         progress_bar_disable_reason: Optional[str] = None
-        last_checkpoint: Optional[Path] = None
+        last_checkpoint: Optional[CheckpointBundle] = None
+
+        if model_update_fn is not None:
+            model_update_fn(model)
+
+        def _capture_training_state() -> Optional[dict]:
+            if training_state_getter is None:
+                return None
+            return training_state_getter()
+
+        def _save_checkpoint(step: int) -> Optional[CheckpointBundle]:
+            nonlocal last_checkpoint
+            bundle = self.recovery_manager.save_checkpoint_bundle(
+                model=model,
+                envs=envs,
+                step=step,
+                training_state=_capture_training_state(),
+                verbose=verbose,
+            )
+            last_checkpoint = bundle
+            return bundle
 
         while remaining_timesteps > 0 and nan_retries < self.recovery_manager.max_retries:
             try:
-                checkpoint_path = self.recovery_manager.maybe_save_checkpoint(model, start_timestep, verbose)
-                if checkpoint_path is not None:
-                    last_checkpoint = checkpoint_path
+                checkpoint_bundle = self.recovery_manager.maybe_save_checkpoint(
+                    model=model,
+                    envs=envs,
+                    step=start_timestep,
+                    verbose=verbose,
+                    training_state=_capture_training_state(),
+                )
+                if checkpoint_bundle is not None:
+                    last_checkpoint = checkpoint_bundle
 
                 use_sb3_progress_bar = bool(
                     verbose and not disable_sb3_progress_bar and nan_retries == 0
@@ -379,9 +550,18 @@ class LevelRunner:
                     self.logger.info(f"SB3 progress bar disabled: {progress_bar_disable_reason}")
                     progress_bar_disable_reason = None
 
+                learn_callback = callback
+                if self.recovery_manager.checkpoint_interval > 0:
+                    checkpoint_callback = PeriodicCheckpointCallback(
+                        interval_steps=self.recovery_manager.checkpoint_interval,
+                        save_checkpoint_fn=_save_checkpoint,
+                        initial_step=start_timestep,
+                    )
+                    learn_callback = CallbackList([callback, checkpoint_callback])
+
                 model.learn(
                     total_timesteps=remaining_timesteps,
-                    callback=callback,
+                    callback=learn_callback,
                     progress_bar=use_sb3_progress_bar,
                     reset_num_timesteps=False,
                 )
@@ -402,23 +582,31 @@ class LevelRunner:
                 self.logger.error(f"Total steps: {completed_steps}")
 
                 if nan_retries < self.recovery_manager.max_retries and last_checkpoint:
-                    self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint}")
+                    self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint.model_path}")
                     try:
                         model, new_lr = self.recovery_manager.recover_model_from_checkpoint(
                             model,
-                            last_checkpoint,
+                            last_checkpoint.model_path,
                             envs,
                         )
+
+                        if training_state_restorer is not None:
+                            state = self.recovery_manager.load_checkpoint_training_state(last_checkpoint)
+                            if state is not None:
+                                training_state_restorer(state)
+
+                        if model_update_fn is not None:
+                            model_update_fn(model)
                     except Exception as recovery_exc:
                         details = TrainingErrorDetails(
                             level=current_level,
                             completed_steps=completed_steps,
                             total_timesteps=total_timesteps,
                             nan_retries=nan_retries,
-                            checkpoint_path=Path(last_checkpoint),
+                            checkpoint_path=last_checkpoint.model_path,
                         )
                         raise CheckpointRecoveryError(
-                            f"Failed to recover model from checkpoint: {last_checkpoint}",
+                            f"Failed to recover model from checkpoint: {last_checkpoint.model_path}",
                             details=details,
                         ) from recovery_exc
 
@@ -434,6 +622,10 @@ class LevelRunner:
                     completed_steps = getattr(callback, "n_calls", 0)
                     remaining_timesteps = total_timesteps - completed_steps
                     start_timestep = completed_steps
+                    backoff_seconds = self.recovery_manager.backoff_seconds(nan_retries)
+                    if backoff_seconds > 0:
+                        self.logger.info(f"Retrying after backoff: sleeping {backoff_seconds:.1f}s")
+                        sleep_fn(backoff_seconds)
                     self.logger.info(f"Resuming training from step {completed_steps}")
                     continue
 
