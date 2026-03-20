@@ -53,6 +53,10 @@ fi
 echo "Updating Drive repo cache ($BRANCH)..."
 cd "$DRIVE_REPO"
 
+# Google Drive/FUSE may not preserve executable bits consistently.
+# Ignore mode-only diffs in the Drive cache to avoid perpetual dirty status.
+git config core.filemode false
+
 # Handle dirty working tree in Drive cache before checkout/pull.
 is_dirty=0
 if ! git diff --quiet || ! git diff --cached --quiet; then
