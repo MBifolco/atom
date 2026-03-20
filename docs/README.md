@@ -31,7 +31,7 @@ Technical docs for training, runtime architecture, and project planning.
 
 - **[MONTAGE_CREATION.md](MONTAGE_CREATION.md)** - Montage generation workflow
 - **[REPLAY_MONTAGE.md](REPLAY_MONTAGE.md)** - Replay + montage details
-- **[progressive_replay_recording.md](progressive_replay_recording.md)** - Replay recording details
+- **[PROGRESSIVE_REPLAY_RECORDING.md](PROGRESSIVE_REPLAY_RECORDING.md)** - Replay recording details
 
 ## Planning and Historical Context
 
