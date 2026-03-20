@@ -13,6 +13,7 @@ set -euo pipefail
 #   ATOM_INSTALL_JAX_CUDA=1   # 1=install JAX CUDA wheel, 0=skip
 #   ATOM_JAX_VERSION=0.7.2
 #   ATOM_DRIVE_REPO_SYNC_MODE=stash  # stash|reset|skip_pull
+#   ATOM_SKIP_PREFLIGHT=0  # 1=skip bootstrap preflight checks
 
 DRIVE_REPO="${ATOM_DRIVE_REPO:-/content/drive/MyDrive/dev/atom}"
 WORK_REPO="${ATOM_WORK_REPO:-/content/atom}"
@@ -21,6 +22,16 @@ REPO_URL="${ATOM_REPO_URL:-}"
 INSTALL_JAX_CUDA="${ATOM_INSTALL_JAX_CUDA:-1}"
 JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
 SYNC_MODE="${ATOM_DRIVE_REPO_SYNC_MODE:-stash}"
+SKIP_PREFLIGHT="${ATOM_SKIP_PREFLIGHT:-0}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+cd "$SCRIPT_DIR"
+
+if [[ "$SKIP_PREFLIGHT" != "1" ]]; then
+  echo "Running bootstrap preflight checks..."
+  PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+    python -u -m src.training.utils.colab_preflight --stage bootstrap --strict
+fi
 
 if [[ ! -d "/content/drive" ]]; then
   echo "ERROR: /content/drive not found. Mount Drive first:"

@@ -12,8 +12,9 @@ Use the ready-to-run notebook in this repo:
 
 1. Keep a persistent repo cache on Google Drive.
 2. Sync that cache into `/content/atom` each Colab session.
-3. Install dependencies and run training from `/content/atom`.
-4. Save outputs/checkpoints in Drive so sessions can resume.
+3. Run preflight checks before bootstrap/smoke/full/resume stages.
+4. Install dependencies and run training from `/content/atom`.
+5. Save outputs/checkpoints in Drive so sessions can resume.
 
 ## First-Time Setup (in Colab)
 
@@ -22,25 +23,35 @@ from google.colab import drive
 drive.mount('/content/drive')
 ```
 
-```bash
-%cd /content
-!git clone https://github.com/<org>/<repo>.git /content/atom
-```
-
 ## Recommended Session Bootstrap
 
-Use the project script (run after Drive is mounted):
+Use the notebook bootstrap cell or run manually from the local repo copy:
 
 ```bash
-%cd /content/atom
-!export ATOM_REPO_URL="https://github.com/<org>/<repo>.git" && bash colab_bootstrap.sh
+export ATOM_REPO_URL="https://github.com/<org>/<repo>.git"
+export ATOM_BRANCH="colab"
+bash colab_bootstrap.sh
 ```
 
 Notes:
-- `ATOM_REPO_URL` is only required the first time (when Drive cache does not exist yet).
+- `ATOM_REPO_URL` is required only when Drive cache does not exist yet.
 - The script updates your Drive cache (`git pull`) then syncs to `/content/atom`.
+- The script runs a bootstrap preflight (`src.training.utils.colab_preflight`) unless `ATOM_SKIP_PREFLIGHT=1`.
 - CUDA JAX install is enabled by default (`ATOM_INSTALL_JAX_CUDA=1`).
 - JAX CUDA is pinned to a known working version by default (`ATOM_JAX_VERSION=0.7.2`).
+
+## Preflight Checks (Recommended)
+
+Run preflight before long jobs:
+
+```bash
+python -m src.training.utils.colab_preflight --stage smoke --output-dir /content/drive/MyDrive/atom_runs/quick_test --require-gpu --strict
+```
+
+Other stages:
+- `--stage bootstrap`
+- `--stage full --output-dir <run_dir>`
+- `--stage resume --checkpoint-dir <run_dir>`
 
 ## Train
 
@@ -73,3 +84,4 @@ Full run:
 - Colab runtimes are ephemeral; always write checkpoints/logs to Drive.
 - Current code auto-detects CUDA vs ROCm and no longer forces ROCm for vmap workers.
 - If you want CPU-only runs, skip `--use-vmap`.
+- Use the milestone gate checklist in `docs/COLAB_VALIDATION_CHECKLIST.md` for Phase 1/3/5 validation.

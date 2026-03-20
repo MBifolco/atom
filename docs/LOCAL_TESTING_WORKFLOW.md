@@ -62,6 +62,9 @@ Use Colab only for milestone gates, not every commit:
 2. End of checkpoint/recovery hardening.
 3. Final operational validation before long runs.
 
+Checklist:
+- `docs/COLAB_VALIDATION_CHECKLIST.md`
+
 ## Seed Controls
 
 - Test seed: `ATOM_TEST_SEED` (pytest fixtures)

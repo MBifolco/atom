@@ -148,6 +148,7 @@ Create AI fighters using our **Progressive Training System** that combines curri
 
 **📖 [Progressive Training Guide](docs/PROGRESSIVE_TRAINING.md)** - Complete training system documentation
 **☁️ [Colab Setup Guide](docs/COLAB_SETUP.md)** - Persistent Drive cache + GPU training workflow
+**✅ [Colab Validation Checklist](docs/COLAB_VALIDATION_CHECKLIST.md)** - Milestone gate checks for Phases 1/3/5
 **📓 [Colab Notebook](notebooks/Atom_Training_Colab.ipynb)** - Run setup/train/resume directly in Colab
 
 ```bash

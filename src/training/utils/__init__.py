@@ -9,6 +9,8 @@ __all__ = [
     "BaselineRunConfig",
     "BaselineRunResult",
     "run_baseline",
+    "run_preflight",
+    "render_preflight_report",
 ]
 
 
@@ -34,5 +36,11 @@ def __getattr__(name):
             "BaselineRunConfig": BaselineRunConfig,
             "BaselineRunResult": BaselineRunResult,
             "run_baseline": run_baseline,
+        }[name]
+    if name in {"run_preflight", "render_preflight_report"}:
+        from .colab_preflight import render_report, run_preflight
+        return {
+            "run_preflight": run_preflight,
+            "render_preflight_report": render_report,
         }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
