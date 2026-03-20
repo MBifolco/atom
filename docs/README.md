@@ -41,6 +41,8 @@ Technical docs for training, runtime architecture, and project planning.
 - **[`future_implementation/`](future_implementation/)** - Future architecture and roadmap docs
 - **[`original_vision/`](original_vision/)** - Original design specifications
 - **[`analysis/`](analysis/)** - Research/analysis reports
+- **[analysis/GPU_MEMORY_GUIDE.md](analysis/GPU_MEMORY_GUIDE.md)** - GPU memory behavior and troubleshooting notes
+- **[analysis/NAN_FIX_SUMMARY.md](analysis/NAN_FIX_SUMMARY.md)** - NaN mitigation summary
 
 ## Session Summaries
 
@@ -52,5 +54,6 @@ Technical docs for training, runtime architecture, and project planning.
 
 - **[../README.md](../README.md)** - Main project README
 - **[../fighters/README.md](../fighters/README.md)** - Fighter and test dummy guide
+- **[../scripts/README.md](../scripts/README.md)** - Utility scripts
 - **[../tests/README.md](../tests/README.md)** - Test suite docs
 - **[../archived/README.md](../archived/README.md)** - Archived scripts, benchmarks, and tests

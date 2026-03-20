@@ -70,7 +70,8 @@ Destination (completed):
 
 - `archived/diagnostics/` with `nan/`, `observations/`, `population/`, and `general/`
 
-Note: `test_vmap_hang.py` has a historical diagnostic commit and may be kept temporarily in root or moved to `tests/integration/` with adaptation.
+Note: `test_vmap_hang.py` was subsequently moved to `archived/diagnostics/general/`
+as part of the follow-up cleanup slice.
 
 ## Legacy/Versioned Script Candidates
 
@@ -107,7 +108,6 @@ Current status:
 
 ## Recommended Next Cleanup Slice
 
-1. Optionally move `test_vmap_hang.py` into `tests/integration/` (or archive it) after deciding desired coverage.
-2. Decide whether to keep top-level summary docs (`GPU_MEMORY_GUIDE.md`, `NAN_FIX_SUMMARY.md`) in root or move them under `docs/analysis/`.
-3. Add a `scripts/` directory for durable operational utilities that should remain first-class but not live at repo root.
-4. Consider a history rewrite if repository size optimization is a goal.
+1. Review whether additional operational root scripts should move into `scripts/`.
+2. Consider adding a lightweight CI check for broken markdown links.
+3. Consider a history rewrite if repository size optimization is a goal.

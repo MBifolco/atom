@@ -3,7 +3,7 @@
 Analyze population training progress to determine if more generations are worthwhile.
 
 Usage:
-    python analyze_population_progress.py outputs/progressive_20251112_085705
+    python scripts/analysis/analyze_population_progress.py outputs/progressive_20251112_085705
 """
 
 import sys
@@ -49,7 +49,7 @@ def analyze_diversity(generation_dir: Path):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python analyze_population_progress.py <output_directory>")
+        print("Usage: python scripts/analysis/analyze_population_progress.py <output_directory>")
         sys.exit(1)
 
     output_dir = Path(sys.argv[1])
