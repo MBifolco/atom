@@ -53,28 +53,7 @@ fi
 echo "Updating Drive repo cache ($BRANCH)..."
 cd "$DRIVE_REPO"
 
-# Drive cache may have been initialized with --single-branch, which limits
-# remote.origin.fetch to one branch. Expand it so switching branches works.
-git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-git fetch --prune origin
-
-if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
-  echo "ERROR: Remote branch '$BRANCH' not found on origin."
-  echo "Available remote branches:"
-  git for-each-ref --format='%(refname:short)' refs/remotes/origin/ \
-    | sed 's#^origin/##' \
-    | grep -v '^HEAD$' \
-    | sed 's#^#  #'
-  exit 1
-fi
-
-if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-  git checkout "$BRANCH"
-else
-  git checkout -b "$BRANCH" "origin/$BRANCH"
-fi
-
-# Handle dirty working tree in Drive cache before pulling.
+# Handle dirty working tree in Drive cache before checkout/pull.
 is_dirty=0
 if ! git diff --quiet || ! git diff --cached --quiet; then
   is_dirty=1
@@ -84,6 +63,7 @@ if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
 fi
 
 skip_pull=0
+skip_branch_sync=0
 if [[ "$is_dirty" -eq 1 ]]; then
   echo "Drive repo cache has local changes."
   case "$SYNC_MODE" in
@@ -98,14 +78,39 @@ if [[ "$is_dirty" -eq 1 ]]; then
       git clean -fd
       ;;
     skip_pull)
-      echo "Skipping git pull because repo is dirty (SYNC_MODE=skip_pull)."
+      echo "Skipping branch sync and pull because repo is dirty (SYNC_MODE=skip_pull)."
+      echo "Working tree remains on branch: $(git rev-parse --abbrev-ref HEAD)"
       skip_pull=1
+      skip_branch_sync=1
       ;;
     *)
       echo "ERROR: Unknown ATOM_DRIVE_REPO_SYNC_MODE='$SYNC_MODE' (use stash|reset|skip_pull)."
       exit 1
       ;;
   esac
+fi
+
+if [[ "$skip_branch_sync" -eq 0 ]]; then
+  # Drive cache may have been initialized with --single-branch, which limits
+  # remote.origin.fetch to one branch. Expand it so switching branches works.
+  git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+  git fetch --prune origin
+
+  if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+    echo "ERROR: Remote branch '$BRANCH' not found on origin."
+    echo "Available remote branches:"
+    git for-each-ref --format='%(refname:short)' refs/remotes/origin/ \
+      | sed 's#^origin/##' \
+      | grep -v '^HEAD$' \
+      | sed 's#^#  #'
+    exit 1
+  fi
+
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+  else
+    git checkout -b "$BRANCH" "origin/$BRANCH"
+  fi
 fi
 
 if [[ "$skip_pull" -eq 0 ]]; then
