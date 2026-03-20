@@ -15,6 +15,7 @@ from ..orchestrator.match_orchestrator import MatchOrchestrator, MatchResult
 from ..evaluator.spectacle_evaluator import SpectacleEvaluator, SpectacleScore
 from ..telemetry.replay_store import save_replay
 from ..arena import WorldConfig
+from .signal_engine import build_observation_from_snapshot
 
 
 @dataclass
@@ -381,45 +382,7 @@ class ReplayRecorder:
 
     def _snapshot_to_obs(self, snapshot: Dict[str, Any]) -> np.ndarray:
         """Convert snapshot to enhanced observation vector for RL model."""
-        # Match the enhanced observation space (13 values)
-        you_hp_norm = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
-        you_stamina_norm = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
-        opp_hp_norm = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
-        opp_stamina_norm = snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"]
-
-        distance = snapshot["opponent"]["distance"]
-        rel_velocity = snapshot["opponent"]["velocity"]  # Already relative in snapshot
-
-        # Get arena width from config
-        arena_width = self.config.arena_width if hasattr(self.config, 'arena_width') else 10.0
-
-        # Wall distances
-        wall_dist_left = snapshot["you"]["position"]
-        wall_dist_right = arena_width - snapshot["you"]["position"]
-
-        # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
-        opp_stance_hint = snapshot["opponent"].get("stance_hint", "neutral")
-        stance_map = {"neutral": 0, "extended": 1, "defending": 2}
-        opp_stance_int = stance_map.get(opp_stance_hint, 0)
-
-        # Recent damage (placeholder - would need tracking)
-        recent_damage = 0.0
-
-        return np.array([
-            snapshot["you"]["position"],  # 0: position
-            snapshot["you"]["velocity"],  # 1: velocity
-            you_hp_norm,                   # 2: hp_norm
-            you_stamina_norm,              # 3: stamina_norm
-            distance,                      # 4: distance
-            rel_velocity,                  # 5: rel_velocity
-            opp_hp_norm,                   # 6: opp_hp_norm
-            opp_stamina_norm,              # 7: opp_stamina_norm
-            arena_width,                   # 8: arena_width
-            wall_dist_left,                # 9: wall_dist_left
-            wall_dist_right,               # 10: wall_dist_right
-            opp_stance_int,                # 11: opp_stance
-            recent_damage                  # 12: recent_damage
-        ], dtype=np.float32)
+        return build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
     def _action_to_dict(self, action: np.ndarray) -> Dict[str, Any]:
         """Convert RL model action to decision dict."""

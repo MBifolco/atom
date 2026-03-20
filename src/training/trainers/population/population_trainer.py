@@ -26,6 +26,7 @@ from stable_baselines3.common.monitor import Monitor
 # Clean relative imports within src package structure
 from ....arena import WorldConfig
 from ...gym_env import AtomCombatEnv
+from ...signal_engine import build_observation_from_snapshot
 from ...utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
 
@@ -376,47 +377,8 @@ def _create_opponent_decide_func(model):
     Returns:
         Decide function compatible with AtomCombatEnv
     """
-    import numpy as np
-
     def decide(snapshot):
-        # Build 13-dimensional observation to match current gym_env
-        position = snapshot["you"]["position"]
-        arena_width = snapshot["arena"]["width"]
-
-        # Calculate wall distances
-        wall_dist_left = position
-        wall_dist_right = arena_width - position
-
-        # Get opponent stance as integer
-        opp_stance = snapshot["opponent"].get("stance_hint", snapshot["opponent"].get("stance", "neutral"))
-        # Handle JAX arrays - convert to Python type
-        if hasattr(opp_stance, '__array__'):
-            opp_stance_val = int(opp_stance)
-            # JAX arrays contain stance as integer already (0, 1, 2)
-            opp_stance_int = opp_stance_val
-        else:
-            # String stance from Python arena
-            stance_map = {"neutral": 0, "extended": 1, "defending": 2, "retracted": 0}  # retracted fallback to neutral
-            opp_stance_int = stance_map.get(opp_stance, 0)
-
-        # Estimate recent damage (not available in snapshot, use 0)
-        recent_damage = 0.0
-
-        obs = np.array([
-            position,  # 0: position
-            snapshot["you"]["velocity"],  # 1: velocity
-            snapshot["you"]["hp"] / snapshot["you"]["max_hp"],  # 2: hp_norm
-            snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"],  # 3: stamina_norm
-            snapshot["opponent"]["distance"],  # 4: distance
-            snapshot["opponent"]["velocity"],  # 5: rel_velocity (from opponent's perspective)
-            snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"],  # 6: opp_hp_norm
-            snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"],  # 7: opp_stamina_norm
-            arena_width,  # 8: arena_width
-            wall_dist_left,  # 9: wall_dist_left
-            wall_dist_right,  # 10: wall_dist_right
-            opp_stance_int,  # 11: opp_stance_int
-            recent_damage  # 12: recent_damage_dealt
-        ], dtype=np.float32)
+        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
         action, _ = model.predict(obs, deterministic=False)
 
@@ -1062,47 +1024,7 @@ class PopulationTrainer:
     def _get_fighter_decision_func(self, fighter: PopulationFighter) -> Callable:
         """Create a decision function for a trained fighter."""
         def decide(snapshot):
-            # Convert snapshot to enhanced observation (13 values)
-            you_hp_norm = snapshot["you"]["hp"] / snapshot["you"]["max_hp"]
-            you_stamina_norm = snapshot["you"]["stamina"] / snapshot["you"]["max_stamina"]
-            opp_hp_norm = snapshot["opponent"]["hp"] / snapshot["opponent"]["max_hp"]
-            opp_stamina_norm = snapshot["opponent"]["stamina"] / snapshot["opponent"]["max_stamina"]
-
-            # Arena width
-            arena_width = snapshot["arena"]["width"]
-
-            # Wall distances
-            wall_dist_left = snapshot["you"]["position"]
-            wall_dist_right = arena_width - snapshot["you"]["position"]
-
-            # Opponent stance as integer (0=neutral, 1=extended, 2=defending)
-            opp_stance_hint = snapshot["opponent"].get("stance_hint", snapshot["opponent"].get("stance", "neutral"))
-            # Handle JAX arrays - convert to Python type
-            if hasattr(opp_stance_hint, '__array__'):
-                opp_stance_int = int(opp_stance_hint)
-            else:
-                # String stance from Python arena
-                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
-                opp_stance_int = stance_map.get(opp_stance_hint, 0)
-
-            # Recent damage (placeholder - would need tracking)
-            recent_damage = 0.0
-
-            obs = np.array([
-                snapshot["you"]["position"],        # 0: position
-                snapshot["you"]["velocity"],        # 1: velocity
-                you_hp_norm,                        # 2: hp_norm
-                you_stamina_norm,                   # 3: stamina_norm
-                snapshot["opponent"]["distance"],   # 4: distance
-                snapshot["opponent"]["velocity"],   # 5: rel_velocity
-                opp_hp_norm,                        # 6: opp_hp_norm
-                opp_stamina_norm,                   # 7: opp_stamina_norm
-                arena_width,                        # 8: arena_width
-                wall_dist_left,                     # 9: wall_dist_left
-                wall_dist_right,                    # 10: wall_dist_right
-                opp_stance_int,                     # 11: opp_stance
-                recent_damage                       # 12: recent_damage
-            ], dtype=np.float32)
+            obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
             # Get action from model
             action, _ = fighter.model.predict(obs, deterministic=False)
@@ -1896,6 +1818,7 @@ Compatible with atom_fight.py
 import numpy as np
 import onnxruntime as ort
 from pathlib import Path
+from src.training.signal_engine import build_observation_from_snapshot
 
 # ONNX model path (relative to this file)
 ONNX_MODEL = "{onnx_filename}"
@@ -1931,36 +1854,7 @@ def decide(snapshot):
     """
     session = _load_session()
 
-    # Convert snapshot to observation
-    you = snapshot["you"]
-    opponent = snapshot["opponent"]
-    arena = snapshot["arena"]
-
-    you_hp_norm = you["hp"] / you["max_hp"]
-    you_stamina_norm = you["stamina"] / you["max_stamina"]
-    opp_hp_norm = opponent["hp"] / opponent["max_hp"]
-    opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
-    wall_dist_left = you["position"]
-    wall_dist_right = arena["width"] - you["position"]
-    opp_stance = opponent.get("stance_hint", opponent.get("stance", "neutral"))
-    opp_stance_int = {{"neutral": 0.0, "extended": 1.0, "defending": 2.0}}.get(opp_stance, 0.0)
-    recent_damage = float(snapshot.get("recent_damage_dealt", 0.0))
-
-    obs = np.array([
-        you["position"],
-        you["velocity"],
-        you_hp_norm,
-        you_stamina_norm,
-        opponent["distance"],
-        opponent["velocity"],
-        opp_hp_norm,
-        opp_stamina_norm,
-        arena["width"],
-        wall_dist_left,
-        wall_dist_right,
-        opp_stance_int,
-        recent_damage
-    ], dtype=np.float32).reshape(1, -1)
+    obs = build_observation_from_snapshot(snapshot).reshape(1, -1)
 
     # Run inference
     input_name = session.get_inputs()[0].name

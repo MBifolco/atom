@@ -29,6 +29,7 @@ import importlib.util
 
 # Level 3: JAX vmap support
 from ..vmap_env_wrapper import VmapEnvWrapper
+from ..signal_engine import build_observation_from_snapshot
 from ...arena import WorldConfig
 from ..utils.nan_detector import NaNDetector
 
@@ -298,42 +299,7 @@ class CurriculumCallback(BaseCallback):
         else:
             # Create a decision function from the current model
             def ai_decide(snapshot):
-                # Extract observation from snapshot
-                # Note: Snapshot has different structure than gym env observation
-                you = snapshot["you"]
-                opponent = snapshot["opponent"]
-                arena = snapshot["arena"]
-
-                # Normalize values
-                you_hp_norm = you["hp"] / you["max_hp"]
-                you_stamina_norm = you["stamina"] / you["max_stamina"]
-                opp_hp_norm = opponent["hp"] / opponent["max_hp"]
-                opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
-
-                # Wall distances
-                wall_dist_left = you["position"]
-                wall_dist_right = arena["width"] - you["position"]
-
-                # Map stance hint to integer (for opponent)
-                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
-                opp_stance_int = stance_map.get(opponent["stance_hint"], 0)
-
-                # Create observation array matching gym_env enhanced format (13 values)
-                obs = np.array([
-                    you["position"],           # 0: position
-                    you["velocity"],            # 1: velocity
-                    you_hp_norm,                # 2: hp normalized
-                    you_stamina_norm,           # 3: stamina normalized
-                    opponent["distance"],       # 4: distance to opponent
-                    opponent["velocity"],       # 5: relative velocity
-                    opp_hp_norm,                # 6: opponent hp normalized
-                    opp_stamina_norm,           # 7: opponent stamina normalized
-                    arena["width"],             # 8: arena width
-                    wall_dist_left,             # 9: distance to left wall
-                    wall_dist_right,            # 10: distance to right wall
-                    opp_stance_int,             # 11: opponent stance as int
-                    0.0                         # 12: recent damage dealt (not available)
-                ], dtype=np.float32)
+                obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
                 try:
                     # Get action from model
@@ -1157,6 +1123,8 @@ class CurriculumTrainer:
         start_timestep = 0
         nan_retries = 0
         max_retries = 3
+        disable_sb3_progress_bar = False
+        progress_bar_disable_reason: Optional[str] = None
 
         while remaining_timesteps > 0 and nan_retries < max_retries:
             try:
@@ -1169,10 +1137,17 @@ class CurriculumTrainer:
                         if self.verbose:
                             self.logger.info(f"Checkpoint saved: {checkpoint_path}")
 
+                use_sb3_progress_bar = bool(
+                    self.verbose and not disable_sb3_progress_bar and nan_retries == 0
+                )
+                if self.verbose and progress_bar_disable_reason:
+                    self.logger.info(f"SB3 progress bar disabled: {progress_bar_disable_reason}")
+                    progress_bar_disable_reason = None
+
                 self.model.learn(
                     total_timesteps=remaining_timesteps,
                     callback=callback,
-                    progress_bar=self.verbose,
+                    progress_bar=use_sb3_progress_bar,
                     reset_num_timesteps=False  # Continue from where we left off
                 )
                 break  # Success, exit loop
@@ -1199,6 +1174,11 @@ class CurriculumTrainer:
                         new_lr = self.model.learning_rate * 0.5
                         self.model.learning_rate = new_lr
                         self.logger.info(f"Reduced learning rate to: {new_lr}")
+                        disable_sb3_progress_bar = True
+                        if progress_bar_disable_reason is None:
+                            progress_bar_disable_reason = (
+                                "retrying after NaN recovery to avoid Rich live display conflicts"
+                            )
 
                         # Update remaining timesteps
                         completed_steps = callback.n_calls
@@ -1226,6 +1206,21 @@ class CurriculumTrainer:
                     raise RuntimeError(f"Training failed due to NaN after {nan_retries} retries")
                 else:
                     raise
+            except Exception as e:
+                # SB3 uses tqdm+Rich progress bars, which can clash with notebook/terminal live displays.
+                # If this happens, retry once with SB3 progress bars disabled.
+                if "Only one live display may be active at once" in str(e):
+                    if not disable_sb3_progress_bar:
+                        disable_sb3_progress_bar = True
+                        progress_bar_disable_reason = (
+                            "detected Rich live display conflict; retrying without SB3 progress bar"
+                        )
+                        self.logger.warning(
+                            "Detected Rich live display conflict from SB3 progress bar. "
+                            "Retrying without SB3 progress bar."
+                        )
+                        continue
+                raise
 
         # Close environments
         if self.envs:

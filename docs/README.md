@@ -10,6 +10,8 @@ Technical documentation for the Atom Combat AI fighting game.
 - **[REWARD_STRUCTURE.md](REWARD_STRUCTURE.md)** - Complete reward system
 - **[PROGRESSIVE_TRAINING.md](PROGRESSIVE_TRAINING.md)** - Progressive curriculum
 - **[POPULATION_TRAINING.md](POPULATION_TRAINING.md)** - Population-based training
+- **[TRAINING_REFACTOR_ROADMAP.md](TRAINING_REFACTOR_ROADMAP.md)** - Stability refactor phases + local-first testing strategy
+- **[LOCAL_TESTING_WORKFLOW.md](LOCAL_TESTING_WORKFLOW.md)** - Local deterministic workflow to reduce Colab dependency
 - **[COLAB_SETUP.md](COLAB_SETUP.md)** - Google Colab workflow with persistent Drive cache
 - **[../notebooks/Atom_Training_Colab.ipynb](../notebooks/Atom_Training_Colab.ipynb)** - Ready-to-run Colab notebook
 - **[CONTINUAL_LEARNING.md](CONTINUAL_LEARNING.md)** - Catastrophic forgetting prevention

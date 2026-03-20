@@ -18,6 +18,7 @@ import numpy as np
 from src.training.trainers.curriculum_trainer import CurriculumTrainer, CurriculumCallback
 from src.orchestrator.match_orchestrator import MatchOrchestrator
 from src.arena import WorldConfig
+from src.training.signal_engine import build_observation_from_snapshot
 
 
 class TestRealProgressiveReplayIntegration:
@@ -117,37 +118,7 @@ class TestRealProgressiveReplayIntegration:
                 }
             }
 
-            # Create observation from snapshot (as done in fixed code)
-            you = snapshot["you"]
-            opponent = snapshot["opponent"]
-            arena = snapshot["arena"]
-
-            you_hp_norm = you["hp"] / you["max_hp"]
-            you_stamina_norm = you["stamina"] / you["max_stamina"]
-            opp_hp_norm = opponent["hp"] / opponent["max_hp"]
-            opp_stamina_norm = opponent["stamina"] / opponent["max_stamina"]
-
-            wall_dist_left = you["position"]
-            wall_dist_right = arena["width"] - you["position"]
-
-            stance_map = {"neutral": 0, "extended": 1, "defending": 2}
-            opp_stance_int = stance_map.get(opponent["stance_hint"], 0)
-
-            obs = np.array([
-                you["position"],
-                you["velocity"],
-                you_hp_norm,
-                you_stamina_norm,
-                opponent["distance"],
-                opponent["velocity"],
-                opp_hp_norm,
-                opp_stamina_norm,
-                arena["width"],
-                wall_dist_left,
-                wall_dist_right,
-                opp_stance_int,
-                0.0
-            ], dtype=np.float32)
+            obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
 
             # Model should be able to predict with this observation
             action, _ = trainer.model.predict(np.array([obs]), deterministic=True)
