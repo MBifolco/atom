@@ -5,8 +5,6 @@ Implements progressive training using test dummies before advancing to
 hardcoded fighters and eventually population-based training.
 """
 
-import os
-import sys
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple, Any
@@ -20,17 +18,24 @@ from enum import Enum
 # Use Stable Baselines3 with PyTorch (JAX is in physics engine)
 from stable_baselines3 import PPO, SAC
 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecCheckNan, VecNormalize
+from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.monitor import Monitor
 
 # Import test dummy loader
 import importlib.util
 
 # Level 3: JAX vmap support
-from ..vmap_env_wrapper import VmapEnvWrapper
-from ..signal_engine import build_observation_from_snapshot
-from ...arena import WorldConfig
+from .curriculum_components import (
+    CallbackStepProcessor,
+    EnvFactory,
+    GraduationPolicy,
+    LevelRunner,
+    LevelTransitionStateMachine,
+    ModelFactory,
+    ProgressReporter,
+    ReplayEvaluationService,
+    RecoveryManager,
+)
 from ..utils.nan_detector import NaNDetector
 
 
@@ -142,6 +147,15 @@ class CurriculumCallback(BaseCallback):
         self.recent_reward_components = []
         self.last_rollout_time = None
         self.last_train_time = None
+        self.replay_evaluation_service = ReplayEvaluationService(self.curriculum_trainer)
+        self.step_processor = CallbackStepProcessor(
+            curriculum_trainer=self.curriculum_trainer,
+            replay_evaluation_service=self.replay_evaluation_service,
+            record_evaluation_replay_fn=lambda episode_num, total_episodes: self._record_evaluation_replay(
+                episode_num,
+                total_episodes,
+            ),
+        )
 
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
@@ -220,188 +234,21 @@ class CurriculumCallback(BaseCallback):
                 if detector.check_rewards(rewards, self.n_calls):
                     self.curriculum_trainer.logger.error(f"NaN detected in rewards at step {self.n_calls}!")
 
-        for info in self.locals.get("infos", []):
-            if "episode" in info:
-                # Track episode completion
-                reward = info["episode"]["r"]
-                self.episode_rewards.append(reward)
-
-                # Check if won (use the "won" key from environment)
-                won = info.get("won", False)
-                self.episode_wins.append(won)
-
-                # Track reward breakdown if available
-                if "reward_breakdown" in info:
-                    self.recent_reward_components.append(info["reward_breakdown"])
-
-                # Progressive replay recording
-                if hasattr(self.curriculum_trainer, 'progressive_recorder') and self.curriculum_trainer.progressive_recorder is not None:
-                    episode_num = len(self.episode_rewards)
-                    # Use a high number for total_episodes to prevent the "last episode" logic from triggering
-                    # The actual graduation happens at variable times, so we use episode-based intervals
-                    total_episodes = max(10000, episode_num * 2)  # Always well above current episode
-
-                    # Check if we should record this episode
-                    if self.curriculum_trainer.progressive_recorder.should_record(episode_num, total_episodes):
-                        # Actually record an evaluation replay
-                        try:
-                            if self.curriculum_trainer.verbose:
-                                self.curriculum_trainer.logger.info(f"  💾 Recording replay for episode {episode_num}...")
-                            self._record_evaluation_replay(episode_num, total_episodes)
-                        except Exception as e:
-                            if self.curriculum_trainer.verbose:
-                                import traceback
-                                self.curriculum_trainer.logger.error(f"  ❌ Failed to record replay: {e}")
-                                self.curriculum_trainer.logger.error(f"  Traceback: {traceback.format_exc()}")
-                    if len(self.recent_reward_components) > 100:
-                        self.recent_reward_components.pop(0)
-
-                # Update curriculum progress with additional info
-                self.curriculum_trainer.update_progress(won, reward, info)
-
-                # Check for level graduation
-                if self.curriculum_trainer.should_graduate():
-                    self.curriculum_trainer.advance_level()
-
-                    # Stop training if curriculum is complete
-                    if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
-                        self.curriculum_trainer.logger.info("Curriculum complete - stopping training early")
-                        return False
-
-        return True
+        return self.step_processor.process_infos(
+            infos=self.locals.get("infos", []),
+            episode_rewards=self.episode_rewards,
+            episode_wins=self.episode_wins,
+            recent_reward_components=self.recent_reward_components,
+        )
 
     def _record_evaluation_replay(self, episode_num: int, total_episodes: int):
-        """Run a separate evaluation match with telemetry for replay recording."""
-        import numpy as np
-        import importlib.util
-        from pathlib import Path
-        from ...orchestrator.match_orchestrator import MatchOrchestrator, MatchResult
-        from ...arena import WorldConfig
-
-        # Create world config early (needed for max_acceleration)
-        config = WorldConfig()
-
-        # Get current level and opponent
-        level = self.curriculum_trainer.get_current_level()
-
-        # Check if model is available
-        if self.curriculum_trainer.model is None:
-            if self.curriculum_trainer.verbose:
-                print("  ⚠️  Model not initialized yet, using random agent for replay")
-            # Use random agent if model not ready
-            def ai_decide(snapshot):
-                # Random action
-                import random
-                return {
-                    "acceleration": random.choice([-1.0, 0.0, 1.0]),
-                    "stance": random.choice(["neutral", "extended", "defending"])
-                }
-        else:
-            # Create a decision function from the current model
-            def ai_decide(snapshot):
-                obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
-
-                try:
-                    # Get action from model
-                    action, _ = self.curriculum_trainer.model.predict(
-                        np.array([obs]),  # Model expects batch dimension
-                        deterministic=False  # Use stochastic for varied replays
-                    )
-
-                    # Handle batch dimension - action is shape (1, 2) so take first element
-                    if action.ndim > 1:
-                        action = action[0]
-
-                    # Convert continuous Box action to decision dict
-                    # action[0] is acceleration normalized (-1 to 1)
-                    # action[1] is stance selector (0.0-2.99, int cast to 0-2)
-                    acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
-                    acceleration = acceleration_normalized * config.max_acceleration
-
-                    stance_idx = int(np.clip(action[1], 0, 2))
-                    stances = ["neutral", "extended", "defending"]
-                    stance = stances[stance_idx]
-
-                    return {
-                        "acceleration": acceleration,
-                        "stance": stance
-                    }
-                except Exception as e:
-                    # Fallback to neutral if prediction fails
-                    if self.curriculum_trainer.verbose:
-                        print(f"  ⚠️  Model prediction failed: {e}")
-                        import traceback
-                        traceback.print_exc()
-                    return {"acceleration": 0.0, "stance": "neutral"}
-
-        # Get opponent fighter - pick first one from level
-        opponent_path = level.opponents[0] if level.opponents else None
-        opponent_name = "Dummy"
-        opponent_decide = None
-
-        if opponent_path and Path(opponent_path).exists():
-            # Load opponent from file
-            opponent_name = Path(opponent_path).stem
-            spec = importlib.util.spec_from_file_location(opponent_name, opponent_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            if hasattr(module, 'decide'):
-                opponent_decide = module.decide
-
-        if opponent_decide is None:
-            # Fallback to dummy fighter
-            def opponent_decide(snapshot):
-                return {"acceleration": 0.0, "stance": "neutral"}
-
-        # Create orchestrator (config already created at top of function)
-        orchestrator = MatchOrchestrator(config, max_ticks=self.curriculum_trainer.max_ticks, record_telemetry=True)
-
-        # Define fighter specs
-        fighter_a_spec = {"name": "AI_Fighter", "mass": 70.0, "position": 2.0}
-        fighter_b_spec = {"name": opponent_name, "mass": 70.0, "position": 10.0}
-
-        try:
-            # Run match with random seed for variety
-            import random
-            match_seed = random.randint(0, 1000000)
-            result = orchestrator.run_match(
-                fighter_a_spec,
-                fighter_b_spec,
-                ai_decide,
-                opponent_decide,
-                seed=match_seed
-            )
-
-            # Verify we got telemetry
-            if result.telemetry is None or len(result.telemetry.get('ticks', [])) == 0:
-                if self.curriculum_trainer.verbose:
-                    print(f"  ⚠️  Match produced no telemetry! Winner: {result.winner}, Ticks: {result.total_ticks}")
-                return  # Skip recording if no telemetry
-
-            # Calculate win rate
-            recent_wins = self.episode_wins[-100:] if len(self.episode_wins) > 100 else self.episode_wins
-            win_rate = sum(recent_wins) / len(recent_wins) if recent_wins else 0.0
-
-            # Get recent rewards
-            recent_rewards = self.episode_rewards[-20:] if len(self.episode_rewards) > 20 else self.episode_rewards
-
-            # Record the replay
-            self.curriculum_trainer.progressive_recorder.record_episode_replay(
-                telemetry=result.telemetry,
-                match_result=result,
-                level_name=level.name,
-                level_num=self.curriculum_trainer.progress.current_level + 1,  # 1-indexed
-                episode=episode_num,
-                total_episodes=total_episodes,
-                win_rate=win_rate,
-                recent_rewards=recent_rewards,
-                fighter_a_name="AI_Fighter",
-                fighter_b_name=opponent_name
-            )
-        except Exception as e:
-            print(f"  ❌ Failed to record progressive replay: {e}")
-            import traceback
-            traceback.print_exc()
+        """Compatibility wrapper used by tests and callback processing."""
+        self.replay_evaluation_service.record_evaluation_replay(
+            episode_num=episode_num,
+            total_episodes=total_episodes,
+            episode_rewards=self.episode_rewards,
+            episode_wins=self.episode_wins,
+        )
 
 
 class CurriculumTrainer:
@@ -503,6 +350,39 @@ class CurriculumTrainer:
 
         # Setup logging
         self._setup_logging()
+
+        # Phase 2 components: policy/reporting/recovery orchestration
+        self.graduation_policy = GraduationPolicy(
+            override_episodes_per_level=self.override_episodes_per_level,
+            min_overall_win_rate=0.5,
+        )
+        self.progress_reporter = ProgressReporter(self.logger)
+        self.recovery_manager = RecoveryManager(
+            models_dir=self.models_dir,
+            logs_dir=self.logs_dir,
+            logger=self.logger,
+            checkpoint_interval=100000,
+            max_retries=3,
+        )
+        self.level_runner = LevelRunner(
+            logger=self.logger,
+            recovery_manager=self.recovery_manager,
+        )
+        self.env_factory = EnvFactory(
+            n_envs=self.n_envs,
+            max_ticks=self.max_ticks,
+            use_vmap=self.use_vmap,
+            debug=self.debug,
+            logs_dir=self.logs_dir,
+            verbose=self.verbose,
+            create_env_fn=self.create_env,
+            vmap_adapter_cls=VmapEnvAdapter,
+        )
+        self.model_factory = ModelFactory(
+            logs_dir=self.logs_dir,
+            verbose=self.verbose,
+        )
+        self.level_transition_state_machine = LevelTransitionStateMachine()
 
         # Log override setting
         if self.override_episodes_per_level is not None and self.verbose:
@@ -662,245 +542,25 @@ class CurriculumTrainer:
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
         """Create parallel environments for the current level."""
-
-        if self.use_vmap:
-            # Level 3/4: Use JAX vmap for GPU-accelerated parallelization
-            # Now supports multiple opponents distributed across environments!
-            opponent_paths = level.opponents
-
-            if self.verbose:
-                print(f"🚀 Creating {self.n_envs} parallel JAX vmap environments...")
-                print(f"   Opponents: {len(opponent_paths)} different types")
-                if len(opponent_paths) > 1:
-                    envs_per_opponent = self.n_envs // len(opponent_paths)
-                    print(f"   Distribution: ~{envs_per_opponent} envs per opponent")
-                    for i, path in enumerate(opponent_paths):
-                        print(f"     {i+1}. {Path(path).stem}")
-
-            # Flush output before creating vmap environment
-            if self.verbose:
-                print(f"\n⏳ Initializing JAX vmap environment (this may take 30-60 seconds for JIT compilation)...", flush=True)
-                import sys
-                sys.stdout.flush()
-
-            try:
-                vmap_env = VmapEnvWrapper(
-                    n_envs=self.n_envs,
-                    opponent_paths=opponent_paths,  # Pass list of paths instead of single func
-                    config=WorldConfig(),
-                    max_ticks=self.max_ticks,
-                    fighter_mass=70.0,
-                    opponent_mass=70.0,
-                    seed=42,
-                    debug=self.debug  # Use the actual debug setting, not forced True
-                )
-
-                if self.verbose:
-                    print("✅ JAX vmap environment created successfully!", flush=True)
-                    sys.stdout.flush()
-
-                # Wrap with adapter for SBX compatibility
-                adapted_env = VmapEnvAdapter(vmap_env)
-
-                if self.verbose:
-                    print("✅ Environment adapter created!", flush=True)
-                    sys.stdout.flush()
-
-                # Wrap with VecNormalize to prevent gradient explosion from large rewards
-                normalized_env = VecNormalize(
-                    adapted_env,
-                    norm_obs=False,  # Don't normalize observations (already normalized)
-                    norm_reward=True,  # Normalize rewards to prevent NaN
-                    clip_obs=10.0,  # Safety clip for observations
-                    clip_reward=10.0,  # Clip normalized rewards to [-10, 10] std deviations
-                    gamma=0.99  # Same as PPO gamma
-                )
-
-                # Wrap with NaN checker to catch numerical instabilities
-                return VecCheckNan(normalized_env, raise_exception=True, warn_once=True)
-
-            except Exception as e:
-                print(f"\n❌ ERROR creating vmap environment: {e}", flush=True)
-                print("Stack trace:", flush=True)
-                import traceback
-                traceback.print_exc()
-                raise
-
-        else:
-            # Level 1/2: Use DummyVecEnv with multiple opponents
-            # Create environments with different opponents from the level
-            env_fns = []
-            for i in range(self.n_envs):
-                opponent_idx = i % len(level.opponents)
-                opponent_path = level.opponents[opponent_idx]
-
-                # Use Monitor with unique level-based filenames to avoid file handle conflicts
-                # The allow_early_resets=True is important for level transitions
-                level_name = level.name.replace(" ", "_").lower()
-                monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
-
-                env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
-                    self.create_env(opp_path),
-                    mfile,
-                    allow_early_resets=True
-                )
-                env_fns.append(env_fn)
-
-            # ALWAYS use DummyVecEnv for curriculum training
-            # SubprocVecEnv has too many pickle/process issues during curriculum progression
-            dummy_env = DummyVecEnv(env_fns)
-
-            # Wrap with VecNormalize to prevent gradient explosion from large rewards
-            normalized_env = VecNormalize(
-                dummy_env,
-                norm_obs=False,  # Don't normalize observations (already normalized)
-                norm_reward=True,  # Normalize rewards to prevent NaN
-                clip_obs=10.0,  # Safety clip for observations
-                clip_reward=10.0,  # Clip normalized rewards to [-10, 10] std deviations
-                gamma=0.99  # Same as PPO gamma
-            )
-
-            # Wrap with NaN checker to catch numerical instabilities
-            return VecCheckNan(normalized_env, raise_exception=True, warn_once=True)
+        return self.env_factory.create_envs_for_level(level)
 
     def initialize_model(self):
         """Initialize or load the RL model."""
-        if self.algorithm == "ppo":
-            # IMPORTANT: Force CPU for MlpPolicy as GPU is 1.4x slower for simple MLPs
-            # The main speedup comes from JAX physics simulation (77x), not NN training
-            # See: https://github.com/DLR-RM/stable-baselines3/issues/1245
-            actual_device = "cpu" if self.device == "auto" else self.device
-
-            # Debug: Print device being used
-            if self.verbose:
-                print(f"Initializing PPO with device: {actual_device} (forced CPU for MlpPolicy)")
-
-            # Use stable PPO configuration
-            from ..utils.stable_ppo import create_stable_ppo
-            from ..utils.stable_ppo_config import get_stable_ppo_config
-
-            # Get stable config to prevent NaN
-            stable_config = get_stable_ppo_config()
-
-            # Create PPO with stable configuration
-            from stable_baselines3 import PPO
-            self.model = PPO(
-                "MlpPolicy",
-                self.envs,
-                device=actual_device,
-                **stable_config
-            )
-
-            # Override some settings for our use case
-            self.model.verbose = 2 if self.verbose else 0
-            self.model.tensorboard_log = str(self.logs_dir / "tensorboard")
-        elif self.algorithm == "sac":
-            # Same CPU optimization for SAC with MlpPolicy
-            actual_device = "cpu" if self.device == "auto" else self.device
-
-            # Debug: Print device being used
-            if self.verbose:
-                print(f"Initializing SAC with device: {actual_device} (forced CPU for MlpPolicy)")
-
-            self.model = SAC(
-                "MlpPolicy",
-                self.envs,
-                learning_rate=3e-4,
-                buffer_size=50000,      # Smaller buffer for faster initial learning
-                learning_starts=100,    # Start learning much earlier (was 1000)
-                batch_size=64,          # Smaller batch size like PPO (was 256)
-                tau=0.01,               # Faster target network updates (was 0.005)
-                gamma=0.99,
-                ent_coef='auto',        # Auto-tune entropy for exploration
-                target_update_interval=1,  # Update target network every step
-                gradient_steps=1,       # One gradient step per env step
-                verbose=1 if self.verbose else 0,
-                tensorboard_log=str(self.logs_dir / "tensorboard"),
-                device=actual_device
-            )
-        else:
-            raise ValueError(f"Unknown algorithm: {self.algorithm}")
+        self.model = self.model_factory.create_model(
+            algorithm=self.algorithm,
+            envs=self.envs,
+            device=self.device,
+        )
 
     def update_progress(self, won: bool, reward: float = 0, info: dict = None):
         """Update training progress for the current episode."""
-        self.progress.episodes_at_level += 1
-        self.progress.total_episodes += 1
-
-        if won:
-            self.progress.wins_at_level += 1
-            self.progress.total_wins += 1
-
-        # Track recent episodes for graduation check
-        self.progress.recent_episodes.append(won)
-        if len(self.progress.recent_episodes) > self.get_current_level().graduation_episodes:
-            self.progress.recent_episodes.pop(0)
-
-        # Track recent rewards for analysis
-        if not hasattr(self.progress, 'recent_rewards'):
-            self.progress.recent_rewards = []
-            self.progress.recent_reward_breakdowns = []
-
-        self.progress.recent_rewards.append(reward)
-        if len(self.progress.recent_rewards) > 100:
-            self.progress.recent_rewards.pop(0)
-
-        # Track reward breakdown if available
-        if info and "reward_breakdown" in info:
-            self.progress.recent_reward_breakdowns.append(info["reward_breakdown"])
-            if len(self.progress.recent_reward_breakdowns) > 20:
-                self.progress.recent_reward_breakdowns.pop(0)
-
-        # Log progress every 100 episodes
-        if self.progress.episodes_at_level % 100 == 0:
-            level = self.get_current_level()
-            overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
-
-            # Recent win rate (if we have enough data)
-            if len(self.progress.recent_episodes) >= level.graduation_episodes:
-                recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-                mean_reward = np.mean(self.progress.recent_rewards) if self.progress.recent_rewards else 0
-
-                self.logger.info(
-                    f"Progress: Episode {self.progress.episodes_at_level} | "
-                    f"Overall WR: {overall_win_rate:.1%} | "
-                    f"Recent WR: {recent_win_rate:.1%} "
-                    f"(need {level.graduation_win_rate:.1%}) | "
-                    f"Mean Reward: {mean_reward:.1f}"
-                )
-
-                # Log detailed reward breakdown every 100 episodes
-                if self.progress.recent_reward_breakdowns:
-                    # Average the components
-                    avg_breakdown = {}
-                    for breakdown in self.progress.recent_reward_breakdowns:
-                        for key, value in breakdown.items():
-                            if key not in avg_breakdown:
-                                avg_breakdown[key] = []
-                            avg_breakdown[key].append(value)
-
-                    # Calculate averages
-                    reward_summary = []
-                    for key, values in avg_breakdown.items():
-                        if key != "total":
-                            avg_val = np.mean(values)
-                            if abs(avg_val) > 0.1:  # Only show significant components
-                                reward_summary.append(f"{key}={avg_val:+.1f}")
-
-                    if reward_summary:
-                        self.logger.info(f"  Reward Components: {', '.join(reward_summary)}")
-
-                # Log win/loss/draw counts
-                recent_wins = sum(self.progress.recent_episodes)
-                recent_losses = len(self.progress.recent_episodes) - recent_wins
-                self.logger.info(
-                    f"  Last {len(self.progress.recent_episodes)} episodes: "
-                    f"{recent_wins} wins, {recent_losses} losses"
-                )
-            else:
-                self.logger.info(
-                    f"Progress: Episode {self.progress.episodes_at_level} | "
-                    f"Overall WR: {overall_win_rate:.1%}"
-                )
+        self.progress_reporter.update_progress(
+            progress=self.progress,
+            level=self.get_current_level(),
+            won=won,
+            reward=reward,
+            info=info,
+        )
 
     def get_current_level(self) -> CurriculumLevel:
         """Get the current curriculum level."""
@@ -910,53 +570,20 @@ class CurriculumTrainer:
 
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
-        # Don't graduate if already completed all curriculum levels
-        if self.progress.current_level >= len(self.curriculum):
-            return False
-
-        # Override graduation for faster testing
-        if self.override_episodes_per_level is not None:
-            return self.progress.episodes_at_level >= self.override_episodes_per_level
-
         level = self.get_current_level()
+        decision = self.graduation_policy.evaluate(
+            progress=self.progress,
+            level=level,
+            curriculum_size=len(self.curriculum),
+        )
 
-        # Check minimum episodes
-        if self.progress.episodes_at_level < level.min_episodes:
-            return False
+        should_log = decision.should_graduate or (
+            decision.recent_passed and self.progress.episodes_at_level % 100 == 0
+        )
+        if should_log and decision.reason != "override":
+            self.progress_reporter.log_graduation_decision(decision)
 
-        # Check recent win rate
-        if len(self.progress.recent_episodes) < level.graduation_episodes:
-            return False
-
-        recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
-        recent_wins = sum(self.progress.recent_episodes)
-        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
-
-        # Only check recent win rate for graduation
-        # The overall win rate requirement creates an inverted difficulty curve
-        # where early levels become harder due to accumulated losses
-        recent_passed = recent_win_rate >= level.graduation_win_rate
-
-        # Optional: Add a minimum overall win rate to prevent extreme cases
-        # But keep it low and consistent across levels
-        min_overall = 0.5  # 50% minimum overall win rate for any level
-        overall_passed = overall_win_rate >= min_overall
-
-        # Debug logging for graduation decisions
-        will_graduate = recent_passed and overall_passed
-
-        # Only log if graduating OR every 100 episodes when recent passes (to reduce spam)
-        should_log = will_graduate or (recent_passed and self.progress.episodes_at_level % 100 == 0)
-
-        if should_log:
-            status = "✅ PASSED" if will_graduate else "❌ FAILED (overall too low)"
-            self.logger.info(f"🎓 GRADUATION CHECK {status}")
-            self.logger.info(f"   Recent wins: {recent_wins}/{len(self.progress.recent_episodes)}")
-            self.logger.info(f"   Recent WR: {recent_win_rate:.2%} (need {level.graduation_win_rate:.1%}) {'✓' if recent_passed else '✗'}")
-            self.logger.info(f"   Overall WR: {overall_win_rate:.2%} (need {min_overall:.1%}) {'✓' if overall_passed else '✗'}")
-            self.logger.info(f"   Episodes at level: {self.progress.episodes_at_level}")
-
-        return will_graduate
+        return decision.should_graduate
 
     def advance_level(self):
         """Advance to the next curriculum level."""
@@ -983,14 +610,10 @@ class CurriculumTrainer:
                 import traceback
                 self.logger.debug(f"Traceback: {traceback.format_exc()}")
 
-        # Record graduation
-        self.progress.graduated_levels.append(current.name)
-
-        # Move to next level
-        self.progress.current_level += 1
-        self.progress.episodes_at_level = 0
-        self.progress.wins_at_level = 0
-        self.progress.recent_episodes = []
+        transition = self.level_transition_state_machine.advance(
+            progress=self.progress,
+            curriculum=self.curriculum,
+        )
 
         # Log the reset for debugging
         self.logger.info("📊 METRICS RESET FOR NEW LEVEL:")
@@ -999,7 +622,7 @@ class CurriculumTrainer:
         self.logger.info(f"   Recent episodes buffer: {len(self.progress.recent_episodes)} episodes")
 
         # Check if completed curriculum
-        if self.progress.current_level >= len(self.curriculum):
+        if transition.completed:
             self.logger.info("🎉 CURRICULUM COMPLETED! 🎉")
             self.on_curriculum_complete()
         else:
@@ -1114,113 +737,15 @@ class CurriculumTrainer:
         # Create callback
         callback = CurriculumCallback(self, verbose=self.verbose)
 
-        # Save checkpoint periodically for recovery
-        checkpoint_interval = 100000  # Save every 100k steps
-        last_checkpoint = None
-
-        # Train with NaN error handling and recovery
-        remaining_timesteps = total_timesteps
-        start_timestep = 0
-        nan_retries = 0
-        max_retries = 3
-        disable_sb3_progress_bar = False
-        progress_bar_disable_reason: Optional[str] = None
-
-        while remaining_timesteps > 0 and nan_retries < max_retries:
-            try:
-                # Save checkpoint before training
-                if start_timestep % checkpoint_interval == 0:
-                    checkpoint_path = self.models_dir / f"checkpoint_{start_timestep}.zip"
-                    if self.model:
-                        self.model.save(checkpoint_path)
-                        last_checkpoint = checkpoint_path
-                        if self.verbose:
-                            self.logger.info(f"Checkpoint saved: {checkpoint_path}")
-
-                use_sb3_progress_bar = bool(
-                    self.verbose and not disable_sb3_progress_bar and nan_retries == 0
-                )
-                if self.verbose and progress_bar_disable_reason:
-                    self.logger.info(f"SB3 progress bar disabled: {progress_bar_disable_reason}")
-                    progress_bar_disable_reason = None
-
-                self.model.learn(
-                    total_timesteps=remaining_timesteps,
-                    callback=callback,
-                    progress_bar=use_sb3_progress_bar,
-                    reset_num_timesteps=False  # Continue from where we left off
-                )
-                break  # Success, exit loop
-
-            except ValueError as e:
-                if "nan" in str(e).lower() or "invalid values" in str(e):
-                    nan_retries += 1
-                    self.logger.error("=" * 80)
-                    self.logger.error(f"NaN ERROR DETECTED (Retry {nan_retries}/{max_retries})")
-                    self.logger.error("=" * 80)
-                    self.logger.error(f"Error: {e}")
-                    self.logger.error(f"Current level: {self.progress.current_level}")
-                    self.logger.error(f"Total steps: {callback.n_calls}")
-
-                    # Try to recover
-                    if nan_retries < max_retries and last_checkpoint:
-                        self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint}")
-
-                        # Reload from checkpoint with reduced learning rate
-                        from stable_baselines3 import PPO
-                        self.model = PPO.load(last_checkpoint, env=self.envs)
-
-                        # Reduce learning rate
-                        new_lr = self.model.learning_rate * 0.5
-                        self.model.learning_rate = new_lr
-                        self.logger.info(f"Reduced learning rate to: {new_lr}")
-                        disable_sb3_progress_bar = True
-                        if progress_bar_disable_reason is None:
-                            progress_bar_disable_reason = (
-                                "retrying after NaN recovery to avoid Rich live display conflicts"
-                            )
-
-                        # Update remaining timesteps
-                        completed_steps = callback.n_calls
-                        remaining_timesteps = total_timesteps - completed_steps
-                        start_timestep = completed_steps
-
-                        self.logger.info(f"Resuming training from step {completed_steps}")
-                        continue  # Try again with reduced learning rate
-
-                    # Save debug info before failing
-                    debug_info = {
-                        "error": str(e),
-                        "level": self.progress.current_level,
-                        "total_steps": callback.n_calls,
-                        "episodes": len(callback.episode_rewards),
-                        "recent_rewards": callback.episode_rewards[-50:] if len(callback.episode_rewards) > 0 else [],
-                        "nan_retries": nan_retries
-                    }
-
-                    debug_path = self.logs_dir / f"nan_error_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                    with open(debug_path, 'w') as f:
-                        json.dump(debug_info, f, indent=2)
-
-                    self.logger.error(f"Debug info saved to: {debug_path}")
-                    raise RuntimeError(f"Training failed due to NaN after {nan_retries} retries")
-                else:
-                    raise
-            except Exception as e:
-                # SB3 uses tqdm+Rich progress bars, which can clash with notebook/terminal live displays.
-                # If this happens, retry once with SB3 progress bars disabled.
-                if "Only one live display may be active at once" in str(e):
-                    if not disable_sb3_progress_bar:
-                        disable_sb3_progress_bar = True
-                        progress_bar_disable_reason = (
-                            "detected Rich live display conflict; retrying without SB3 progress bar"
-                        )
-                        self.logger.warning(
-                            "Detected Rich live display conflict from SB3 progress bar. "
-                            "Retrying without SB3 progress bar."
-                        )
-                        continue
-                raise
+        # Train with retry/recovery orchestration.
+        self.model = self.level_runner.run(
+            model=self.model,
+            envs=self.envs,
+            callback=callback,
+            total_timesteps=total_timesteps,
+            verbose=self.verbose,
+            current_level_getter=lambda: self.progress.current_level,
+        )
 
         # Close environments
         if self.envs:

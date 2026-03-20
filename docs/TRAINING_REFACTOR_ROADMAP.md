@@ -106,6 +106,22 @@ Exit criteria:
 - Curriculum loop logic is no longer concentrated in one large method.
 - Unit/integration tests exist for each component.
 
+Phase 2 status (updated 2026-03-19):
+- Completed (slice 1): extracted reusable components into `curriculum_components.py`:
+  - `GraduationPolicy`
+  - `ProgressReporter`
+  - `RecoveryManager`
+  - `LevelRunner`
+  - `EnvFactory`
+  - `ModelFactory`
+- Completed (slice 1): `CurriculumTrainer` now delegates progression, reporting, env/model creation, and retry/recovery orchestration to these components.
+- Completed (slice 1): added dedicated unit tests for component behavior (`tests/unit/test_curriculum_components.py`) and validated existing curriculum/replay suites.
+- Completed (slice 2): added explicit level-transition state machine (`LevelTransitionStateMachine`) and integrated it into `CurriculumTrainer.advance_level()`.
+- Completed (slice 2): moved callback episode-step orchestration into componentized `CallbackStepProcessor` + `ReplayEvaluationService`, with compatibility wrapper retained for existing replay tests/tools.
+- Completed (slice 2): expanded component unit coverage for transition state machine and callback step processing behavior.
+- Remaining for Phase 2 completion:
+  - structured domain error types and error handling unification
+
 ### Phase 3: Checkpoint and Recovery Hardening
 
 Goals:
