@@ -7,7 +7,7 @@ import tempfile
 import json
 from pathlib import Path
 from src.registry import FighterRegistry
-from src.registry.fighter_registry import FighterMetadata
+from src.atom.registry.fighter_registry import FighterMetadata
 
 
 class TestFighterMetadata:

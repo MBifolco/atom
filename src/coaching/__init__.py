@@ -1,6 +1,5 @@
 """Compatibility exports for Atom Combat coaching utilities."""
 
-from importlib import import_module as _import_module
-import sys as _sys
+from src.atom.coaching import CoachingWrapper
 
-_sys.modules[__name__] = _import_module("src.atom.coaching")
+__all__ = ["CoachingWrapper"]

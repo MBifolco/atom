@@ -23,10 +23,6 @@ def test_legacy_runtime_and_training_modules_alias_new_modules():
             "src.training.utils.colab_preflight",
             "src.atom.training.utils.colab_preflight",
         ),
-        (
-            "src.coaching",
-            "src.atom.coaching",
-        ),
     ]
 
     for legacy_name, new_name in module_pairs:
@@ -85,7 +81,23 @@ def test_selected_legacy_utility_wrappers_are_retired():
         repo_root / "src" / "renderer" / "ascii_renderer.py",
         repo_root / "src" / "renderer" / "html_renderer.py",
         repo_root / "src" / "telemetry" / "replay_store.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "debug_gym_env.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "test_fighter_loading.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "test_single_match.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "train_multicore.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "train_population.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "train_population_multi.py",
+        repo_root / "src" / "training" / "pipelines" / "progressive_trainer.py",
+        repo_root / "src" / "registry" / "fighter_registry.py",
+        repo_root / "src" / "coaching" / "coaching_wrapper.py",
     ]
 
     for path in retired_paths:
         assert not path.exists(), f"Retired wrapper still present: {path}"
+
+
+def test_package_level_coaching_exports_match_new_namespace():
+    legacy_module = import_module("src.coaching")
+    new_module = import_module("src.atom.coaching")
+
+    assert legacy_module.CoachingWrapper is new_module.CoachingWrapper

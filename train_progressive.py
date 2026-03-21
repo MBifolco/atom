@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from apps.training.train_progressive import main
-from src.training.pipelines import ProgressiveTrainer
+from src.atom.training.pipelines import ProgressiveTrainer
 
 __all__ = ["ProgressiveTrainer", "main"]
 
