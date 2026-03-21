@@ -3,4 +3,4 @@ set -euo pipefail
 
 # Compatibility wrapper for the Colab bootstrap workflow.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/scripts/colab/bootstrap.sh" "$@"
+exec bash "$SCRIPT_DIR/scripts/colab/bootstrap.sh" "$@"
