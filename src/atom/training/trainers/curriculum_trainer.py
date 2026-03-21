@@ -38,6 +38,7 @@ from .curriculum_components import (
     RecoveryManager,
 )
 from ..utils.nan_detector import NaNDetector
+from ..utils.observability import append_jsonl, ensure_analysis_dir
 
 
 class VmapEnvAdapter(VecEnv):
@@ -339,6 +340,7 @@ class CurriculumTrainer:
         self.models_dir.mkdir(exist_ok=True)
         self.logs_dir = self.output_dir / "logs"
         self.logs_dir.mkdir(exist_ok=True)
+        self.analysis_dir = ensure_analysis_dir(self.output_dir)
 
         # Initialize curriculum
         self.curriculum = self._build_curriculum()
@@ -411,6 +413,11 @@ class CurriculumTrainer:
             seed=self.seed,
         )
         self.level_transition_state_machine = LevelTransitionStateMachine()
+        self._current_level_started_at = time.time()
+        self._current_level_start_total_episodes = 0
+        self._current_level_start_total_wins = 0
+        self._current_level_start_timesteps = 0
+        self._current_level_summary_written = False
 
         # Log override setting
         if self.override_episodes_per_level is not None and self.verbose:
@@ -606,6 +613,116 @@ class CurriculumTrainer:
             return self.curriculum[-1]  # Stay at highest level
         return self.curriculum[self.progress.current_level]
 
+    def _current_model_timesteps(self) -> int:
+        """Return the current model timestep counter when available."""
+        value = getattr(self.model, "num_timesteps", 0)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _begin_level_observation_window(self) -> None:
+        """Reset per-level observability anchors for the active curriculum level."""
+        self._current_level_started_at = time.time()
+        self._current_level_start_total_episodes = int(self.progress.total_episodes)
+        self._current_level_start_total_wins = int(self.progress.total_wins)
+        self._current_level_start_timesteps = self._current_model_timesteps()
+        self._current_level_summary_written = False
+
+    def _build_reward_component_means(self) -> dict[str, float]:
+        """Aggregate recent reward component breakdowns into mean values."""
+        breakdowns = list(getattr(self.progress, "recent_reward_breakdowns", []))
+        if not breakdowns:
+            return {}
+
+        aggregates: dict[str, list[float]] = {}
+        for breakdown in breakdowns:
+            for key, value in breakdown.items():
+                if key == "total":
+                    continue
+                aggregates.setdefault(key, []).append(float(value))
+
+        return {
+            key: float(np.mean(values))
+            for key, values in aggregates.items()
+            if values and abs(float(np.mean(values))) > 0.1
+        }
+
+    def _write_level_summary(self, end_reason: str) -> None:
+        """Append a structured summary for the current curriculum level."""
+        if self._current_level_summary_written:
+            return
+
+        level = self.get_current_level()
+        recent_episodes = list(self.progress.recent_episodes)
+        recent_win_rate = (
+            sum(recent_episodes) / len(recent_episodes)
+            if recent_episodes
+            else None
+        )
+        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+        recent_rewards = list(getattr(self.progress, "recent_rewards", []))
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "level_index": int(self.progress.current_level),
+            "level_name": level.name,
+            "difficulty": level.difficulty.value,
+            "end_reason": end_reason,
+            "episodes_attempted": int(self.progress.episodes_at_level),
+            "wins": int(self.progress.wins_at_level),
+            "overall_win_rate": float(overall_win_rate),
+            "recent_window_size": len(recent_episodes),
+            "recent_win_rate": float(recent_win_rate) if recent_win_rate is not None else None,
+            "level_wall_clock_seconds": float(time.time() - self._current_level_started_at),
+            "timesteps_consumed": self._current_model_timesteps() - self._current_level_start_timesteps,
+            "global_total_episodes": int(self.progress.total_episodes),
+            "global_total_wins": int(self.progress.total_wins),
+            "global_timesteps": self._current_model_timesteps(),
+            "mean_recent_reward": float(np.mean(recent_rewards)) if recent_rewards else None,
+            "reward_component_means": self._build_reward_component_means(),
+            "graduation_recent_win_rate_required": float(level.graduation_win_rate),
+            "graduation_window_episodes": int(level.graduation_episodes),
+            "min_episodes": int(level.min_episodes),
+        }
+        append_jsonl(self.analysis_dir / "level_summaries.jsonl", record)
+        self._current_level_summary_written = True
+
+    def _record_failure_event_payload(self, payload: dict[str, Any]) -> None:
+        """Append a structured failure/recovery event payload."""
+        event = {
+            "timestamp": datetime.now().isoformat(),
+            "current_level": int(self.progress.current_level),
+            "global_timestep": self._current_model_timesteps(),
+            **payload,
+        }
+        append_jsonl(self.analysis_dir / "failure_events.jsonl", event)
+
+    def _record_failure_event(
+        self,
+        *,
+        event_type: str,
+        error_type: str,
+        message: str,
+        recovery_action: str,
+        recovery_succeeded: bool | None,
+        checkpoint_path: Path | None = None,
+        debug_path: Path | None = None,
+        nan_retries: int | None = None,
+    ) -> None:
+        """Convenience wrapper for common structured failure events."""
+        self._record_failure_event_payload(
+            {
+                "event_type": event_type,
+                "error_type": error_type,
+                "message": message,
+                "recovery_action": recovery_action,
+                "recovery_succeeded": recovery_succeeded,
+                "checkpoint_path": str(checkpoint_path) if checkpoint_path else None,
+                "debug_path": str(debug_path) if debug_path else None,
+                "nan_retries": nan_retries,
+            }
+        )
+
     def check_training_sanity_gate(self) -> Optional[str]:
         """Return an abort reason when the Level 1 run is clearly unhealthy."""
         if not self.enable_level1_sanity_gate:
@@ -655,6 +772,7 @@ class CurriculumTrainer:
     def advance_level(self):
         """Advance to the next curriculum level."""
         current = self.get_current_level()
+        self._write_level_summary(end_reason="graduated")
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")
@@ -724,6 +842,8 @@ class CurriculumTrainer:
                     # Use env_method to call set_opponent() on each environment
                     self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
+            self._begin_level_observation_window()
+
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""
         elapsed = time.time() - self.progress.start_time
@@ -784,6 +904,16 @@ class CurriculumTrainer:
     def _log_training_loop_error(self, exc: CurriculumTrainingError):
         """Emit a consistent structured error block for training loop failures."""
         details = exc.details
+        self._record_failure_event(
+            event_type="training_loop_error",
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recovery_action="checkpoint_recovery" if details.checkpoint_path is not None else "abort_run",
+            recovery_succeeded=False,
+            checkpoint_path=details.checkpoint_path,
+            debug_path=details.debug_path,
+            nan_retries=details.nan_retries,
+        )
         self.logger.error("=" * 80)
         self.logger.error("CURRICULUM TRAINING LOOP FAILED")
         self.logger.error("=" * 80)
@@ -891,6 +1021,7 @@ class CurriculumTrainer:
         self.logger.info("Starting curriculum training...")
 
         # Start with first level
+        self._begin_level_observation_window()
         level = self.get_current_level()
         self.logger.info(f"Level 1: {level.name}")
         self.logger.info(f"Description: {level.description}")
@@ -936,8 +1067,10 @@ class CurriculumTrainer:
                 training_state_restorer=lambda state: self._restore_training_state(callback, state),
                 model_update_fn=lambda recovered_model: setattr(self, "model", recovered_model),
                 env_getter=lambda: self.envs,
+                event_recorder=self._record_failure_event_payload,
             )
         except CurriculumTrainingError as exc:
+            self._write_level_summary(end_reason="training_error")
             self._log_training_loop_error(exc)
             raise
         finally:
@@ -945,6 +1078,14 @@ class CurriculumTrainer:
                 self.envs.close()
 
         if self.abort_reason is not None:
+            self._write_level_summary(end_reason="sanity_gate")
+            self._record_failure_event(
+                event_type="sanity_gate_triggered",
+                error_type="RuntimeError",
+                message=self.abort_reason,
+                recovery_action="abort_run",
+                recovery_succeeded=False,
+            )
             self.logger.error("="*80)
             self.logger.error("CURRICULUM SANITY GATE TRIGGERED")
             self.logger.error("="*80)
@@ -956,6 +1097,7 @@ class CurriculumTrainer:
 
         # Check if we graduated at least the first level
         if len(self.progress.graduated_levels) == 0:
+            self._write_level_summary(end_reason="max_budget")
             # Didn't graduate even Level 1
             level = self.curriculum[0]
 
@@ -976,6 +1118,13 @@ class CurriculumTrainer:
             self.logger.error(f"Recent win rate: {current_win_rate:.1%} (need {level.graduation_win_rate:.1%})")
             self.logger.error(f"Required: {level.graduation_win_rate:.1%} win rate over {level.graduation_episodes} episodes")
             self.logger.error("")
+            self._record_failure_event(
+                event_type="max_budget_exhausted",
+                error_type="RuntimeError",
+                message="Curriculum failed to graduate Level 1 within allotted timesteps",
+                recovery_action="increase_budget_or_adjust_config",
+                recovery_succeeded=False,
+            )
             self.logger.error("Suggestions:")
             self.logger.error(f"  - Increase timesteps (current: {total_timesteps:,})")
             self.logger.error(f"  - Try 3-5x more timesteps for Level 1 graduation")

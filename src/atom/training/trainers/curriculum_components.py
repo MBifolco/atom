@@ -531,6 +531,7 @@ class LevelRunner:
         model_update_fn: Optional[Callable[[Any], None]] = None,
         env_getter: Optional[Callable[[], Any]] = None,
         sleep_fn: Optional[Callable[[float], None]] = None,
+        event_recorder: Optional[Callable[[dict[str, Any]], None]] = None,
     ):
         if sleep_fn is None:
             sleep_fn = time.sleep
@@ -619,6 +620,20 @@ class LevelRunner:
                 self.logger.error(f"Error: {exc}")
                 self.logger.error(f"Current level: {current_level}")
                 self.logger.error(f"Total steps: {completed_steps}")
+                if event_recorder is not None:
+                    event_recorder(
+                        {
+                            "event_type": "nan_detected",
+                            "error_type": exc.__class__.__name__,
+                            "message": str(exc),
+                            "current_level": current_level,
+                            "global_timestep": completed_steps,
+                            "nan_retries": nan_retries,
+                            "recovery_action": "checkpoint_recovery" if last_checkpoint else "debug_dump",
+                            "recovery_succeeded": None if last_checkpoint else False,
+                            "checkpoint_path": str(last_checkpoint.model_path) if last_checkpoint else None,
+                        }
+                    )
 
                 if nan_retries < self.recovery_manager.max_retries and last_checkpoint:
                     self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint.model_path}")
@@ -652,6 +667,22 @@ class LevelRunner:
                     if new_lr is not None:
                         self.logger.info(f"Reduced learning rate to: {new_lr}")
 
+                    if event_recorder is not None:
+                        event_recorder(
+                            {
+                                "event_type": "nan_recovery_succeeded",
+                                "error_type": exc.__class__.__name__,
+                                "message": str(exc),
+                                "current_level": current_level,
+                                "global_timestep": completed_steps,
+                                "nan_retries": nan_retries,
+                                "recovery_action": "restore_checkpoint_and_reduce_lr",
+                                "recovery_succeeded": True,
+                                "checkpoint_path": str(last_checkpoint.model_path),
+                                "new_learning_rate": new_lr,
+                            }
+                        )
+
                     disable_sb3_progress_bar = True
                     if progress_bar_disable_reason is None:
                         progress_bar_disable_reason = (
@@ -676,6 +707,20 @@ class LevelRunner:
                     nan_retries=nan_retries,
                 )
                 self.logger.error(f"Debug info saved to: {debug_path}")
+                if event_recorder is not None:
+                    event_recorder(
+                        {
+                            "event_type": "nan_recovery_failed",
+                            "error_type": exc.__class__.__name__,
+                            "message": str(exc),
+                            "current_level": current_level,
+                            "global_timestep": completed_steps,
+                            "nan_retries": nan_retries,
+                            "recovery_action": "write_debug_dump_and_abort",
+                            "recovery_succeeded": False,
+                            "debug_path": str(debug_path),
+                        }
+                    )
                 details = TrainingErrorDetails(
                     level=current_level,
                     completed_steps=completed_steps,

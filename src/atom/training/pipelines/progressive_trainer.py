@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.atom.training.utils.determinism import set_global_seeds
+from src.atom.training.utils.observability import build_run_manifest, ensure_analysis_dir, write_json
 from src.atom.training.utils.runtime_platform import configure_runtime_gpu_env
 
 # Configure CUDA/ROCm/CPU defaults before importing modules that may touch JAX.
@@ -94,6 +95,7 @@ class ProgressiveTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.curriculum_dir = self.output_dir / "curriculum"
         self.population_dir = self.output_dir / "population"
+        self.analysis_dir = ensure_analysis_dir(self.output_dir)
 
         # Training components
         self.curriculum_trainer = None
@@ -101,6 +103,36 @@ class ProgressiveTrainer:
 
         # Timestamp for this training run
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    def _write_run_manifest(self, phase: str, extra_config: dict | None = None) -> Path:
+        """Persist the current run manifest for later comparison/debugging."""
+        training_config = {
+            "phase": phase,
+            "algorithm": self.algorithm,
+            "device": self.device,
+            "use_vmap": self.use_vmap,
+            "population_cpu_only": self.population_cpu_only,
+            "n_parallel_fighters": self.n_parallel_fighters,
+            "n_envs": self.n_envs,
+            "max_ticks": self.max_ticks,
+            "record_replays": self.record_replays,
+            "replay_frequency": self.replay_frequency,
+            "override_episodes_per_level": self.override_episodes_per_level,
+            "checkpoint_interval": self.checkpoint_interval,
+            "seed": self.seed,
+            "timestamp": self.timestamp,
+            "runtime_platform": DETECTED_RUNTIME_PLATFORM,
+        }
+        if extra_config:
+            training_config.update(extra_config)
+
+        manifest = build_run_manifest(
+            repo_root=PROJECT_ROOT,
+            output_dir=self.output_dir,
+            training_config=training_config,
+            seed_report=self.seed_report,
+        )
+        return write_json(self.analysis_dir / "run_manifest.json", manifest)
 
     def run_curriculum_training(self,
                               timesteps: int = 500_000,
@@ -117,6 +149,15 @@ class ProgressiveTrainer:
         Returns:
             Path to the trained model
         """
+        self._write_run_manifest(
+            phase="curriculum",
+            extra_config={
+                "curriculum_timesteps": timesteps,
+                "curriculum_resume_from_latest": resume_from_latest,
+                "curriculum_n_envs_requested": n_envs,
+            },
+        )
+
         # Use instance n_envs if not overridden, otherwise set default based on vmap usage
         if n_envs is None:
             if self.n_envs is not None:
@@ -413,6 +454,20 @@ class ProgressiveTrainer:
             population_size: Size of the population
             episodes_per_generation: Training episodes per generation
         """
+        self._write_run_manifest(
+            phase="complete_pipeline",
+            extra_config={
+                "curriculum_timesteps": curriculum_timesteps,
+                "population_generations": population_generations,
+                "population_size": population_size,
+                "episodes_per_generation": episodes_per_generation,
+                "keep_top": keep_top,
+                "evolution_frequency": evolution_frequency,
+                "mutation_rate": mutation_rate,
+                "resume_curriculum": resume_curriculum,
+            },
+        )
+
         if self.verbose:
             print("\n" + "🚀"*40)
             print("STARTING PROGRESSIVE TRAINING PIPELINE")

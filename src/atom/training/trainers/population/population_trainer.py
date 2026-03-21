@@ -11,6 +11,7 @@ from typing import List, Dict, Optional, Callable, Tuple, Any
 import logging
 from datetime import datetime
 import random
+import time
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
@@ -24,6 +25,7 @@ from stable_baselines3.common.monitor import Monitor
 from src.atom.runtime.arena import WorldConfig
 from src.atom.training.gym_env import AtomCombatEnv
 from src.atom.training.signal_engine import build_observation_from_snapshot
+from src.atom.training.utils.observability import append_jsonl, ensure_analysis_dir
 from src.atom.training.utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
 from .population_evaluation import EvaluationContext, PopulationEvaluationService
@@ -849,6 +851,7 @@ class PopulationTrainer:
         self.models_dir.mkdir(exist_ok=True)
         self.logs_dir = self.output_dir / "logs"
         self.logs_dir.mkdir(exist_ok=True)
+        self.analysis_dir = ensure_analysis_dir(self.output_dir)
 
         # Initialize population
         self.population: List[PopulationFighter] = []
@@ -1367,6 +1370,14 @@ class PopulationTrainer:
                     exported_count += 1
                 except Exception as e:
                     self.logger.error(f"Failed to export {fighter.name}: {e}")
+                    self._record_export_failure(
+                        fighter_name=fighter.name,
+                        export_target=str(ais_dir / fighter.name),
+                        exception=e,
+                        training_artifacts_saved=True,
+                        win_rate=win_rate,
+                        elo=float(stats.elo),
+                    )
                     if self.verbose:
                         print(f"  ⚠️  Failed to export {fighter.name}: {e}")
 
@@ -1412,6 +1423,105 @@ class PopulationTrainer:
         """Create a README.md file with fighter stats and usage info."""
         persistence = self._build_population_persistence_service()
         persistence.create_fighter_readme(fighter, stats, win_rate, output_path)
+
+    def _active_rankings_for_names(self, fighter_names: list[str]) -> list[Any]:
+        """Return Elo rankings restricted to the provided fighter names."""
+        active_names = set(fighter_names)
+        return [stats for stats in self.elo_tracker.get_rankings() if stats.name in active_names]
+
+    def _top_active_stats(self, fighter_names: list[str]):
+        """Return the current top-ranked active fighter stats, if any."""
+        rankings = self._active_rankings_for_names(fighter_names)
+        return rankings[0] if rankings else None
+
+    def _append_generation_summary(
+        self,
+        *,
+        generation: int,
+        pre_population_names: list[str],
+        post_population_names: list[str],
+        champion_before,
+        champion_after,
+        results: list[dict],
+        episodes_per_fighter: int,
+        training_seconds: float,
+        evaluation_seconds: float,
+        saving_seconds: float,
+    ) -> None:
+        """Persist a structured generation summary for later comparison."""
+        total_episodes = sum(int(result.get("episodes", 0)) for result in results)
+        mean_reward_overall = (
+            float(np.mean([result["mean_reward"] for result in results]))
+            if results
+            else None
+        )
+        survivor_names = sorted(set(pre_population_names) & set(post_population_names))
+        child_names = sorted(set(post_population_names) - set(pre_population_names))
+        generation_record = {
+            "timestamp": datetime.now().isoformat(),
+            "generation": int(generation),
+            "population_size": len(post_population_names),
+            "episodes_per_fighter_target": int(episodes_per_fighter),
+            "total_episodes_completed": int(total_episodes),
+            "training_wall_clock_seconds": float(training_seconds),
+            "evaluation_wall_clock_seconds": float(evaluation_seconds),
+            "saving_wall_clock_seconds": float(saving_seconds),
+            "total_generation_wall_clock_seconds": float(training_seconds + evaluation_seconds + saving_seconds),
+            "active_population_before_evolution": list(pre_population_names),
+            "active_population_after_evolution": list(post_population_names),
+            "survivor_names": survivor_names,
+            "survivor_count_carried_forward": len(survivor_names),
+            "child_names": child_names,
+            "child_count_introduced": len(child_names),
+            "champion_before_training": getattr(champion_before, "name", None),
+            "champion_before_training_elo": float(champion_before.elo) if champion_before is not None else None,
+            "champion_after_evaluation": getattr(champion_after, "name", None),
+            "champion_after_evaluation_elo": float(champion_after.elo) if champion_after is not None else None,
+            "champion_turnover": (
+                champion_before is not None
+                and champion_after is not None
+                and champion_before.name != champion_after.name
+            ),
+            "total_matches_so_far": int(self.total_matches),
+            "mean_reward_overall": mean_reward_overall,
+            "fighter_results": [
+                {
+                    "fighter": result.get("fighter"),
+                    "episodes": int(result.get("episodes", 0)),
+                    "mean_reward": float(result.get("mean_reward", 0.0)),
+                    "opponent_names": list(result.get("opponent_names", [])),
+                }
+                for result in results
+            ],
+            "diversity_metrics": self.elo_tracker.get_diversity_metrics(),
+        }
+        append_jsonl(self.analysis_dir / "generation_summary.jsonl", generation_record)
+
+    def _record_export_failure(
+        self,
+        *,
+        fighter_name: str,
+        export_target: str,
+        exception: Exception,
+        training_artifacts_saved: bool,
+        win_rate: float | None = None,
+        elo: float | None = None,
+    ) -> None:
+        """Persist structured export failure details without interrupting training."""
+        append_jsonl(
+            self.analysis_dir / "export_failures.jsonl",
+            {
+                "timestamp": datetime.now().isoformat(),
+                "generation": int(self.generation),
+                "fighter_name": fighter_name,
+                "export_target": export_target,
+                "exception_type": exception.__class__.__name__,
+                "exception_message": str(exception),
+                "training_artifacts_saved": bool(training_artifacts_saved),
+                "win_rate": float(win_rate) if win_rate is not None else None,
+                "elo": float(elo) if elo is not None else None,
+            },
+        )
 
     def _build_training_loop_context(
         self,
@@ -1471,25 +1581,32 @@ class PopulationTrainer:
         # Training loop
         for gen in range(generations):
             loop_helper.log_generation_header(current_generation=self.generation + 1)
+            pre_population_names = [fighter.name for fighter in self.population]
+            champion_before = self._top_active_stats(pre_population_names)
 
             # Create matchmaking pairs
             pairs = self.create_matchmaking_pairs()
 
             # Prepare fighter-opponent pairs for parallel training
             fighter_opponent_pairs = loop_helper.build_fighter_opponent_pairs(self.population, pairs)
+            episodes_per_fighter = episodes_per_generation // len(self.population)
 
             # Train all fighters in parallel
             loop_helper.log_generation_training_start(population_size=len(self.population))
-
+            training_started_at = time.time()
             results = self.train_fighters_parallel(
                 fighter_opponent_pairs,
-                episodes_per_fighter=episodes_per_generation // len(self.population)
+                episodes_per_fighter=episodes_per_fighter
             )
+            training_seconds = time.time() - training_started_at
 
             loop_helper.log_generation_training_summary(results)
 
             # Evaluation matches
+            evaluation_started_at = time.time()
             self.run_evaluation_matches(num_matches_per_pair=3)
+            evaluation_seconds = time.time() - evaluation_started_at
+            champion_after = self._top_active_stats(pre_population_names)
 
             # Record replays if enabled (based on frequency)
             loop_helper.maybe_record_replays(
@@ -1506,8 +1623,24 @@ class PopulationTrainer:
             if loop_helper.should_evolve(gen):
                 self.evolve_population(keep_top=keep_top, mutation_rate=mutation_rate)
 
+            post_population_names = [fighter.name for fighter in self.population]
+
             # Save checkpoint
+            save_started_at = time.time()
             self.save_population()
+            saving_seconds = time.time() - save_started_at
+            self._append_generation_summary(
+                generation=self.generation,
+                pre_population_names=pre_population_names,
+                post_population_names=post_population_names,
+                champion_before=champion_before,
+                champion_after=champion_after,
+                results=results,
+                episodes_per_fighter=episodes_per_fighter,
+                training_seconds=training_seconds,
+                evaluation_seconds=evaluation_seconds,
+                saving_seconds=saving_seconds,
+            )
 
             self.generation += 1
 
