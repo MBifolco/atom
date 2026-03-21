@@ -12,7 +12,7 @@
 > - shared training modules and the population package now live behind `src/atom/training/...` with alias-based legacy module compatibility
 > - coaching utilities now live behind `src/atom/coaching/...` with legacy aliases
 > - guardrail tests now enforce alias behavior and preferred `src.atom.*` imports across current repo surfaces
-> - utility modules now live under `src.atom.training.utils.*` with legacy aliases back from `src.training.utils.*`
+> - utility modules now live under `src.atom.training.utils.*`; low-value legacy wrappers are being retired once current surfaces stop referencing them
 > - broader no-cov smoke coverage now includes training-tier baseline tests, CLI help surfaces, web app import, and both new/legacy Colab preflight entrypoints
 >
 > Purpose: make the architecture visible in the repository layout without breaking the working training, Colab, and CLI flows we rely on today.

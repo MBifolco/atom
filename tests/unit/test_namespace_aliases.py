@@ -2,6 +2,8 @@
 
 from importlib import import_module
 
+from pathlib import Path
+
 
 def test_legacy_runtime_and_training_modules_alias_new_modules():
     module_pairs = [
@@ -18,16 +20,8 @@ def test_legacy_runtime_and_training_modules_alias_new_modules():
             "src.atom.training.trainers.curriculum_trainer",
         ),
         (
-            "src.training.utils.baseline_harness",
-            "src.atom.training.utils.baseline_harness",
-        ),
-        (
             "src.training.utils.colab_preflight",
             "src.atom.training.utils.colab_preflight",
-        ),
-        (
-            "src.training.utils.determinism",
-            "src.atom.training.utils.determinism",
         ),
         (
             "src.coaching",
@@ -69,3 +63,17 @@ def test_patching_legacy_module_updates_new_curriculum_trainer(monkeypatch):
     monkeypatch.setattr(legacy_module, "PPO", sentinel)
 
     assert new_module.PPO is sentinel
+
+
+def test_selected_legacy_utility_wrappers_are_retired():
+    repo_root = Path(__file__).resolve().parents[2]
+    retired_paths = [
+        repo_root / "src" / "training" / "utils" / "baseline_harness.py",
+        repo_root / "src" / "training" / "utils" / "determinism.py",
+        repo_root / "src" / "training" / "utils" / "nan_detector.py",
+        repo_root / "src" / "training" / "utils" / "stable_ppo.py",
+        repo_root / "src" / "training" / "utils" / "stable_ppo_config.py",
+    ]
+
+    for path in retired_paths:
+        assert not path.exists(), f"Retired wrapper still present: {path}"

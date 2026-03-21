@@ -9,6 +9,9 @@ CURRENT_SURFACE_PATHS = [
     PROJECT_ROOT / "docs" / "README.md",
     PROJECT_ROOT / "docs" / "PLATFORM_ARCHITECTURE.md",
     PROJECT_ROOT / "docs" / "BOXING_COMBAT_SYSTEM.md",
+    PROJECT_ROOT / "docs" / "COLAB_SETUP.md",
+    PROJECT_ROOT / "docs" / "COLAB_VALIDATION_CHECKLIST.md",
+    PROJECT_ROOT / "docs" / "LOCAL_TESTING_WORKFLOW.md",
     PROJECT_ROOT / "docs" / "PROGRESSIVE_TRAINING.md",
     PROJECT_ROOT / "docs" / "QUICK_REFERENCE.md",
     PROJECT_ROOT / "docs" / "REPLAY_MONTAGE.md",
@@ -16,11 +19,12 @@ CURRENT_SURFACE_PATHS = [
     PROJECT_ROOT / "docs" / "REPO_REORGANIZATION_PLAN.md",
     PROJECT_ROOT / "scripts" / "README.md",
     PROJECT_ROOT / "web" / "README.md",
+    PROJECT_ROOT / "notebooks" / "Atom_Training_Colab.ipynb",
     PROJECT_ROOT / "apps",
     PROJECT_ROOT / "scripts",
     PROJECT_ROOT / "web",
 ]
-TEXT_SUFFIXES = {".py", ".md", ".txt", ".sh"}
+TEXT_SUFFIXES = {".py", ".md", ".txt", ".sh", ".ipynb"}
 LEGACY_IMPORT_PREFIXES = (
     "from src.arena",
     "from src.protocol",

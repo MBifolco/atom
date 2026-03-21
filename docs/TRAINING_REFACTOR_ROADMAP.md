@@ -211,7 +211,7 @@ Exit criteria:
 - Minimal manual intervention to run milestone validation in Colab.
 
 Phase 5 status (updated 2026-03-19):
-- Completed (slice 1): added Colab runtime preflight utility (`src.training.utils.colab_preflight`) with actionable stage-specific diagnostics for bootstrap/smoke/full/resume workflows.
+- Completed (slice 1): added Colab runtime preflight utility (`src.atom.training.utils.colab_preflight`) with actionable stage-specific diagnostics for bootstrap/smoke/full/resume workflows.
 - Completed (slice 1): added local unit coverage for preflight behavior (`tests/unit/test_colab_preflight.py`) to keep Colab checks verifiable outside Colab.
 - Completed (slice 2): updated Colab notebook workflow (`notebooks/Atom_Training_Colab.ipynb`) with:
   - stable environment defaults (without overriding user-set values)

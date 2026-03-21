@@ -15,7 +15,7 @@ class TestPPOStability:
 
     def test_stable_ppo_initialization(self):
         """Test that PPO initializes with stable settings."""
-        from src.training.utils.stable_ppo import create_stable_ppo
+        from src.atom.training.utils.stable_ppo import create_stable_ppo
         from src.training.gym_env import AtomCombatEnv
 
         env = DummyVecEnv([lambda: AtomCombatEnv(
@@ -67,7 +67,7 @@ class TestPPOStability:
 
     def test_gradient_monitoring(self):
         """Test gradient monitoring to catch issues early."""
-        from src.training.utils.stable_ppo import GradientMonitor
+        from src.atom.training.utils.stable_ppo import GradientMonitor
 
         # Create a simple network
         net = torch.nn.Sequential(
@@ -96,7 +96,7 @@ class TestPPOStability:
 
     def test_adaptive_learning_rate(self):
         """Test adaptive learning rate scheduling."""
-        from src.training.utils.stable_ppo import AdaptiveLRSchedule
+        from src.atom.training.utils.stable_ppo import AdaptiveLRSchedule
 
         initial_lr = 1e-4
         schedule = AdaptiveLRSchedule(initial_lr)

@@ -12,10 +12,10 @@ final check, not part of the daily inner loop.
 Preflight commands (also used by the notebook):
 
 ```bash
-python -m src.training.utils.colab_preflight --stage bootstrap --strict
-python -m src.training.utils.colab_preflight --stage smoke --output-dir /content/drive/MyDrive/atom_runs/quick_test --require-gpu --strict
-python -m src.training.utils.colab_preflight --stage full --output-dir /content/drive/MyDrive/atom_runs/run1 --require-gpu --strict
-python -m src.training.utils.colab_preflight --stage resume --checkpoint-dir /content/drive/MyDrive/atom_runs/run1 --require-gpu --strict
+python -m src.atom.training.utils.colab_preflight --stage bootstrap --strict
+python -m src.atom.training.utils.colab_preflight --stage smoke --output-dir /content/drive/MyDrive/atom_runs/quick_test --require-gpu --strict
+python -m src.atom.training.utils.colab_preflight --stage full --output-dir /content/drive/MyDrive/atom_runs/run1 --require-gpu --strict
+python -m src.atom.training.utils.colab_preflight --stage resume --checkpoint-dir /content/drive/MyDrive/atom_runs/run1 --require-gpu --strict
 ```
 
 ## Gate A: End of Phase 1 (Signal Parity)

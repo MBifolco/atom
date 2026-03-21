@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.training.utils.baseline_harness import BaselineRunConfig
+from src.atom.training.utils.baseline_harness import BaselineRunConfig
 
 
 def test_baseline_command_includes_requested_overrides(tmp_path: Path):

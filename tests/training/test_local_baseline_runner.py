@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from src.training.utils.baseline_harness import BaselineRunConfig, run_baseline
+from src.atom.training.utils.baseline_harness import BaselineRunConfig, run_baseline
 
 
 def test_run_baseline_writes_log_and_metadata(monkeypatch, tmp_path: Path):

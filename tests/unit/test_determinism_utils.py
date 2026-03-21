@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 
-from src.training.utils.determinism import build_seeded_env, set_global_seeds
+from src.atom.training.utils.determinism import build_seeded_env, set_global_seeds
 
 
 def test_set_global_seeds_reproducible_python_and_numpy():

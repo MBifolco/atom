@@ -139,7 +139,7 @@ self.envs = VecNormalize(
 rewards = np.clip(rewards, -1000.0, 1000.0)
 ```
 
-3. **`src/training/utils/stable_ppo_config.py`**
+3. **`src/atom/training/utils/stable_ppo_config.py`**
 ```python
 def get_stable_ppo_config():
     return {

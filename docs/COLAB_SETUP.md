@@ -38,7 +38,7 @@ The root script is a compatibility wrapper; the implementation now lives at `scr
 Notes:
 - `ATOM_REPO_URL` is required only when Drive cache does not exist yet.
 - The script updates your Drive cache (`git pull`) then syncs to `/content/atom`.
-- The script runs a bootstrap preflight (`src.training.utils.colab_preflight`) unless `ATOM_SKIP_PREFLIGHT=1`.
+- The script runs a bootstrap preflight (`src.atom.training.utils.colab_preflight`) unless `ATOM_SKIP_PREFLIGHT=1`.
 - CUDA JAX install is enabled by default (`ATOM_INSTALL_JAX_CUDA=1`).
 - JAX CUDA is pinned to a known working version by default (`ATOM_JAX_VERSION=0.7.2`).
 
@@ -47,7 +47,7 @@ Notes:
 Run preflight before long jobs:
 
 ```bash
-python -m src.training.utils.colab_preflight --stage smoke --output-dir /content/drive/MyDrive/atom_runs/quick_test --require-gpu --strict
+python -m src.atom.training.utils.colab_preflight --stage smoke --output-dir /content/drive/MyDrive/atom_runs/quick_test --require-gpu --strict
 ```
 
 Other stages:

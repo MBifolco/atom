@@ -32,7 +32,7 @@ cd "$PROJECT_ROOT"
 if [[ "$SKIP_PREFLIGHT" != "1" ]]; then
   echo "Running bootstrap preflight checks..."
   PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-    python -u -m src.training.utils.colab_preflight --stage bootstrap --strict
+    python -u -m src.atom.training.utils.colab_preflight --stage bootstrap --strict
 fi
 
 if [[ ! -d "/content/drive" ]]; then
