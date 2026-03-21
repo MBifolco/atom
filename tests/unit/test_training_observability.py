@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from src.atom.training.trainers.curriculum_trainer import CurriculumTrainer
+from src.atom.training.trainers.population.population_evolution import LineageEvent
 from src.atom.training.trainers.population.population_trainer import PopulationFighter, PopulationTrainer
 from src.atom.training.utils.observability import append_jsonl, build_run_manifest, write_json
 
@@ -74,6 +75,52 @@ def test_curriculum_trainer_writes_level_summary_and_failure_event():
         assert failure_records[0]["recovery_action"] == "abort_run"
 
 
+def test_curriculum_trainer_writes_holdout_eval_record(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        trainer = CurriculumTrainer(output_dir=tmpdir, verbose=False)
+        trainer.model = SimpleNamespace(num_timesteps=9876)
+        trainer.progress.current_level = 1
+        trainer.progress.total_episodes = 345
+        monkeypatch.setattr(
+            trainer,
+            "_get_holdout_suite",
+            lambda: [
+                {
+                    "category": "movement",
+                    "label": "holdout_a",
+                    "opponent_path": "fighters/test_dummies/atomic/approach_slow.py",
+                },
+                {
+                    "category": "expert",
+                    "label": "holdout_b",
+                    "opponent_path": "fighters/examples/boxer.py",
+                },
+            ],
+        )
+        monkeypatch.setattr(
+            trainer,
+            "_run_holdout_match",
+            lambda opponent_path, env_id=0: {
+                "won": opponent_path.endswith("approach_slow.py"),
+                "damage_dealt": 12.0 + env_id,
+                "damage_taken": 3.0,
+                "fight_length": 42,
+                "reward": 7.5,
+            },
+        )
+
+        trainer._evaluate_holdout_suite("level_2_basic_skills_graduated")
+
+        holdout_records = _read_jsonl(Path(tmpdir) / "analysis" / "holdout_eval.jsonl")
+        assert len(holdout_records) == 1
+        assert holdout_records[0]["checkpoint_label"] == "level_2_basic_skills_graduated"
+        assert holdout_records[0]["level_name"] == "Basic Skills"
+        assert holdout_records[0]["overall_matches"] == 2
+        assert holdout_records[0]["overall_wins"] == 1
+        assert len(holdout_records[0]["suite_results"]) == 2
+        assert holdout_records[0]["suite_results"][0]["opponent"] == "holdout_a"
+
+
 def test_population_trainer_writes_generation_summary_and_export_failure():
     with TemporaryDirectory() as tmpdir:
         trainer = PopulationTrainer(output_dir=tmpdir, verbose=False, use_vmap=False, population_size=2)
@@ -123,3 +170,37 @@ def test_population_trainer_writes_generation_summary_and_export_failure():
         assert len(export_failures) == 1
         assert export_failures[0]["fighter_name"] == "Alpha"
         assert export_failures[0]["exception_type"] == "RuntimeError"
+
+        trainer._append_lineage_events(
+            generation=1,
+            lineage_events=[
+                LineageEvent(
+                    generation=1,
+                    child_name="Bravo_G1",
+                    child_generation=1,
+                    parent_name="Alpha",
+                    replaced_fighter_name="Bravo",
+                    parent_elo_at_mutation=1525.0,
+                    child_mass=72.5,
+                    replaced_generation=0,
+                )
+            ],
+            active_population_names=["Alpha", "Bravo_G1"],
+        )
+        trainer._append_current_leaderboard_snapshot(
+            generation=1,
+            active_population_names=["Alpha", "Bravo_G1"],
+            new_child_names={"Bravo_G1"},
+        )
+
+        lineage_records = _read_jsonl(Path(tmpdir) / "analysis" / "lineage_events.jsonl")
+        assert len(lineage_records) == 1
+        assert lineage_records[0]["child_name"] == "Bravo_G1"
+        assert lineage_records[0]["parent_name"] == "Alpha"
+
+        leaderboard_records = _read_jsonl(Path(tmpdir) / "analysis" / "current_leaderboard.jsonl")
+        assert len(leaderboard_records) == 2
+        assert any(
+            record["fighter_name"] == "Bravo_G1" and record["status_in_generation"] == "new_child"
+            for record in leaderboard_records
+        )

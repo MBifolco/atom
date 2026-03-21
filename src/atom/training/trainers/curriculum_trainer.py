@@ -418,6 +418,7 @@ class CurriculumTrainer:
         self._current_level_start_total_wins = 0
         self._current_level_start_timesteps = 0
         self._current_level_summary_written = False
+        self.holdout_matches_per_opponent = 1
 
         # Log override setting
         if self.override_episodes_per_level is not None and self.verbose:
@@ -613,6 +614,116 @@ class CurriculumTrainer:
             return self.curriculum[-1]  # Stay at highest level
         return self.curriculum[self.progress.current_level]
 
+    def _get_holdout_suite(self) -> List[Dict[str, str]]:
+        """Return the fixed lightweight curriculum holdout suite."""
+        test_dummy_dir = Path("fighters/test_dummies/atomic")
+        example_dir = Path("fighters/examples")
+        return [
+            {"category": "stationary", "label": "stationary_neutral", "opponent_path": str(test_dummy_dir / "stationary_neutral.py")},
+            {"category": "stationary", "label": "stationary_defending", "opponent_path": str(test_dummy_dir / "stationary_defending.py")},
+            {"category": "movement", "label": "approach_slow", "opponent_path": str(test_dummy_dir / "approach_slow.py")},
+            {"category": "movement", "label": "circle_right", "opponent_path": str(test_dummy_dir / "circle_right.py")},
+            {"category": "spacing", "label": "distance_keeper_1m", "opponent_path": str(test_dummy_dir / "distance_keeper_1m.py")},
+            {"category": "spacing", "label": "charge_on_approach", "opponent_path": str(test_dummy_dir / "charge_on_approach.py")},
+            {"category": "advanced", "label": "aggressive_stance_switcher", "opponent_path": str(test_dummy_dir / "aggressive_stance_switcher.py")},
+            {"category": "advanced", "label": "retreater", "opponent_path": str(test_dummy_dir / "retreater.py")},
+            {"category": "expert", "label": "boxer", "opponent_path": str(example_dir / "boxer.py")},
+            {"category": "expert", "label": "slugger", "opponent_path": str(example_dir / "slugger.py")},
+        ]
+
+    def _run_holdout_match(self, opponent_path: str, env_id: int = 0) -> dict[str, Any]:
+        """Run a single deterministic holdout match for the current model."""
+        env = self.create_env(opponent_path, env_id=env_id)
+        try:
+            obs, _ = env.reset()
+            done = False
+            info: dict[str, Any] = {}
+            total_reward = 0.0
+            fight_length = 0
+
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, info = env.step(action)
+                total_reward += float(reward)
+                fight_length += 1
+                done = bool(terminated or truncated)
+
+            fighter_hp = float(info.get("fighter_hp", 0.0))
+            opponent_hp = float(info.get("opponent_hp", 0.0))
+            won = info.get("won")
+            if won is None:
+                won = fighter_hp > opponent_hp
+
+            return {
+                "won": bool(won),
+                "damage_dealt": float(info.get("episode_damage_dealt", 0.0)),
+                "damage_taken": float(info.get("episode_damage_taken", 0.0)),
+                "fight_length": int(fight_length),
+                "reward": float(total_reward),
+            }
+        finally:
+            env.close()
+
+    def _evaluate_holdout_suite(self, checkpoint_label: str, matches_per_opponent: int | None = None) -> None:
+        """Evaluate the current curriculum model on the fixed holdout suite."""
+        if self.model is None:
+            return
+
+        if matches_per_opponent is None:
+            matches_per_opponent = self.holdout_matches_per_opponent
+
+        suite_results: list[dict[str, Any]] = []
+        for suite_entry in self._get_holdout_suite():
+            match_results = [
+                self._run_holdout_match(suite_entry["opponent_path"], env_id=match_idx)
+                for match_idx in range(matches_per_opponent)
+            ]
+            wins = sum(1 for result in match_results if result["won"])
+            suite_results.append(
+                {
+                    "category": suite_entry["category"],
+                    "opponent": suite_entry["label"],
+                    "opponent_path": suite_entry["opponent_path"],
+                    "matches": len(match_results),
+                    "wins": wins,
+                    "win_rate": wins / max(1, len(match_results)),
+                    "mean_damage_dealt": float(np.mean([result["damage_dealt"] for result in match_results])),
+                    "mean_damage_taken": float(np.mean([result["damage_taken"] for result in match_results])),
+                    "mean_fight_length": float(np.mean([result["fight_length"] for result in match_results])),
+                    "mean_reward": float(np.mean([result["reward"] for result in match_results])),
+                }
+            )
+
+        overall_matches = sum(result["matches"] for result in suite_results)
+        overall_wins = sum(result["wins"] for result in suite_results)
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "checkpoint_label": checkpoint_label,
+            "level_index": int(self.progress.current_level),
+            "level_name": self.get_current_level().name,
+            "global_timestep": self._current_model_timesteps(),
+            "global_total_episodes": int(self.progress.total_episodes),
+            "overall_matches": overall_matches,
+            "overall_wins": overall_wins,
+            "overall_win_rate": overall_wins / max(1, overall_matches),
+            "suite_results": suite_results,
+        }
+        append_jsonl(self.analysis_dir / "holdout_eval.jsonl", record)
+
+    def _record_holdout_evaluation(self, checkpoint_label: str) -> None:
+        """Run and record holdout evaluation without derailing training on failure."""
+        try:
+            self._evaluate_holdout_suite(checkpoint_label)
+        except Exception as exc:
+            self.logger.warning(f"Holdout evaluation failed for {checkpoint_label}: {exc}")
+            self._record_failure_event(
+                event_type="holdout_evaluation_failed",
+                error_type=exc.__class__.__name__,
+                message=str(exc),
+                recovery_action="skip_holdout_and_continue",
+                recovery_succeeded=False,
+            )
+
     def _current_model_timesteps(self) -> int:
         """Return the current model timestep counter when available."""
         value = getattr(self.model, "num_timesteps", 0)
@@ -773,6 +884,11 @@ class CurriculumTrainer:
         """Advance to the next curriculum level."""
         current = self.get_current_level()
         self._write_level_summary(end_reason="graduated")
+        checkpoint_label = (
+            f"level_{self.progress.current_level + 1}_"
+            f"{current.name.lower().replace(' ', '_')}_graduated"
+        )
+        self._record_holdout_evaluation(checkpoint_label)
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")

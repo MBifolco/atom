@@ -45,6 +45,20 @@ class EvolutionSelection:
     to_replace: List[PopulationFighterProtocol]
 
 
+@dataclass(frozen=True)
+class LineageEvent:
+    """Structured record for one parent-child replacement during evolution."""
+
+    generation: int
+    child_name: str
+    child_generation: int
+    parent_name: str
+    replaced_fighter_name: str
+    parent_elo_at_mutation: float | None
+    child_mass: float
+    replaced_generation: int
+
+
 class PopulationEvolver:
     """Selection + mutation lifecycle for population-based training."""
 
@@ -59,7 +73,7 @@ class PopulationEvolver:
         mutation_rate: float,
         create_fighter_name: Callable[[int, int], str],
         fighter_factory: Callable[..., PopulationFighterProtocol],
-    ) -> None:
+    ) -> List[LineageEvent]:
         """
         Evolve the population by replacing lower-ranked fighters with mutated children.
         """
@@ -74,11 +88,14 @@ class PopulationEvolver:
             print(f"  Keeping top {len(selection.survivors)} fighters")
             print(f"  Replacing {len(selection.to_replace)} fighters")
 
+        rankings = elo_tracker.get_rankings()
+        lineage_events: list[LineageEvent] = []
         for old_fighter in selection.to_replace:
             parent = random.choice(selection.survivors)
             population_index = population.index(old_fighter)
             new_name = create_fighter_name(population_index, self.context.generation)
             new_mass = self._sample_child_mass(parent.mass)
+            parent_stats = next((stats for stats in rankings if stats.name == parent.name), None)
             new_model = self._clone_and_mutate_model(
                 parent=parent,
                 new_mass=new_mass,
@@ -96,11 +113,24 @@ class PopulationEvolver:
             population[population_index] = new_fighter
             elo_tracker.remove_fighter(old_fighter.name)
             elo_tracker.add_fighter(new_name)
+            lineage_events.append(
+                LineageEvent(
+                    generation=self.context.generation,
+                    child_name=new_name,
+                    child_generation=self.context.generation,
+                    parent_name=parent.name,
+                    replaced_fighter_name=old_fighter.name,
+                    parent_elo_at_mutation=float(parent_stats.elo) if parent_stats is not None else None,
+                    child_mass=float(new_mass),
+                    replaced_generation=int(getattr(old_fighter, "generation", 0)),
+                )
+            )
 
             if self.context.verbose:
                 print(f"    Replaced {old_fighter.name} with {new_name} (child of {parent.name})")
 
         self.context.logger.info(f"Evolved to generation {self.context.generation}")
+        return lineage_events
 
     def _select_survivors(
         self,

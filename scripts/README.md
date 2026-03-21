@@ -9,6 +9,7 @@ When touching or adding scripts, prefer `src.atom.*` imports. Legacy `src.*` imp
 
 - `analysis/`
   - `analyze_population_progress.py`: summarize Elo/diversity trends from a population run
+  - `summarize_training_observability.py`: summarize run manifest, curriculum holdouts, generation summaries, lineage, and leaderboard snapshots
 - `training/`
   - `build_registry.py`: rebuild fighter registry metadata from `fighters/`
   - `run_local_baseline.py`: deterministic local baseline training harness
@@ -30,6 +31,7 @@ When touching or adding scripts, prefer `src.atom.*` imports. Legacy `src.*` imp
 
 ```bash
 python scripts/analysis/analyze_population_progress.py outputs/progressive_YYYYMMDD_HHMMSS
+python scripts/analysis/summarize_training_observability.py /content/drive/MyDrive/atom_runs/run1
 python scripts/training/run_local_baseline.py --mode curriculum --timesteps 10000
 python scripts/montage/render_replays.py --run-dir outputs/progressive_YYYYMMDD_HHMMSS
 bash scripts/colab/bootstrap.sh

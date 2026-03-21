@@ -29,7 +29,7 @@ from src.atom.training.utils.observability import append_jsonl, ensure_analysis_
 from src.atom.training.utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
 from .population_evaluation import EvaluationContext, PopulationEvaluationService
-from .population_evolution import EvolutionContext, PopulationEvolver
+from .population_evolution import EvolutionContext, LineageEvent, PopulationEvolver
 from .population_persistence import PopulationPersistenceContext, PopulationPersistenceService
 from .population_training_loop import PopulationTrainingLoopContext, PopulationTrainingLoopHelper
 from .parallel_orchestrator import (
@@ -1249,7 +1249,7 @@ class PopulationTrainer:
             logger=self.logger,
         )
 
-    def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> None:
+    def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> list[LineageEvent]:
         """
         Evolve the population by replacing weak fighters with mutations of strong ones.
 
@@ -1258,7 +1258,7 @@ class PopulationTrainer:
             mutation_rate: How much to vary the cloned models
         """
         evolver = PopulationEvolver(self._build_evolution_context())
-        evolver.evolve(
+        return evolver.evolve(
             population=self.population,
             elo_tracker=self.elo_tracker,
             keep_top=keep_top,
@@ -1497,6 +1497,76 @@ class PopulationTrainer:
         }
         append_jsonl(self.analysis_dir / "generation_summary.jsonl", generation_record)
 
+    def _append_lineage_events(
+        self,
+        *,
+        generation: int,
+        lineage_events: list[LineageEvent],
+        active_population_names: list[str],
+    ) -> None:
+        """Persist detailed parent-child replacement events for one generation."""
+        if not lineage_events:
+            return
+
+        active_rankings = self._active_rankings_for_names(active_population_names)
+        active_rank_by_name = {
+            stats.name: rank
+            for rank, stats in enumerate(active_rankings, start=1)
+        }
+        active_elo_by_name = {
+            stats.name: float(stats.elo)
+            for stats in active_rankings
+        }
+        for event in lineage_events:
+            append_jsonl(
+                self.analysis_dir / "lineage_events.jsonl",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "generation": int(generation),
+                    "child_name": event.child_name,
+                    "child_generation": int(event.child_generation),
+                    "parent_name": event.parent_name,
+                    "replaced_fighter_name": event.replaced_fighter_name,
+                    "parent_elo_at_mutation": event.parent_elo_at_mutation,
+                    "child_post_evolution_rank": active_rank_by_name.get(event.child_name),
+                    "child_post_evolution_elo": active_elo_by_name.get(event.child_name),
+                    "replaced_generation": int(event.replaced_generation),
+                    "child_mass": float(event.child_mass),
+                },
+            )
+
+    def _append_current_leaderboard_snapshot(
+        self,
+        *,
+        generation: int,
+        active_population_names: list[str],
+        new_child_names: set[str],
+    ) -> None:
+        """Persist the active-population leaderboard after each generation."""
+        active_rankings = self._active_rankings_for_names(active_population_names)
+        fighter_by_name = {fighter.name: fighter for fighter in self.population}
+        for rank, stats in enumerate(active_rankings, start=1):
+            fighter = fighter_by_name.get(stats.name)
+            append_jsonl(
+                self.analysis_dir / "current_leaderboard.jsonl",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "generation": int(generation),
+                    "fighter_name": stats.name,
+                    "active_generation_rank": int(rank),
+                    "active_generation_elo": float(stats.elo),
+                    "all_time_elo": float(stats.elo),
+                    "wins": int(stats.wins),
+                    "losses": int(stats.losses),
+                    "draws": int(stats.draws),
+                    "lineage_label": getattr(fighter, "lineage", None),
+                    "fighter_generation": int(getattr(fighter, "generation", 0)) if fighter is not None else None,
+                    "status_in_generation": (
+                        "new_child" if stats.name in new_child_names else "incumbent"
+                    ),
+                },
+            )
+
     def _record_export_failure(
         self,
         *,
@@ -1620,10 +1690,15 @@ class PopulationTrainer:
             loop_helper.maybe_show_leaderboard(self.elo_tracker, self.population)
 
             # Evolution
+            lineage_events: list[LineageEvent] = []
             if loop_helper.should_evolve(gen):
-                self.evolve_population(keep_top=keep_top, mutation_rate=mutation_rate)
+                lineage_events = self.evolve_population(
+                    keep_top=keep_top,
+                    mutation_rate=mutation_rate,
+                )
 
             post_population_names = [fighter.name for fighter in self.population]
+            new_child_names = {event.child_name for event in lineage_events}
 
             # Save checkpoint
             save_started_at = time.time()
@@ -1640,6 +1715,16 @@ class PopulationTrainer:
                 training_seconds=training_seconds,
                 evaluation_seconds=evaluation_seconds,
                 saving_seconds=saving_seconds,
+            )
+            self._append_lineage_events(
+                generation=self.generation,
+                lineage_events=lineage_events,
+                active_population_names=post_population_names,
+            )
+            self._append_current_leaderboard_snapshot(
+                generation=self.generation,
+                active_population_names=post_population_names,
+                new_child_names=new_child_names,
             )
 
             self.generation += 1
