@@ -64,7 +64,9 @@ python train_progressive.py --use-vmap --mode quick
 
 ---
 
-## Environment
+## Benchmark Environment
+
+These benchmark numbers were captured on a local ROCm setup. Colab and NVIDIA CUDA runs can differ in both throughput and package versions.
 
 **Python**: 3.11.10 (atom environment)
 **JAX**: 0.7.1 with ROCm 7.1
@@ -111,8 +113,8 @@ pip list | grep jax  # Should show jax 0.7.1
 ## Files
 
 - `scripts/ops/setup_gpu.sh` - GPU setup script (source before training)
-- `benchmark_gpu.py` - GPU performance benchmarks
-- `docs/FINAL_RESULTS_ALL_LEVELS.md` - Complete documentation
+- `docs/GPU_SETUP_GUIDE.md` - current GPU environment and setup guidance
+- `docs/PROGRESSIVE_TRAINING.md` - current progressive training workflow and CLI options
 
 ---
 
