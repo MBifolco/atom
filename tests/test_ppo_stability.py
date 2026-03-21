@@ -16,7 +16,7 @@ class TestPPOStability:
     def test_stable_ppo_initialization(self):
         """Test that PPO initializes with stable settings."""
         from src.atom.training.utils.stable_ppo import create_stable_ppo
-        from src.training.gym_env import AtomCombatEnv
+        from src.atom.training.gym_env import AtomCombatEnv
 
         env = DummyVecEnv([lambda: AtomCombatEnv(
             opponent_decision_func=lambda _: {"acceleration": 0, "stance": "neutral"},

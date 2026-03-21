@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 
-from src.training.vmap_env_wrapper import VmapEnvWrapper
+from src.atom.training.vmap_env_wrapper import VmapEnvWrapper
 from src.arena import WorldConfig
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.training.signal_engine import build_observation, build_observation_from_snapshot
+from src.atom.training.signal_engine import build_observation, build_observation_from_snapshot
 
 
 def _base_snapshot():

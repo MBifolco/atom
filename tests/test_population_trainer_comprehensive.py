@@ -2008,7 +2008,7 @@ class TestPopulationTrainerReplayRecording:
         """Test replay recorder is initialized when record_replays=True."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Patch the import path used in the module
-            with patch('src.training.replay_recorder.ReplayRecorder') as MockRecorder:
+            with patch('src.atom.training.replay_recorder.ReplayRecorder') as MockRecorder:
                 trainer = PopulationTrainer(
                     output_dir=tmpdir,
                     population_size=2,

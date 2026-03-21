@@ -6,7 +6,7 @@ Target lines 111-435 (uncovered methods).
 import pytest
 import tempfile
 from pathlib import Path
-from src.training.replay_recorder import ReplayRecorder, ReplayMetadata
+from src.atom.training.replay_recorder import ReplayRecorder, ReplayMetadata
 from src.arena import WorldConfig
 from src.orchestrator import MatchOrchestrator
 

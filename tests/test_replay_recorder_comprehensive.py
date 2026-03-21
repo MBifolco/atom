@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.training.replay_recorder import ReplayRecorder, ReplayMetadata
+from src.atom.training.replay_recorder import ReplayRecorder, ReplayMetadata
 from src.arena import WorldConfig
 
 
@@ -164,7 +164,11 @@ class TestReplayRecorderSnapshotConversion:
                     "stamina": 75,
                     "max_stamina": 100,
                     "distance": 4.0,
+                    "direction": 1.0,
                     "velocity": -0.2
+                },
+                "arena": {
+                    "width": 12.5
                 }
             }
 
@@ -180,7 +184,7 @@ class TestReplayRecorderSnapshotConversion:
             assert obs[2] == 0.8  # hp_norm (80/100)
             assert obs[3] == 0.5  # stamina_norm (50/100)
             assert obs[4] == 4.0  # distance
-            assert obs[5] == -0.2  # rel_velocity
+            assert obs[5] == pytest.approx(-0.2)  # rel_velocity
             assert obs[6] == 0.9  # opp_hp_norm (90/100)
             assert obs[7] == 0.75  # opp_stamina_norm (75/100)
 
@@ -207,7 +211,11 @@ class TestReplayRecorderSnapshotConversion:
                     "stamina": 100,
                     "max_stamina": 100,
                     "distance": 0.0,
+                    "direction": 1.0,
                     "velocity": 0.0
+                },
+                "arena": {
+                    "width": 12.5
                 }
             }
 
@@ -241,7 +249,11 @@ class TestReplayRecorderSnapshotConversion:
                     "stamina": 10,
                     "max_stamina": 100,
                     "distance": 8.0,
+                    "direction": 1.0,
                     "velocity": 2.0
+                },
+                "arena": {
+                    "width": 12.5
                 }
             }
 
@@ -479,7 +491,10 @@ class TestReplayRecorderEdgeCases:
                 "opponent": {
                     "hp": 100, "max_hp": 100,
                     "stamina": 100, "max_stamina": 100,
-                    "distance": 5.0, "velocity": 0.0
+                    "distance": 5.0, "direction": 1.0, "velocity": 0.0
+                },
+                "arena": {
+                    "width": 20.0
                 }
             }
 
@@ -562,7 +577,7 @@ class TestSaveSampledReplays:
     def test_saves_three_samples(self):
         """Test that bottom, middle, and top samples are saved."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('src.training.replay_recorder.save_replay') as mock_save:
+            with patch('src.atom.training.replay_recorder.save_replay') as mock_save:
                 recorder = ReplayRecorder(
                     output_dir=tmpdir,
                     min_matches_for_sampling=5,
@@ -601,7 +616,7 @@ class TestSaveSampledReplays:
     def test_sorts_by_spectacle_score(self):
         """Test that matches are sorted by spectacle score before sampling."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('src.training.replay_recorder.save_replay'):
+            with patch('src.atom.training.replay_recorder.save_replay'):
                 recorder = ReplayRecorder(
                     output_dir=tmpdir,
                     min_matches_for_sampling=5,
@@ -638,7 +653,7 @@ class TestSaveSampledReplays:
     def test_creates_correct_metadata(self):
         """Test that metadata is created correctly."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('src.training.replay_recorder.save_replay') as mock_save:
+            with patch('src.atom.training.replay_recorder.save_replay') as mock_save:
                 recorder = ReplayRecorder(
                     output_dir=tmpdir,
                     min_matches_for_sampling=5,
@@ -675,7 +690,7 @@ class TestSaveSampledReplays:
     def test_verbose_logging(self):
         """Test that verbose mode logs information."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch('src.training.replay_recorder.save_replay'):
+            with patch('src.atom.training.replay_recorder.save_replay'):
                 recorder = ReplayRecorder(
                     output_dir=tmpdir,
                     min_matches_for_sampling=5,

@@ -16,6 +16,7 @@ class MockFighter(NamedTuple):
     position: jnp.ndarray
     velocity: jnp.ndarray
     stamina: jnp.ndarray
+    max_stamina: jnp.ndarray = jnp.array(10.0)
     hp: jnp.ndarray = jnp.array(100.0)
 
 
@@ -31,12 +32,13 @@ class MockConfig(NamedTuple):
     max_stamina: jnp.ndarray = jnp.array(10.0)
 
 
-def make_fighter(position, velocity, stamina, hp=100.0):
+def make_fighter(position, velocity, stamina, hp=100.0, max_stamina=10.0):
     """Helper to create MockFighter with JAX arrays."""
     return MockFighter(
         position=jnp.array(position),
         velocity=jnp.array(velocity),
         stamina=jnp.array(stamina),
+        max_stamina=jnp.array(max_stamina),
         hp=jnp.array(hp)
     )
 
@@ -54,7 +56,7 @@ class TestStationaryOpponents:
 
     def test_stationary_neutral_returns_zero_accel(self):
         """Test stationary neutral returns zero acceleration."""
-        from src.training.opponents_jax import stationary_neutral_jax
+        from src.atom.training.opponents_jax import stationary_neutral_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, 0.0, 10.0),
@@ -69,7 +71,7 @@ class TestStationaryOpponents:
 
     def test_stationary_extended_returns_extended_stance(self):
         """Test stationary extended returns extended stance."""
-        from src.training.opponents_jax import stationary_extended_jax
+        from src.atom.training.opponents_jax import stationary_extended_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, 0.0, 10.0),
@@ -84,7 +86,7 @@ class TestStationaryOpponents:
 
     def test_stationary_defending_returns_defending_stance(self):
         """Test stationary defending returns defending stance."""
-        from src.training.opponents_jax import stationary_defending_jax
+        from src.atom.training.opponents_jax import stationary_defending_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, 0.0, 10.0),
@@ -104,7 +106,7 @@ class TestApproachFleeOpponents:
     @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")
     def test_approach_slow_moves_right_from_left_side(self):
         """Test approach slow moves right when on left side."""
-        from src.training.opponents_jax import approach_slow_jax
+        from src.atom.training.opponents_jax import approach_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -120,7 +122,7 @@ class TestApproachFleeOpponents:
     @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")
     def test_approach_slow_moves_left_from_right_side(self):
         """Test approach slow moves left when on right side."""
-        from src.training.opponents_jax import approach_slow_jax
+        from src.atom.training.opponents_jax import approach_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -136,7 +138,7 @@ class TestApproachFleeOpponents:
     @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")
     def test_flee_always_moves_left_from_left_side(self):
         """Test flee always moves away (left) when on left side."""
-        from src.training.opponents_jax import flee_always_jax
+        from src.atom.training.opponents_jax import flee_always_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -152,7 +154,7 @@ class TestApproachFleeOpponents:
     @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")
     def test_flee_always_moves_right_from_right_side(self):
         """Test flee always moves away (right) when on right side."""
-        from src.training.opponents_jax import flee_always_jax
+        from src.atom.training.opponents_jax import flee_always_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -171,7 +173,7 @@ class TestCircleOpponents:
 
     def test_circle_left_default_left(self):
         """Test circle left goes left by default."""
-        from src.training.opponents_jax import circle_left_jax
+        from src.atom.training.opponents_jax import circle_left_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, 0.0, 10.0),
@@ -186,7 +188,7 @@ class TestCircleOpponents:
 
     def test_circle_left_bounces_at_wall(self):
         """Test circle left bounces when at left wall."""
-        from src.training.opponents_jax import circle_left_jax
+        from src.atom.training.opponents_jax import circle_left_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -201,7 +203,7 @@ class TestCircleOpponents:
 
     def test_circle_right_default_right(self):
         """Test circle right goes right by default."""
-        from src.training.opponents_jax import circle_right_jax
+        from src.atom.training.opponents_jax import circle_right_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, 0.0, 10.0),
@@ -216,7 +218,7 @@ class TestCircleOpponents:
 
     def test_circle_right_bounces_at_wall(self):
         """Test circle right bounces when at right wall."""
-        from src.training.opponents_jax import circle_right_jax
+        from src.atom.training.opponents_jax import circle_right_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -235,7 +237,7 @@ class TestDistanceKeeperOpponents:
 
     def test_distance_keeper_1m_approaches_when_far(self):
         """Test 1m distance keeper approaches when too far."""
-        from src.training.opponents_jax import distance_keeper_1m_jax
+        from src.atom.training.opponents_jax import distance_keeper_1m_jax
 
         state = MockState(
             fighter_a=make_fighter(10.0, 0.0, 10.0),
@@ -250,7 +252,7 @@ class TestDistanceKeeperOpponents:
 
     def test_distance_keeper_1m_extends_at_optimal(self):
         """Test 1m distance keeper uses extended stance at optimal distance."""
-        from src.training.opponents_jax import distance_keeper_1m_jax
+        from src.atom.training.opponents_jax import distance_keeper_1m_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -265,7 +267,7 @@ class TestDistanceKeeperOpponents:
 
     def test_distance_keeper_3m_maintains_distance(self):
         """Test 3m distance keeper maintains distance."""
-        from src.training.opponents_jax import distance_keeper_3m_jax
+        from src.atom.training.opponents_jax import distance_keeper_3m_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, 0.0, 10.0),
@@ -280,7 +282,7 @@ class TestDistanceKeeperOpponents:
 
     def test_distance_keeper_5m_maintains_distance(self):
         """Test 5m distance keeper maintains distance."""
-        from src.training.opponents_jax import distance_keeper_5m_jax
+        from src.atom.training.opponents_jax import distance_keeper_5m_jax
 
         state = MockState(
             fighter_a=make_fighter(7.5, 0.0, 10.0),
@@ -299,7 +301,7 @@ class TestStaminaOpponents:
 
     def test_stamina_efficient_extends_high_stamina(self):
         """Test stamina efficient uses extended at high stamina."""
-        from src.training.opponents_jax import stamina_efficient_jax
+        from src.atom.training.opponents_jax import stamina_efficient_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -314,7 +316,7 @@ class TestStaminaOpponents:
 
     def test_stamina_efficient_defends_low_stamina(self):
         """Test stamina efficient defends at low stamina."""
-        from src.training.opponents_jax import stamina_efficient_jax
+        from src.atom.training.opponents_jax import stamina_efficient_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -329,7 +331,7 @@ class TestStaminaOpponents:
 
     def test_stamina_efficient_neutral_mid_stamina(self):
         """Test stamina efficient uses neutral at mid stamina."""
-        from src.training.opponents_jax import stamina_efficient_jax
+        from src.atom.training.opponents_jax import stamina_efficient_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -344,7 +346,7 @@ class TestStaminaOpponents:
 
     def test_stamina_waster_always_extended(self):
         """Test stamina waster always uses extended."""
-        from src.training.opponents_jax import stamina_waster_jax
+        from src.atom.training.opponents_jax import stamina_waster_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -359,7 +361,7 @@ class TestStaminaOpponents:
 
     def test_stamina_cycler_high_stamina_extended(self):
         """Test stamina cycler uses extended at high stamina."""
-        from src.training.opponents_jax import stamina_cycler_jax
+        from src.atom.training.opponents_jax import stamina_cycler_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -373,7 +375,7 @@ class TestStaminaOpponents:
 
     def test_stamina_cycler_low_stamina_defending(self):
         """Test stamina cycler uses defending at low stamina."""
-        from src.training.opponents_jax import stamina_cycler_jax
+        from src.atom.training.opponents_jax import stamina_cycler_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -391,7 +393,7 @@ class TestChargeOpponent:
 
     def test_charge_extends_when_close(self):
         """Test charge on approach extends when opponent is close."""
-        from src.training.opponents_jax import charge_on_approach_jax
+        from src.atom.training.opponents_jax import charge_on_approach_jax
 
         state = MockState(
             fighter_a=make_fighter(5.5, velocity=0.0, stamina=10.0),
@@ -406,7 +408,7 @@ class TestChargeOpponent:
 
     def test_charge_neutral_when_far(self):
         """Test charge on approach uses neutral when far."""
-        from src.training.opponents_jax import charge_on_approach_jax
+        from src.atom.training.opponents_jax import charge_on_approach_jax
 
         state = MockState(
             fighter_a=make_fighter(2.0, velocity=0.0, stamina=10.0),
@@ -425,7 +427,7 @@ class TestWallHuggerOpponents:
 
     def test_wall_hugger_left_moves_to_wall(self):
         """Test wall hugger left moves toward left wall."""
-        from src.training.opponents_jax import wall_hugger_left_jax
+        from src.atom.training.opponents_jax import wall_hugger_left_jax
 
         state = MockState(
             fighter_a=make_fighter(8.0, velocity=0.0, stamina=10.0),
@@ -440,7 +442,7 @@ class TestWallHuggerOpponents:
 
     def test_wall_hugger_left_stops_at_wall(self):
         """Test wall hugger left stops at wall."""
-        from src.training.opponents_jax import wall_hugger_left_jax
+        from src.atom.training.opponents_jax import wall_hugger_left_jax
 
         state = MockState(
             fighter_a=make_fighter(8.0, velocity=0.0, stamina=10.0),
@@ -455,7 +457,7 @@ class TestWallHuggerOpponents:
 
     def test_wall_hugger_right_moves_to_wall(self):
         """Test wall hugger right moves toward right wall."""
-        from src.training.opponents_jax import wall_hugger_right_jax
+        from src.atom.training.opponents_jax import wall_hugger_right_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -470,7 +472,7 @@ class TestWallHuggerOpponents:
 
     def test_wall_hugger_right_stops_at_wall(self):
         """Test wall hugger right stops at wall."""
-        from src.training.opponents_jax import wall_hugger_right_jax
+        from src.atom.training.opponents_jax import wall_hugger_right_jax
 
         state = MockState(
             fighter_a=make_fighter(3.0, velocity=0.0, stamina=10.0),
@@ -489,7 +491,7 @@ class TestShuttleOpponents:
 
     def test_shuttle_slow_bounces_at_left_wall(self):
         """Test shuttle slow bounces at left wall."""
-        from src.training.opponents_jax import shuttle_slow_jax
+        from src.atom.training.opponents_jax import shuttle_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -504,7 +506,7 @@ class TestShuttleOpponents:
 
     def test_shuttle_slow_bounces_at_right_wall(self):
         """Test shuttle slow bounces at right wall."""
-        from src.training.opponents_jax import shuttle_slow_jax
+        from src.atom.training.opponents_jax import shuttle_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -520,7 +522,7 @@ class TestShuttleOpponents:
     @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")
     def test_shuttle_medium_faster_speed(self):
         """Test shuttle medium uses faster speed."""
-        from src.training.opponents_jax import shuttle_medium_jax
+        from src.atom.training.opponents_jax import shuttle_medium_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -539,7 +541,7 @@ class TestJaxOpponentRegistry:
 
     def test_registry_contains_all_opponents(self):
         """Test registry contains all expected opponents."""
-        from src.training.opponents_jax import JAX_OPPONENT_REGISTRY
+        from src.atom.training.opponents_jax import JAX_OPPONENT_REGISTRY
 
         expected_opponents = [
             "stationary_neutral",
@@ -567,7 +569,7 @@ class TestJaxOpponentRegistry:
 
     def test_registry_entries_are_tuples(self):
         """Test registry entries are (id, func) tuples."""
-        from src.training.opponents_jax import JAX_OPPONENT_REGISTRY
+        from src.atom.training.opponents_jax import JAX_OPPONENT_REGISTRY
 
         for name, entry in JAX_OPPONENT_REGISTRY.items():
             assert isinstance(entry, tuple)
@@ -577,7 +579,7 @@ class TestJaxOpponentRegistry:
 
     def test_registry_ids_are_unique(self):
         """Test registry IDs are unique."""
-        from src.training.opponents_jax import JAX_OPPONENT_REGISTRY
+        from src.atom.training.opponents_jax import JAX_OPPONENT_REGISTRY
 
         ids = [entry[0] for entry in JAX_OPPONENT_REGISTRY.values()]
         assert len(ids) == len(set(ids))
@@ -588,7 +590,7 @@ class TestCreateMultiOpponentFunc:
 
     def test_creates_callable(self):
         """Test create_multi_opponent_func returns callable."""
-        from src.training.opponents_jax import create_multi_opponent_func
+        from src.atom.training.opponents_jax import create_multi_opponent_func
 
         config = make_config()
         opponent_paths = ["stationary_neutral.py", "stationary_extended.py"]
@@ -599,7 +601,7 @@ class TestCreateMultiOpponentFunc:
 
     def test_fallback_to_neutral_for_unknown(self):
         """Test unknown opponent falls back to neutral."""
-        from src.training.opponents_jax import create_multi_opponent_func
+        from src.atom.training.opponents_jax import create_multi_opponent_func
 
         config = make_config()
         opponent_paths = ["unknown_opponent.py"]
@@ -616,7 +618,7 @@ class TestApproachSleeMiddlePositions:
 
     def test_approach_continues_right_when_moving_right(self):
         """Test approach continues right when already moving right in middle."""
-        from src.training.opponents_jax import approach_slow_jax
+        from src.atom.training.opponents_jax import approach_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -630,7 +632,7 @@ class TestApproachSleeMiddlePositions:
 
     def test_approach_continues_left_when_moving_left(self):
         """Test approach continues left when already moving left in middle."""
-        from src.training.opponents_jax import approach_slow_jax
+        from src.atom.training.opponents_jax import approach_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -644,7 +646,7 @@ class TestApproachSleeMiddlePositions:
 
     def test_approach_defaults_right_when_stopped_in_middle(self):
         """Test approach defaults to right when stopped in middle."""
-        from src.training.opponents_jax import approach_slow_jax
+        from src.atom.training.opponents_jax import approach_slow_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -662,7 +664,7 @@ class TestDistanceKeeperBackAway:
 
     def test_distance_keeper_1m_backs_away_when_close(self):
         """Test 1m distance keeper backs away when too close."""
-        from src.training.opponents_jax import distance_keeper_1m_jax
+        from src.atom.training.opponents_jax import distance_keeper_1m_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),
@@ -677,7 +679,7 @@ class TestDistanceKeeperBackAway:
 
     def test_distance_keeper_3m_backs_away_when_close(self):
         """Test 3m distance keeper backs away when too close."""
-        from src.training.opponents_jax import distance_keeper_3m_jax
+        from src.atom.training.opponents_jax import distance_keeper_3m_jax
 
         state = MockState(
             fighter_a=make_fighter(6.0, velocity=0.0, stamina=10.0),

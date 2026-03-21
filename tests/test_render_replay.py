@@ -12,9 +12,9 @@ import json
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.training.replay_recorder import ReplayRecorder
+from src.atom.training.replay_recorder import ReplayRecorder
 from src.arena import WorldConfig
-from create_montage import render_replay_to_html
+from scripts.montage.create_montage import render_replay_to_html
 
 
 def test_render_replay():

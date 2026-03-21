@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 from src.arena import WorldConfig, FighterState
 from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit
-from src.training.gym_env import AtomCombatEnv
+from src.atom.training.gym_env import AtomCombatEnv
 
 
 class TestIntegration:

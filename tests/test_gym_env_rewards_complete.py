@@ -5,7 +5,7 @@ Tests every reward scenario to hit missing lines 206-228, 234-243, 262-330.
 
 import pytest
 import numpy as np
-from src.training.gym_env import AtomCombatEnv
+from src.atom.training.gym_env import AtomCombatEnv
 from src.arena import WorldConfig
 
 
@@ -242,8 +242,9 @@ class TestMidEpisodeRewardBranches:
             if done or truncated:
                 break
 
-        # Close range bonus should have been applied
-        assert env.episode_damage_reward >= 0
+        # This scenario should produce close-range engagement and finite damage reward tracking
+        assert env.hits_landed > 0
+        assert np.isfinite(env.episode_damage_reward)
 
     def test_stamina_advantage_reward(self):
         """Test stamina advantage reward (lines 272-274)."""

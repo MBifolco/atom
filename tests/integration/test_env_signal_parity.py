@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from src.training.gym_env import AtomCombatEnv
-from src.training.vmap_env_wrapper import VmapEnvWrapper
+from src.atom.training.gym_env import AtomCombatEnv
+from src.atom.training.vmap_env_wrapper import VmapEnvWrapper
 
 
 def _neutral_opponent(_snapshot):

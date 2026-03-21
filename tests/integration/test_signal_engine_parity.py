@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from src.training.signal_engine import (
+from src.atom.training.signal_engine import (
     build_observation,
     build_observation_batch,
     compute_step_reward_scalar,

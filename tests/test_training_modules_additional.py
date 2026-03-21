@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 import numpy as np
 
-from src.training.gym_env import AtomCombatEnv
+from src.atom.training.gym_env import AtomCombatEnv
 from src.arena import WorldConfig
 
 

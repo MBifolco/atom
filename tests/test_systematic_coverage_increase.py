@@ -9,11 +9,11 @@ import os
 import numpy as np
 from pathlib import Path
 from src.arena import WorldConfig
-from src.training.gym_env import AtomCombatEnv
+from src.atom.training.gym_env import AtomCombatEnv
 from src.registry import FighterRegistry, FighterMetadata
 from src.telemetry import ReplayStore
 from src.orchestrator import MatchOrchestrator
-from src.training.replay_recorder import ReplayRecorder
+from src.atom.training.replay_recorder import ReplayRecorder
 from src.evaluator import SpectacleEvaluator
 
 

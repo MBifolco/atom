@@ -8,7 +8,7 @@ from pathlib import Path
 import json
 import gzip
 
-from src.training.progressive_replay_recorder import ProgressiveReplayRecorder, ProgressiveReplayMetadata
+from src.atom.training.progressive_replay_recorder import ProgressiveReplayRecorder, ProgressiveReplayMetadata
 from src.atom.runtime.orchestrator.match_orchestrator import MatchResult
 
 

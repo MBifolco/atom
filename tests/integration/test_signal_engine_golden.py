@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.training.signal_engine import compute_step_reward_scalar
+from src.atom.training.signal_engine import compute_step_reward_scalar
 
 
 def test_signal_engine_reward_golden_cases():

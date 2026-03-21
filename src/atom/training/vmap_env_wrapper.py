@@ -662,7 +662,7 @@ class VmapEnvWrapper(gym.Env):
             reset_mask: Boolean array [n_envs] indicating which envs to reset
         """
         # Create fresh fighters for reset (match gym_env.py)
-        from ..arena import FighterState
+        from src.atom.runtime.arena import FighterState
 
         fighter = FighterState.create("fighter", self.fighter_mass, 2.0, self.config)
         opponent = FighterState.create("opponent", self.opponent_mass, 10.0, self.config)

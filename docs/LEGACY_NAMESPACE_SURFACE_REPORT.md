@@ -47,13 +47,6 @@ These are still referenced by tests and/or current docs, so they are not yet ret
 
 These still have meaningful test or compatibility value:
 
-- `src/training/gym_env.py`
-- `src/training/opponents_jax.py`
-- `src/training/progressive_replay_recorder.py`
-- `src/training/replay_recorder.py`
-- `src/training/signal_engine.py`
-- `src/training/vmap_env_wrapper.py`
-- `src/training/trainers/curriculum_components.py`
 - `src/training/trainers/curriculum_trainer.py`
 - `src/training/trainers/population/population_trainer.py`
 
@@ -62,6 +55,7 @@ These still have meaningful test or compatibility value:
 These legacy leaf wrappers have now been removed because current surfaces no longer depend on them:
 
 - training utility leaves like `baseline_harness.py`, `determinism.py`, `nan_detector.py`, `stable_ppo.py`, `stable_ppo_config.py`
+- training core leaves like `src/training/gym_env.py`, `src/training/opponents_jax.py`, `src/training/progressive_replay_recorder.py`, `src/training/replay_recorder.py`, `src/training/signal_engine.py`, `src/training/vmap_env_wrapper.py`, `src/training/trainers/curriculum_components.py`
 - runtime helper leaves like `src/evaluator/spectacle_evaluator.py`, `src/renderer/ascii_renderer.py`, `src/renderer/html_renderer.py`, `src/telemetry/replay_store.py`
 - runtime core leaves like `src/arena/arena_1d_jax_jit.py`, `src/arena/fighter.py`, `src/arena/world_config.py`, `src/protocol/combat_protocol.py`, `src/orchestrator/match_orchestrator.py`
 - population helper leaves like `elo_tracker.py`, `fighter_loader.py`, `parallel_orchestrator.py`, `population_evaluation.py`, `population_evolution.py`, `population_persistence.py`, `population_protocols.py`, `population_training_loop.py`

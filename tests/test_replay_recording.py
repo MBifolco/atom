@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.training.replay_recorder import ReplayRecorder
+from src.atom.training.replay_recorder import ReplayRecorder
 from src.arena import WorldConfig
 
 

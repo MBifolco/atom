@@ -10,7 +10,7 @@ import numpy as np
 from unittest.mock import MagicMock, patch, call
 
 from src.training.trainers.curriculum_trainer import CurriculumTrainer, CurriculumCallback
-from src.training.progressive_replay_recorder import ProgressiveReplayRecorder
+from src.atom.training.progressive_replay_recorder import ProgressiveReplayRecorder
 from src.atom.runtime.orchestrator.match_orchestrator import MatchResult
 
 

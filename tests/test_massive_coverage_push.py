@@ -7,7 +7,7 @@ import tempfile
 import numpy as np
 from pathlib import Path
 from src.arena import WorldConfig
-from src.training.gym_env import AtomCombatEnv
+from src.atom.training.gym_env import AtomCombatEnv
 from src.orchestrator import MatchOrchestrator
 from src.evaluator import SpectacleEvaluator
 from src.telemetry import ReplayStore

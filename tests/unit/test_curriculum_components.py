@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from src.training.trainers.curriculum_components import (
+from src.atom.training.trainers.curriculum_components import (
     CallbackStepProcessor,
     CheckpointBundle,
     CheckpointRecoveryError,

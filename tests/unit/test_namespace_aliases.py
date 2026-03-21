@@ -7,10 +7,7 @@ from pathlib import Path
 
 def test_legacy_runtime_and_training_modules_alias_new_modules():
     module_pairs = [
-        (
-            "src.training.replay_recorder",
-            "src.atom.training.replay_recorder",
-        ),
+
         (
             "src.training.trainers.population.population_trainer",
             "src.atom.training.trainers.population.population_trainer",
@@ -30,15 +27,6 @@ def test_legacy_runtime_and_training_modules_alias_new_modules():
         new_module = import_module(new_name)
         assert legacy_module is new_module, f"{legacy_name} should alias {new_name}"
 
-
-def test_patching_legacy_module_updates_new_replay_recorder(monkeypatch):
-    legacy_module = import_module("src.training.replay_recorder")
-    new_module = import_module("src.atom.training.replay_recorder")
-    sentinel = object()
-
-    monkeypatch.setattr(legacy_module, "save_replay", sentinel)
-
-    assert new_module.save_replay is sentinel
 
 
 def test_patching_legacy_module_updates_new_population_trainer(monkeypatch):
@@ -95,6 +83,13 @@ def test_selected_legacy_utility_wrappers_are_retired():
         repo_root / "src" / "arena" / "world_config.py",
         repo_root / "src" / "protocol" / "combat_protocol.py",
         repo_root / "src" / "orchestrator" / "match_orchestrator.py",
+        repo_root / "src" / "training" / "gym_env.py",
+        repo_root / "src" / "training" / "opponents_jax.py",
+        repo_root / "src" / "training" / "progressive_replay_recorder.py",
+        repo_root / "src" / "training" / "replay_recorder.py",
+        repo_root / "src" / "training" / "signal_engine.py",
+        repo_root / "src" / "training" / "vmap_env_wrapper.py",
+        repo_root / "src" / "training" / "trainers" / "curriculum_components.py",
     ]
 
     for path in retired_paths:
