@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from src.training.trainers.curriculum_trainer import CurriculumTrainer, CurriculumCallback
-from src.orchestrator.match_orchestrator import MatchOrchestrator
+from src.atom.runtime.orchestrator.match_orchestrator import MatchOrchestrator
 from src.arena import WorldConfig
 from src.training.signal_engine import build_observation_from_snapshot
 

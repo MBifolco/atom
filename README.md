@@ -357,6 +357,7 @@ make test-integration
 - **[NaN Investigation](docs/NAN_ERROR_INVESTIGATION.md)** - Reward scaling and NaN mitigation details
 - **[Repo Reorganization Plan](docs/REPO_REORGANIZATION_PLAN.md)** - Proposed layout for runtime, training, platform, and app boundaries
 - **[Namespace Migration Policy](docs/NAMESPACE_MIGRATION_POLICY.md)** - Rules for when legacy wrappers stay, move, or retire
+- **[Namespace Map](docs/NAMESPACE_MAP.md)** - Quick before/after guide for imports and entrypoints
 - **[Legacy Namespace Surface Report](docs/LEGACY_NAMESPACE_SURFACE_REPORT.md)** - Remaining intentional `src.*` compatibility surface
 - **[Fighter Guide](fighters/README.md)** - Fighter collection & testing commands
 - **[Test Dummies](fighters/test_dummies/README.md)** - Training curriculum opponents

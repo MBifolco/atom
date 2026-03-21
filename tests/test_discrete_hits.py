@@ -7,7 +7,7 @@ import pytest
 import jax.numpy as jnp
 import numpy as np
 from src.arena import WorldConfig, FighterState
-from src.arena.arena_1d_jax_jit import Arena1DJAXJit, STANCE_NEUTRAL, STANCE_EXTENDED, STANCE_DEFENDING
+from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit, STANCE_NEUTRAL, STANCE_EXTENDED, STANCE_DEFENDING
 
 
 class TestDiscreteHitSystem:

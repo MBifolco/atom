@@ -41,11 +41,7 @@ These remain because they are low-friction compatibility surfaces and still usef
 
 These are still referenced by tests and/or current docs, so they are not yet retired:
 
-- `src/arena/arena_1d_jax_jit.py`
-- `src/arena/fighter.py`
-- `src/arena/world_config.py`
-- `src/protocol/combat_protocol.py`
-- `src/orchestrator/match_orchestrator.py`
+- none in current repo surfaces; only package-level runtime compatibility remains
 
 ### Legacy Training Leaf Modules Still Kept
 
@@ -67,6 +63,7 @@ These legacy leaf wrappers have now been removed because current surfaces no lon
 
 - training utility leaves like `baseline_harness.py`, `determinism.py`, `nan_detector.py`, `stable_ppo.py`, `stable_ppo_config.py`
 - runtime helper leaves like `src/evaluator/spectacle_evaluator.py`, `src/renderer/ascii_renderer.py`, `src/renderer/html_renderer.py`, `src/telemetry/replay_store.py`
+- runtime core leaves like `src/arena/arena_1d_jax_jit.py`, `src/arena/fighter.py`, `src/arena/world_config.py`, `src/protocol/combat_protocol.py`, `src/orchestrator/match_orchestrator.py`
 - population helper leaves like `elo_tracker.py`, `fighter_loader.py`, `parallel_orchestrator.py`, `population_evaluation.py`, `population_evolution.py`, `population_persistence.py`, `population_protocols.py`, `population_training_loop.py`
 - unreferenced compatibility leaves for training/population internals such as `train_multicore.py`, `train_population.py`, `train_population_multi.py`, `test_single_match.py`, `test_fighter_loading.py`, `debug_gym_env.py`
 

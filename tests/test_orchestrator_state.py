@@ -9,7 +9,7 @@ Tests for bugs fixed:
 import pytest
 from src.arena import WorldConfig, FighterState, Arena1DJAXJit
 from src.orchestrator import MatchOrchestrator
-from src.protocol.combat_protocol import generate_snapshot
+from src.atom.runtime.protocol.combat_protocol import generate_snapshot
 
 
 class TestOrchestratorStateUpdates:

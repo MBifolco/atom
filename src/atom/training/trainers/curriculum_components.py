@@ -753,8 +753,8 @@ class ReplayEvaluationService:
 
     def record_evaluation_replay(self, episode_num: int, total_episodes: int, episode_rewards, episode_wins):
         import importlib.util
-        from ...orchestrator.match_orchestrator import MatchOrchestrator
-        from ...arena import WorldConfig
+        from src.atom.runtime.arena import WorldConfig
+        from src.atom.runtime.orchestrator.match_orchestrator import MatchOrchestrator
         from ..signal_engine import build_observation_from_snapshot
 
         config = WorldConfig()
@@ -953,7 +953,7 @@ class EnvFactory:
 
     def _create_vmap_envs(self, level):
         from ..vmap_env_wrapper import VmapEnvWrapper
-        from ...arena import WorldConfig
+        from src.atom.runtime.arena import WorldConfig
 
         opponent_paths = level.opponents
         if self.verbose:

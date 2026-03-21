@@ -9,7 +9,7 @@ INTERNAL: Failed to load HSACO: HIP_ERROR_NoBinaryForGpu
 ## Solution
 Added automatic GPU fallback to CPU mode in two places:
 
-### 1. In `src/arena/arena_1d_jax_jit.py`
+### 1. In `src/atom/runtime/arena/arena_1d_jax_jit.py`
 ```python
 # Force CPU if requested or if GPU fails
 if os.environ.get("ATOM_FORCE_CPU", "").lower() in ["1", "true", "yes"]:

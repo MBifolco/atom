@@ -74,7 +74,7 @@ graph TB
 
 ### Arena System
 
-**Location:** `src/arena/`
+**Location:** `src/atom/runtime/arena/`
 
 The arena system handles the physics simulation and state management of combat matches.
 
@@ -207,7 +207,7 @@ graph LR
 
 ### Protocol Layer
 
-**Location:** `src/protocol/combat_protocol.py`
+**Location:** `src/atom/runtime/protocol/combat_protocol.py`
 
 The protocol layer provides the interface between fighters and the arena.
 
@@ -294,7 +294,7 @@ class ProtocolValidator:
 
 ### Orchestrator
 
-**Location:** `src/orchestrator/match_orchestrator.py`
+**Location:** `src/atom/runtime/orchestrator/match_orchestrator.py`
 
 The orchestrator coordinates the entire match lifecycle.
 
@@ -465,7 +465,7 @@ print(f"Close Finish: {score.close_finish:.3f}")
 
 ### Rendering System
 
-**Location:** `src/renderer/`
+**Location:** `src/atom/runtime/renderer/`
 
 Two rendering modes for visualizing matches.
 

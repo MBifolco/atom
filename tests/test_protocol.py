@@ -1,10 +1,10 @@
 """
 Tests for combat protocol (Action, Snapshot, ProtocolValidator).
-Increase coverage of src/protocol/combat_protocol.py.
+Increase coverage of src.atom.runtime.protocol.combat_protocol.
 """
 
 import pytest
-from src.protocol.combat_protocol import Action, ProtocolValidator, generate_snapshot
+from src.atom.runtime.protocol.combat_protocol import Action, ProtocolValidator, generate_snapshot
 from src.arena import WorldConfig, FighterState
 
 

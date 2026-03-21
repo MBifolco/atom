@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch, call
 
 from src.training.trainers.curriculum_trainer import CurriculumTrainer, CurriculumCallback
 from src.training.progressive_replay_recorder import ProgressiveReplayRecorder
-from src.orchestrator.match_orchestrator import MatchResult
+from src.atom.runtime.orchestrator.match_orchestrator import MatchResult
 
 
 class TestProgressiveReplayIntegration:
@@ -99,7 +99,7 @@ class TestProgressiveReplayIntegration:
             # Episode 50 should record
             assert trainer.progressive_recorder.should_record(50, 1000)
 
-    @patch('src.orchestrator.match_orchestrator.MatchOrchestrator')
+    @patch('src.atom.runtime.orchestrator.match_orchestrator.MatchOrchestrator')
     def test_record_evaluation_replay_runs(self, mock_orchestrator, mock_curriculum_trainer):
         """Test that _record_evaluation_replay actually runs a match and saves."""
         with tempfile.TemporaryDirectory() as tmpdir:

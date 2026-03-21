@@ -6,7 +6,7 @@ Tests the full flow from fighter creation through combat to conclusion.
 import pytest
 import numpy as np
 from src.arena import WorldConfig, FighterState
-from src.arena.arena_1d_jax_jit import Arena1DJAXJit
+from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit
 from src.training.gym_env import AtomCombatEnv
 
 

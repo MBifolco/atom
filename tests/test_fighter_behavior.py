@@ -111,7 +111,7 @@ class TestFighterMovement:
         """Verify fighters actually move when arena steps."""
         from fighters.examples.boxer import decide as boxer_decide
         from fighters.examples.slugger import decide as slugger_decide
-        from src.protocol.combat_protocol import generate_snapshot
+        from src.atom.runtime.protocol.combat_protocol import generate_snapshot
 
         config = WorldConfig()
         boxer = FighterState.create("Boxer", 70.0, 3.0, config)
@@ -149,7 +149,7 @@ class TestFighterMovement:
     def test_aggressive_fighters_approach(self):
         """Test that aggressive fighters move toward each other."""
         from fighters.examples.slugger import decide
-        from src.protocol.combat_protocol import generate_snapshot
+        from src.atom.runtime.protocol.combat_protocol import generate_snapshot
 
         config = WorldConfig()
         fighter_a = FighterState.create("A", 70.0, 2.0, config)
@@ -182,7 +182,7 @@ class TestStateFormat:
 
     def test_protocol_state_format(self):
         """Verify state format matches protocol specification."""
-        from src.protocol.combat_protocol import generate_snapshot
+        from src.atom.runtime.protocol.combat_protocol import generate_snapshot
         from src.arena import WorldConfig, FighterState
 
         config = WorldConfig()

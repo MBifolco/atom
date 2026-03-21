@@ -37,6 +37,7 @@ Technical docs for training, runtime architecture, and project planning.
 
 - **[REPO_REORGANIZATION_PLAN.md](REPO_REORGANIZATION_PLAN.md)** - Proposed repo layout organized around runtime, training, platform, and app boundaries
 - **[NAMESPACE_MIGRATION_POLICY.md](NAMESPACE_MIGRATION_POLICY.md)** - Rules for retiring legacy wrappers and preferring `src.atom.*`
+- **[NAMESPACE_MAP.md](NAMESPACE_MAP.md)** - Before/after import and entrypoint map for contributors
 - **[LEGACY_NAMESPACE_SURFACE_REPORT.md](LEGACY_NAMESPACE_SURFACE_REPORT.md)** - What old `src.*` surfaces remain, and why
 - **[VISION_GAP_ANALYSIS.md](VISION_GAP_ANALYSIS.md)** - Historical gap snapshot (Nov 2025)
 - **[REFACTORING_OPPORTUNITIES.md](REFACTORING_OPPORTUNITIES.md)** - Candidate refactors

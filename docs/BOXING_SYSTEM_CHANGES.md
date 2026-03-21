@@ -40,10 +40,10 @@ Complete overhaul of the combat system from continuous collision damage to discr
 ## Files Changed
 
 ### Core Physics
-- `src/arena/world_config.py` - Added hit system parameters
-- `src/arena/fighter.py` - Added `last_hit_tick` tracking
-- `src/arena/arena_1d_jax_jit.py` - Complete discrete hit implementation
-- `src/arena/__init__.py` - Updated to export Arena1DJAXJit
+- `src/atom/runtime/arena/world_config.py` - Added hit system parameters
+- `src/atom/runtime/arena/fighter.py` - Added `last_hit_tick` tracking
+- `src/atom/runtime/arena/arena_1d_jax_jit.py` - Complete discrete hit implementation
+- `src/atom/runtime/arena/__init__.py` - Updated to export Arena1DJAXJit
 
 ### Training
 - `src/training/gym_env.py` - 3-stance action space (0-2.99)

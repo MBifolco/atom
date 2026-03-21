@@ -74,7 +74,7 @@ Five distinct fighter styles are provided as examples:
 
 ## Configuration Parameters
 
-Located in `src/arena/world_config.py`:
+Located in `src/atom/runtime/arena/world_config.py`:
 
 ```python
 # Discrete hit system
@@ -94,9 +94,9 @@ The entire physics engine is JIT-compiled using JAX for GPU acceleration:
 - Vectorizable for parallel environments
 
 ### Key Files
-- `src/arena/arena_1d_jax_jit.py` - Core physics engine
-- `src/arena/world_config.py` - Configuration and parameters
-- `src/arena/fighter.py` - Fighter state with hit tracking
+- `src/atom/runtime/arena/arena_1d_jax_jit.py` - Core physics engine
+- `src/atom/runtime/arena/world_config.py` - Configuration and parameters
+- `src/atom/runtime/arena/fighter.py` - Fighter state with hit tracking
 - `src/training/gym_env.py` - Gymnasium environment (3-stance action space)
 
 ### Testing

@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from src.arena import WorldConfig, FighterState
-from src.arena.arena_1d_jax_jit import Arena1DJAXJit, FighterStateJAX, ArenaStateJAX
+from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit, FighterStateJAX, ArenaStateJAX
 
 
 class TestJAXCompatibility:
@@ -99,7 +99,7 @@ class TestJAXCompatibility:
 
     def test_stance_arrays_correct_size(self):
         """Test stance arrays are correctly sized for 3 stances."""
-        from src.arena.arena_1d_jax_jit import create_stance_arrays
+        from src.atom.runtime.arena.arena_1d_jax_jit import create_stance_arrays
 
         config = WorldConfig()
         reach, defense, drain = create_stance_arrays(config)
@@ -140,7 +140,7 @@ class TestJAXCompatibility:
 
     def test_no_string_stances_in_jit(self):
         """Verify integer stances are used in JIT code, not strings."""
-        from src.arena.arena_1d_jax_jit import STANCE_NEUTRAL, STANCE_EXTENDED, STANCE_DEFENDING
+        from src.atom.runtime.arena.arena_1d_jax_jit import STANCE_NEUTRAL, STANCE_EXTENDED, STANCE_DEFENDING
 
         # Should be integers
         assert isinstance(STANCE_NEUTRAL, int)

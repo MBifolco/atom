@@ -90,6 +90,11 @@ def test_selected_legacy_utility_wrappers_are_retired():
         repo_root / "src" / "training" / "pipelines" / "progressive_trainer.py",
         repo_root / "src" / "registry" / "fighter_registry.py",
         repo_root / "src" / "coaching" / "coaching_wrapper.py",
+        repo_root / "src" / "arena" / "arena_1d_jax_jit.py",
+        repo_root / "src" / "arena" / "fighter.py",
+        repo_root / "src" / "arena" / "world_config.py",
+        repo_root / "src" / "protocol" / "combat_protocol.py",
+        repo_root / "src" / "orchestrator" / "match_orchestrator.py",
     ]
 
     for path in retired_paths:

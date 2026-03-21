@@ -3,7 +3,7 @@ Test WorldConfig with new discrete hit parameters.
 """
 
 import pytest
-from src.arena.world_config import WorldConfig, StanceConfig
+from src.atom.runtime.arena.world_config import WorldConfig, StanceConfig
 
 
 class TestWorldConfig:

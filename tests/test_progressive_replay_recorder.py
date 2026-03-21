@@ -9,7 +9,7 @@ import json
 import gzip
 
 from src.training.progressive_replay_recorder import ProgressiveReplayRecorder, ProgressiveReplayMetadata
-from src.orchestrator.match_orchestrator import MatchResult
+from src.atom.runtime.orchestrator.match_orchestrator import MatchResult
 
 
 class TestProgressiveReplayRecorder:
