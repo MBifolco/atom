@@ -72,6 +72,8 @@ class BaselineRunConfig:
             self.mode,
             "--timesteps",
             str(self.timesteps),
+            "--seed",
+            str(self.seed),
             "--device",
             self.device,
             "--max-ticks",

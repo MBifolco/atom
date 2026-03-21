@@ -26,6 +26,11 @@ INSTALL_JAX_CUDA="${ATOM_INSTALL_JAX_CUDA:-1}"
 JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
 SYNC_MODE="${ATOM_DRIVE_REPO_SYNC_MODE:-stash}"
 SKIP_PREFLIGHT="${ATOM_SKIP_PREFLIGHT:-0}"
+REQUIREMENTS_FILE="${ATOM_REQUIREMENTS_FILE:-$PROJECT_ROOT/requirements-colab.txt}"
+
+if [[ ! -f "$REQUIREMENTS_FILE" ]]; then
+  REQUIREMENTS_FILE="$PROJECT_ROOT/requirements.txt"
+fi
 
 SECONDS=0
 
@@ -59,6 +64,7 @@ log "  WORK_REPO=$WORK_REPO"
 log "  BRANCH=$BRANCH"
 log "  SYNC_MODE=$SYNC_MODE"
 log "  INSTALL_JAX_CUDA=$INSTALL_JAX_CUDA"
+log "  REQUIREMENTS_FILE=$REQUIREMENTS_FILE"
 
 if [[ "$SKIP_PREFLIGHT" != "1" ]]; then
   log "Running bootstrap preflight checks..."
@@ -182,7 +188,7 @@ run_step "Sync Drive cache to runtime workspace" rsync -a --delete   --exclude "
 cd "$WORK_REPO"
 log "Installing Python dependencies..."
 run_step "Upgrade pip" python -m pip install -U pip
-run_step "Install requirements.txt" python -m pip install -r requirements.txt
+run_step "Install $(basename "$REQUIREMENTS_FILE")" python -m pip install -r "$REQUIREMENTS_FILE"
 
 if [[ "$INSTALL_JAX_CUDA" == "1" ]]; then
   log "Installing JAX CUDA wheel (jax==$JAX_VERSION)..."

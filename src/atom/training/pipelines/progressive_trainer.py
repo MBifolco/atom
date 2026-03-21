@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.atom.training.utils.determinism import set_global_seeds
 from src.atom.training.utils.runtime_platform import configure_runtime_gpu_env
 
 # Configure CUDA/ROCm/CPU defaults before importing modules that may touch JAX.
@@ -52,7 +53,8 @@ class ProgressiveTrainer:
                  record_replays: bool = False,
                  replay_frequency: int = 5,
                  override_episodes_per_level: int = None,
-                 checkpoint_interval: int = 100000):
+                 checkpoint_interval: int = 100000,
+                 seed: int = 1337):
         """
         Initialize the progressive trainer.
 
@@ -67,6 +69,7 @@ class ProgressiveTrainer:
             use_vmap: Use JAX vmap for GPU-accelerated training (Level 3/4)
             record_replays: Whether to record fight replays for montage
             replay_frequency: Record replays every N generations
+            seed: Training seed for reproducible runs
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -82,6 +85,10 @@ class ProgressiveTrainer:
         self.replay_frequency = replay_frequency
         self.override_episodes_per_level = override_episodes_per_level
         self.checkpoint_interval = checkpoint_interval
+        self.seed = int(seed)
+        if self.seed < 0:
+            raise ValueError(f"seed must be non-negative, got {self.seed}")
+        self.seed_report = set_global_seeds(self.seed)
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -146,6 +153,7 @@ class ProgressiveTrainer:
             record_replays=self.record_replays,
             override_episodes_per_level=self.override_episodes_per_level,
             checkpoint_interval=self.checkpoint_interval,
+            seed=self.seed,
         )
 
         # Train through curriculum
@@ -302,7 +310,8 @@ class ProgressiveTrainer:
             use_vmap=self.use_vmap,  # Use GPU if enabled
             n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
             record_replays=self.record_replays,
-            replay_recording_frequency=self.replay_frequency
+            replay_recording_frequency=self.replay_frequency,
+            seed=self.seed,
         )
 
         # Initialize population with the curriculum model as base
@@ -363,7 +372,8 @@ class ProgressiveTrainer:
                 use_vmap=population_use_vmap,  # May be overridden by population_cpu_only
                 n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
                 record_replays=self.record_replays,
-                replay_recording_frequency=self.replay_frequency
+                replay_recording_frequency=self.replay_frequency,
+                seed=self.seed,
             )
 
         # Check if we have a base model from curriculum training
@@ -411,6 +421,7 @@ class ProgressiveTrainer:
             print(f"  Training Backend: {'SBX (JAX)' if USING_SBX else 'SB3 (PyTorch)'}")
             print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
             print(f"  Runtime Platform: {DETECTED_RUNTIME_PLATFORM}")
+            print(f"  Seed: {self.seed}")
             print(f"\nOutput directory: {self.output_dir}")
             print(f"Logs will be saved to:")
             print(f"  - {self.curriculum_dir / 'logs'}")
