@@ -27,12 +27,49 @@ JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
 SYNC_MODE="${ATOM_DRIVE_REPO_SYNC_MODE:-stash}"
 SKIP_PREFLIGHT="${ATOM_SKIP_PREFLIGHT:-0}"
 
+SECONDS=0
+
+timestamp() {
+  date '+%H:%M:%S'
+}
+
+log() {
+  printf '[%s] %s\n' "$(timestamp)" "$*"
+}
+
+run_step() {
+  local label="$1"
+  shift
+  local started_at=$SECONDS
+  log "START: $label"
+  if "$@"; then
+    log "DONE : $label (${SECONDS-started_at}s)"
+  else
+    local rc=$?
+    log "FAIL : $label (${SECONDS-started_at}s, exit $rc)"
+    return $rc
+  fi
+}
+
 cd "$PROJECT_ROOT"
 
+log "Bootstrap configuration:"
+log "  DRIVE_REPO=$DRIVE_REPO"
+log "  WORK_REPO=$WORK_REPO"
+log "  BRANCH=$BRANCH"
+log "  SYNC_MODE=$SYNC_MODE"
+log "  INSTALL_JAX_CUDA=$INSTALL_JAX_CUDA"
+
 if [[ "$SKIP_PREFLIGHT" != "1" ]]; then
-  echo "Running bootstrap preflight checks..."
-  PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-    python -u -m src.atom.training.utils.colab_preflight --stage bootstrap --strict
+  log "Running bootstrap preflight checks..."
+  started_at=$SECONDS
+  if PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"     python -u -m src.atom.training.utils.colab_preflight --stage bootstrap --strict; then
+    log "DONE : bootstrap preflight (${SECONDS-started_at}s)"
+  else
+    rc=$?
+    log "FAIL : bootstrap preflight (${SECONDS-started_at}s, exit $rc)"
+    exit "$rc"
+  fi
 fi
 
 if [[ ! -d "/content/drive" ]]; then
@@ -48,11 +85,10 @@ if [[ ! -d "$DRIVE_REPO/.git" ]]; then
     echo "Example: export ATOM_REPO_URL='https://github.com/<org>/<repo>.git'"
     exit 1
   fi
-  echo "Cloning repo into Drive cache: $DRIVE_REPO"
-  git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$DRIVE_REPO"
+  run_step "Clone repo into Drive cache" git clone --branch "$BRANCH" --single-branch "$REPO_URL" "$DRIVE_REPO"
 fi
 
-echo "Updating Drive repo cache ($BRANCH)..."
+log "Updating Drive repo cache ($BRANCH)..."
 cd "$DRIVE_REPO"
 
 git config core.filemode false
@@ -116,7 +152,7 @@ fi
 
 if [[ "$skip_branch_sync" -eq 0 ]]; then
   git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-  git fetch --prune origin
+  run_step "Fetch origin refs" git fetch --prune origin
 
   if ! git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
     echo "ERROR: Remote branch '$BRANCH' not found on origin."
@@ -129,39 +165,31 @@ if [[ "$skip_branch_sync" -eq 0 ]]; then
   fi
 
   if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-    git checkout "$BRANCH"
+    run_step "Checkout local branch $BRANCH" git checkout "$BRANCH"
   else
-    git checkout -b "$BRANCH" "origin/$BRANCH"
+    run_step "Create local branch $BRANCH from origin/$BRANCH" git checkout -b "$BRANCH" "origin/$BRANCH"
   fi
 fi
 
 if [[ "$skip_pull" -eq 0 ]]; then
-  git pull --ff-only origin "$BRANCH"
+  run_step "Fast-forward pull origin/$BRANCH" git pull --ff-only origin "$BRANCH"
 fi
 
-echo "Syncing to local runtime workspace: $WORK_REPO"
+log "Syncing to local runtime workspace: $WORK_REPO"
 mkdir -p "$WORK_REPO"
-rsync -a --delete \
-  --exclude ".pytest_cache/" \
-  --exclude "__pycache__/" \
-  --exclude ".mypy_cache/" \
-  --exclude "outputs/" \
-  --exclude "htmlcov/" \
-  "$DRIVE_REPO"/ "$WORK_REPO"/
+run_step "Sync Drive cache to runtime workspace" rsync -a --delete   --exclude ".pytest_cache/"   --exclude "__pycache__/"   --exclude ".mypy_cache/"   --exclude "outputs/"   --exclude "htmlcov/"   "$DRIVE_REPO"/ "$WORK_REPO"/
 
 cd "$WORK_REPO"
-echo "Installing Python dependencies..."
-python -m pip install -U pip
-python -m pip install -r requirements.txt
+log "Installing Python dependencies..."
+run_step "Upgrade pip" python -m pip install -U pip
+run_step "Install requirements.txt" python -m pip install -r requirements.txt
 
 if [[ "$INSTALL_JAX_CUDA" == "1" ]]; then
-  echo "Installing JAX CUDA wheel (jax==$JAX_VERSION)..."
-  python -m pip install -U "jax[cuda12]==$JAX_VERSION" \
-    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+  log "Installing JAX CUDA wheel (jax==$JAX_VERSION)..."
+  run_step "Install JAX CUDA wheel" python -m pip install -U "jax[cuda12]==$JAX_VERSION"     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 fi
 
-echo
-echo "Bootstrap complete."
-echo "Working directory: $WORK_REPO"
-echo "Try a quick smoke test:"
-echo "  python train_progressive.py --mode quick --device auto --use-vmap --output-dir /content/drive/MyDrive/atom_runs/quick_test"
+log "Bootstrap complete in ${SECONDS}s."
+log "Working directory: $WORK_REPO"
+log "Try a quick smoke test:"
+log "  python train_progressive.py --mode quick --device auto --use-vmap --output-dir /content/drive/MyDrive/atom_runs/quick_test"
