@@ -24,6 +24,7 @@ def test_baseline_command_includes_requested_overrides(tmp_path: Path):
 
     assert cmd[:2] == ["python3", "train_progressive.py"]
     assert "--timesteps" in cmd and "12345" in cmd
+    assert "--seed" in cmd and "999" in cmd
     assert "--device" in cmd and "cuda" in cmd
     assert "--cores" in cmd and "2" in cmd
     assert "--max-ticks" in cmd and "321" in cmd

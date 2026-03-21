@@ -41,6 +41,8 @@ def set_global_seeds(seed: int, deterministic_torch: bool = True) -> SeedReport:
 
     # Hash randomization can affect dict/set iteration order in some workflows.
     os.environ["PYTHONHASHSEED"] = str(seed)
+    os.environ["ATOM_GLOBAL_SEED"] = str(seed)
+    os.environ["ATOM_TRAINING_SEED"] = str(seed)
 
     random.seed(seed)
     np.random.seed(seed)

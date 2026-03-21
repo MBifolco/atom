@@ -886,6 +886,15 @@ class CallbackStepProcessor:
 
             self.curriculum_trainer.update_progress(won, reward, info)
 
+            sanity_abort_reason = None
+            if hasattr(self.curriculum_trainer, "check_training_sanity_gate"):
+                sanity_abort_reason = self.curriculum_trainer.check_training_sanity_gate()
+            if sanity_abort_reason:
+                self.curriculum_trainer.abort_reason = sanity_abort_reason
+                self.curriculum_trainer.logger.error("Curriculum sanity gate triggered - stopping training early")
+                self.curriculum_trainer.logger.error(sanity_abort_reason)
+                return False
+
             if self.curriculum_trainer.should_graduate():
                 self.curriculum_trainer.advance_level()
                 if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
@@ -936,6 +945,7 @@ class EnvFactory:
         verbose: bool,
         create_env_fn,
         vmap_adapter_cls,
+        seed_base: int,
     ):
         self.n_envs = n_envs
         self.max_ticks = max_ticks
@@ -945,6 +955,7 @@ class EnvFactory:
         self.verbose = verbose
         self.create_env_fn = create_env_fn
         self.vmap_adapter_cls = vmap_adapter_cls
+        self.seed_base = seed_base
 
     def create_envs_for_level(self, level):
         if self.use_vmap:
@@ -973,7 +984,7 @@ class EnvFactory:
             max_ticks=self.max_ticks,
             fighter_mass=70.0,
             opponent_mass=70.0,
-            seed=42,
+            seed=self.seed_base,
             debug=self.debug,
         )
 
@@ -1004,8 +1015,8 @@ class EnvFactory:
             level_name = level.name.replace(" ", "_").lower()
             monitor_file = str(self.logs_dir / f"{level_name}_env_{i}")
 
-            env_fn = lambda opp_path=opponent_path, mfile=monitor_file: Monitor(
-                self.create_env_fn(opp_path),
+            env_fn = lambda opp_path=opponent_path, mfile=monitor_file, env_idx=i: Monitor(
+                self.create_env_fn(opp_path, env_id=env_idx),
                 mfile,
                 allow_early_resets=True,
             )
@@ -1026,13 +1037,15 @@ class EnvFactory:
 class ModelFactory:
     """Creates RL models with project-stable defaults."""
 
-    def __init__(self, *, logs_dir: Path, verbose: bool):
+    def __init__(self, *, logs_dir: Path, verbose: bool, seed: int):
         self.logs_dir = Path(logs_dir)
         self.verbose = verbose
+        self.seed = seed
 
-    def create_model(self, *, algorithm: str, envs, device: str):
+    def create_model(self, *, algorithm: str, envs, device: str, seed: int | None = None):
         algo = algorithm.lower()
         actual_device = "cpu" if device == "auto" else device
+        model_seed = self.seed if seed is None else seed
 
         if algo == "ppo":
             if self.verbose:
@@ -1044,6 +1057,7 @@ class ModelFactory:
                 "MlpPolicy",
                 envs,
                 device=actual_device,
+                seed=model_seed,
                 **stable_config,
             )
             model.verbose = 2 if self.verbose else 0
@@ -1068,6 +1082,7 @@ class ModelFactory:
                 verbose=1 if self.verbose else 0,
                 tensorboard_log=str(self.logs_dir / "tensorboard"),
                 device=actual_device,
+                seed=model_seed,
             )
 
         raise ValueError(f"Unknown algorithm: {algorithm}")

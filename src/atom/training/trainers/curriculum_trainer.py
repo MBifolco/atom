@@ -277,7 +277,12 @@ class CurriculumTrainer:
                  record_replays: bool = False,
                  replay_matches_per_opponent: int = 3,
                  override_episodes_per_level: int = None,
-                 checkpoint_interval: int = 100000):
+                 checkpoint_interval: int = 100000,
+                 seed: int = 1337,
+                 enable_level1_sanity_gate: bool = True,
+                 level1_sanity_gate_episode_threshold: int = 4000,
+                 level1_sanity_gate_min_recent_win_rate: float = 0.15,
+                 level1_sanity_gate_min_overall_win_rate: float = 0.12):
         """
         Initialize the curriculum trainer.
 
@@ -293,6 +298,11 @@ class CurriculumTrainer:
             replay_matches_per_opponent: Number of evaluation matches per opponent for replay recording
             override_episodes_per_level: Force graduation after N episodes (for testing). None for normal graduation.
             checkpoint_interval: Save checkpoint bundle every N timesteps.
+            seed: Training seed for reproducible curriculum runs.
+            enable_level1_sanity_gate: Stop obviously broken Level 1 runs early.
+            level1_sanity_gate_episode_threshold: Level 1 episode threshold before sanity check triggers.
+            level1_sanity_gate_min_recent_win_rate: Minimum recent Level 1 win rate after threshold.
+            level1_sanity_gate_min_overall_win_rate: Minimum overall Level 1 win rate after threshold.
         """
         self.algorithm = algorithm.lower()
         self.output_dir = Path(output_dir)
@@ -306,12 +316,22 @@ class CurriculumTrainer:
         self.replay_matches_per_opponent = replay_matches_per_opponent
         self.override_episodes_per_level = override_episodes_per_level
         self.checkpoint_interval = checkpoint_interval
+        self.seed = int(seed)
+        self.enable_level1_sanity_gate = enable_level1_sanity_gate
+        self.level1_sanity_gate_episode_threshold = level1_sanity_gate_episode_threshold
+        self.level1_sanity_gate_min_recent_win_rate = level1_sanity_gate_min_recent_win_rate
+        self.level1_sanity_gate_min_overall_win_rate = level1_sanity_gate_min_overall_win_rate
+        self.abort_reason = None
 
         # Validate override
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
             raise ValueError("override_episodes_per_level must be positive")
         if self.checkpoint_interval <= 0:
             raise ValueError("checkpoint_interval must be positive")
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative")
+        if self.level1_sanity_gate_episode_threshold <= 0:
+            raise ValueError("level1_sanity_gate_episode_threshold must be positive")
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -383,10 +403,12 @@ class CurriculumTrainer:
             verbose=self.verbose,
             create_env_fn=self.create_env,
             vmap_adapter_cls=VmapEnvAdapter,
+            seed_base=self.seed,
         )
         self.model_factory = ModelFactory(
             logs_dir=self.logs_dir,
             verbose=self.verbose,
+            seed=self.seed,
         )
         self.level_transition_state_machine = LevelTransitionStateMachine()
 
@@ -519,6 +541,14 @@ class CurriculumTrainer:
         self.logger.info(f"Training Backend: SB3 (PyTorch) with JAX physics")
         self.logger.info(f"GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
         self.logger.info(f"Curriculum Levels: {len(self.curriculum)}")
+        self.logger.info(f"Training Seed: {self.seed}")
+        if self.enable_level1_sanity_gate:
+            self.logger.info(
+                "Level 1 sanity gate: enabled "
+                f"(episodes>={self.level1_sanity_gate_episode_threshold}, "
+                f"recent>={self.level1_sanity_gate_min_recent_win_rate:.0%}, "
+                f"overall>={self.level1_sanity_gate_min_overall_win_rate:.0%})"
+            )
         self.logger.info("="*80)
 
     def load_opponent(self, opponent_path: str) -> Callable:
@@ -543,7 +573,8 @@ class CurriculumTrainer:
             opponent_decision_func=opponent_func,
             max_ticks=self.max_ticks,
             fighter_mass=70.0,
-            opponent_mass=70.0
+            opponent_mass=70.0,
+            seed=self.seed + env_id
         )
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
@@ -556,6 +587,7 @@ class CurriculumTrainer:
             algorithm=self.algorithm,
             envs=self.envs,
             device=self.device,
+            seed=self.seed,
         )
 
     def update_progress(self, won: bool, reward: float = 0, info: dict = None):
@@ -573,6 +605,35 @@ class CurriculumTrainer:
         if self.progress.current_level >= len(self.curriculum):
             return self.curriculum[-1]  # Stay at highest level
         return self.curriculum[self.progress.current_level]
+
+    def check_training_sanity_gate(self) -> Optional[str]:
+        """Return an abort reason when the Level 1 run is clearly unhealthy."""
+        if not self.enable_level1_sanity_gate:
+            return None
+        if self.override_episodes_per_level is not None:
+            return None
+        if self.progress.current_level != 0:
+            return None
+        if self.progress.episodes_at_level < self.level1_sanity_gate_episode_threshold:
+            return None
+        if not self.progress.recent_episodes:
+            return None
+
+        recent_win_rate = sum(self.progress.recent_episodes) / len(self.progress.recent_episodes)
+        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+
+        if recent_win_rate >= self.level1_sanity_gate_min_recent_win_rate:
+            return None
+        if overall_win_rate >= self.level1_sanity_gate_min_overall_win_rate:
+            return None
+
+        return (
+            "Level 1 sanity gate triggered after "
+            f"{self.progress.episodes_at_level} episodes: overall win rate {overall_win_rate:.1%} "
+            f"(need >= {self.level1_sanity_gate_min_overall_win_rate:.1%}), recent win rate {recent_win_rate:.1%} "
+            f"(need >= {self.level1_sanity_gate_min_recent_win_rate:.1%}). "
+            "This run is likely unhealthy; stop early, verify pinned Colab dependencies, and retry with the same seed."
+        )
 
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
@@ -882,6 +943,14 @@ class CurriculumTrainer:
         finally:
             if self.envs:
                 self.envs.close()
+
+        if self.abort_reason is not None:
+            self.logger.error("="*80)
+            self.logger.error("CURRICULUM SANITY GATE TRIGGERED")
+            self.logger.error("="*80)
+            self.logger.error(self.abort_reason)
+            self.logger.error("="*80)
+            raise RuntimeError(self.abort_reason)
 
         self.logger.info("Training complete!")
 

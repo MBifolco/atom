@@ -31,6 +31,7 @@ Examples:
     parser.add_argument("--mode", choices=["quick", "curriculum", "population", "complete"], default="complete", help="Training mode")
     parser.add_argument("--algorithm", choices=["ppo", "sac"], default="ppo", help="RL algorithm to use")
     parser.add_argument("--timesteps", type=int, default=500_000, help="Timesteps for curriculum training")
+    parser.add_argument("--seed", type=int, default=1337, help="Training seed for reproducible runs")
     parser.add_argument("--population", type=int, default=8, help="Population size")
     parser.add_argument("--generations", type=int, default=10, help="Population training generations")
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory (default: outputs/progressive_TIMESTAMP)")
@@ -71,6 +72,7 @@ def main(argv: list[str] | None = None) -> None:
         algorithm=args.algorithm,
         output_dir=resolve_output_dir(args.output_dir),
         verbose=True,
+        seed=args.seed,
         n_parallel_fighters=args.n_parallel_fighters,
         n_envs=args.cores,
         max_ticks=args.max_ticks,

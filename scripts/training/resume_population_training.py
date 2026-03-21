@@ -132,6 +132,7 @@ def resume_population_training(
     start_generation: int,
     total_generations: int,
     algorithm: str = "ppo",
+    seed: int = 1337,
     population_size: int = 8,
     episodes_per_gen: int = 2000,
     n_envs: int = 45,
@@ -212,6 +213,7 @@ def resume_population_training(
     # Create ProgressiveTrainer instance (reuses same code as train_progressive.py)
     print(f"\nInitializing ProgressiveTrainer...")
     print(f"  Algorithm: {algorithm}")
+    print(f"  Seed: {seed}")
     print(f"  GPU acceleration: {'ENABLED' if use_vmap else 'DISABLED'}")
     if use_vmap:
         print(f"  Vmap environments: {n_envs}")
@@ -219,6 +221,7 @@ def resume_population_training(
     progressive_trainer = ProgressiveTrainer(
         output_dir=str(output_dir),
         algorithm=algorithm,
+        seed=seed,
         use_vmap=use_vmap,
         n_parallel_fighters=n_parallel_fighters,
         verbose=True
@@ -230,6 +233,7 @@ def resume_population_training(
         algorithm=algorithm,
         output_dir=str(output_dir / "population"),
         verbose=True,
+        seed=seed,
         n_parallel_fighters=n_parallel_fighters,
         use_vmap=use_vmap,
         n_vmap_envs=n_envs if use_vmap else 45,
@@ -323,6 +327,13 @@ Examples:
         choices=["ppo", "sac"],
         default="ppo",
         help="RL algorithm (default: ppo)"
+    )
+
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=1337,
+        help="Global training seed (default: 1337)"
     )
 
     parser.add_argument(
@@ -430,6 +441,7 @@ Examples:
         start_generation=args.start_gen,
         total_generations=args.total_gens,
         algorithm=args.algorithm,
+        seed=args.seed,
         population_size=args.population,
         episodes_per_gen=args.episodes_per_gen,
         n_envs=args.n_envs,

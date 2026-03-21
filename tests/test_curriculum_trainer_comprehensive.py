@@ -1254,3 +1254,32 @@ class TestCurriculumTrainerSaveCheckpoint:
             assert result is not None
             assert "level_2" in str(result)
             assert "ep_500" in str(result)
+
+
+class TestCurriculumSanityGate:
+    def test_level1_sanity_gate_triggers_for_bad_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(output_dir=tmpdir, verbose=False)
+            trainer.progress.current_level = 0
+            trainer.progress.episodes_at_level = 4000
+            trainer.progress.wins_at_level = 300
+            trainer.progress.recent_episodes = [False] * 50
+
+            reason = trainer.check_training_sanity_gate()
+
+            assert reason is not None
+            assert "Level 1 sanity gate triggered" in reason
+
+    def test_level1_sanity_gate_ignores_override_runs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = CurriculumTrainer(
+                output_dir=tmpdir,
+                verbose=False,
+                override_episodes_per_level=10,
+            )
+            trainer.progress.current_level = 0
+            trainer.progress.episodes_at_level = 4000
+            trainer.progress.wins_at_level = 0
+            trainer.progress.recent_episodes = [False] * 50
+
+            assert trainer.check_training_sanity_gate() is None

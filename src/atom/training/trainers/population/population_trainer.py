@@ -776,7 +776,8 @@ class PopulationTrainer:
                  n_vmap_envs: int = 250,
                  record_replays: bool = False,
                  replay_recording_frequency: int = 5,
-                 replay_matches_per_pair: int = 2):
+                 replay_matches_per_pair: int = 2,
+                 seed: int = 1337):
         """
         Initialize the population trainer.
 
@@ -796,6 +797,7 @@ class PopulationTrainer:
             record_replays: Whether to record fight replays for montage
             replay_recording_frequency: Record replays every N generations
             replay_matches_per_pair: Number of evaluation matches per fighter pair for replay recording
+            seed: Training seed used for deterministic population initialization
         """
         self.population_size = population_size
         self.config = config or WorldConfig()
@@ -811,6 +813,11 @@ class PopulationTrainer:
         self.record_replays = record_replays
         self.replay_recording_frequency = replay_recording_frequency
         self.replay_matches_per_pair = replay_matches_per_pair
+        self.seed = int(seed)
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative")
+        random.seed(self.seed)
+        np.random.seed(self.seed)
 
         # Parallel training configuration
         if n_parallel_fighters is None:

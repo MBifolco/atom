@@ -706,6 +706,7 @@ def test_callback_step_processor_updates_episode_tracking_and_trainer():
         progress=SimpleNamespace(current_level=0),
         curriculum=[SimpleNamespace(name="Fundamentals")],
         update_progress=Mock(),
+        check_training_sanity_gate=Mock(return_value=None),
         should_graduate=Mock(return_value=False),
         advance_level=Mock(),
     )
@@ -736,6 +737,7 @@ def test_callback_step_processor_stops_when_curriculum_completes():
         progress=progress,
         curriculum=[SimpleNamespace(name="Fundamentals")],
         update_progress=Mock(),
+        check_training_sanity_gate=Mock(return_value=None),
         should_graduate=Mock(return_value=True),
         advance_level=Mock(side_effect=lambda: setattr(progress, "current_level", 1)),
     )
@@ -753,6 +755,35 @@ def test_callback_step_processor_stops_when_curriculum_completes():
     trainer.logger.info.assert_called_with("Curriculum complete - stopping training early")
 
 
+
+
+def test_callback_step_processor_stops_when_sanity_gate_triggers():
+    trainer = SimpleNamespace(
+        progressive_recorder=None,
+        verbose=False,
+        logger=Mock(),
+        progress=SimpleNamespace(current_level=0),
+        curriculum=[SimpleNamespace(name="Fundamentals")],
+        update_progress=Mock(),
+        check_training_sanity_gate=Mock(return_value="sanity gate tripped"),
+        should_graduate=Mock(return_value=False),
+        advance_level=Mock(),
+        abort_reason=None,
+    )
+    processor = CallbackStepProcessor(curriculum_trainer=trainer)
+
+    should_continue = processor.process_infos(
+        [{"episode": {"r": 3.0}, "won": False}],
+        [],
+        [],
+        [],
+    )
+
+    assert not should_continue
+    assert trainer.abort_reason == "sanity gate tripped"
+    trainer.logger.error.assert_any_call("Curriculum sanity gate triggered - stopping training early")
+    trainer.should_graduate.assert_not_called()
+
 def test_callback_step_processor_uses_record_replay_fn_when_enabled():
     trainer = SimpleNamespace(
         progressive_recorder=SimpleNamespace(should_record=lambda episode_num, total_episodes: True),
@@ -761,6 +792,7 @@ def test_callback_step_processor_uses_record_replay_fn_when_enabled():
         progress=SimpleNamespace(current_level=0),
         curriculum=[SimpleNamespace(name="Fundamentals")],
         update_progress=Mock(),
+        check_training_sanity_gate=Mock(return_value=None),
         should_graduate=Mock(return_value=False),
         advance_level=Mock(),
     )

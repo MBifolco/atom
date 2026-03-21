@@ -7,6 +7,8 @@ Technical docs for training, runtime architecture, and project planning.
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Common commands and shortcuts
 - **[PROGRESSIVE_TRAINING.md](PROGRESSIVE_TRAINING.md)** - End-to-end curriculum + population flow
 - **[POPULATION_TRAINING.md](POPULATION_TRAINING.md)** - Population-specific training details
+- **[POPULATION_SPEEDUP_PLAN.md](POPULATION_SPEEDUP_PLAN.md)** - Population parallelism, GPU sizing, and aggressive speedup test plan
+- **[TRAINING_OBSERVABILITY_PLAN.md](TRAINING_OBSERVABILITY_PLAN.md)** - Metrics, artifacts, and experiment plan for understanding curriculum and population efficacy
 - **[COLAB_SETUP.md](COLAB_SETUP.md)** - Colab workflow and bootstrap behavior
 - **[LOCAL_TESTING_WORKFLOW.md](LOCAL_TESTING_WORKFLOW.md)** - Local deterministic validation workflow
 - **[../notebooks/Atom_Training_Colab.ipynb](../notebooks/Atom_Training_Colab.ipynb)** - Ready-to-run notebook
