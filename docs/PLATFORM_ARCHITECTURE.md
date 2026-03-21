@@ -370,7 +370,7 @@ class MatchResult:
 
 ### Evaluation System
 
-**Location:** `src/evaluator/spectacle_evaluator.py`
+**Location:** `src/atom/runtime/evaluator/spectacle_evaluator.py`
 
 Evaluates match quality based on entertainment value, not fairness.
 
@@ -561,7 +561,7 @@ output_path = renderer.generate_replay_html(
 
 ### Telemetry System
 
-**Location:** `src/telemetry/replay_store.py`
+**Location:** `src/atom/runtime/telemetry/replay_store.py`
 
 Persistent storage for match replays and analysis.
 

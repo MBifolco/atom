@@ -4,7 +4,6 @@ Atom Combat - Replay Renderer
 Visualizes matches from telemetry data.
 """
 
-from .ascii_renderer import AsciiRenderer
-from .html_renderer import HtmlRenderer
+from src.atom.runtime.renderer import AsciiRenderer, HtmlRenderer
 
 __all__ = ['AsciiRenderer', 'HtmlRenderer']

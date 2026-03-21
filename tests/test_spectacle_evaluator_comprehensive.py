@@ -6,7 +6,7 @@ Tests all score calculation branches and edge cases.
 import pytest
 from unittest.mock import Mock, MagicMock
 
-from src.evaluator.spectacle_evaluator import SpectacleEvaluator, SpectacleScore
+from src.atom.runtime.evaluator.spectacle_evaluator import SpectacleEvaluator, SpectacleScore
 
 
 class TestSpectacleScore:

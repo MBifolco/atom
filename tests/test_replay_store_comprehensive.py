@@ -9,7 +9,7 @@ import gzip
 from pathlib import Path
 from unittest.mock import Mock
 
-from src.telemetry.replay_store import ReplayStore, save_replay, load_replay
+from src.atom.runtime.telemetry.replay_store import ReplayStore, save_replay, load_replay
 
 
 class TestReplayStoreMethods:

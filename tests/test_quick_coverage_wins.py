@@ -3,7 +3,7 @@ Quick coverage wins - test simple methods and dataclasses to boost to 45%.
 """
 
 import pytest
-from src.training.trainers.population.elo_tracker import FighterStats, EloTracker
+from src.atom.training.trainers.population.elo_tracker import FighterStats, EloTracker
 from src.training.trainers.population.population_trainer import PopulationFighter
 from src.training.trainers.curriculum_trainer import CurriculumLevel, DifficultyLevel, TrainingProgress
 from stable_baselines3 import PPO

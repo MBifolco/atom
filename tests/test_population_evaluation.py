@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import numpy as np
 
 from src.arena import WorldConfig
-from src.training.trainers.population.population_evaluation import (
+from src.atom.training.trainers.population.population_evaluation import (
     EvaluationContext,
     PopulationEvaluationService,
 )

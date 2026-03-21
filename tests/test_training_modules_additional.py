@@ -168,7 +168,7 @@ class TestReplayStoreComprehensive:
 
     def test_save_and_load_replay(self):
         """Test saving and loading a replay."""
-        from src.telemetry.replay_store import save_replay
+        from src.atom.runtime.telemetry.replay_store import save_replay
 
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_replay.json.gz"
@@ -192,7 +192,7 @@ class TestReplayStoreComprehensive:
 
     def test_save_replay_uncompressed(self):
         """Test saving replay without compression."""
-        from src.telemetry.replay_store import save_replay
+        from src.atom.runtime.telemetry.replay_store import save_replay
 
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_replay.json"
@@ -215,7 +215,7 @@ class TestReplayStoreComprehensive:
 
     def test_save_replay_with_metadata(self):
         """Test saving replay with custom metadata."""
-        from src.telemetry.replay_store import save_replay
+        from src.atom.runtime.telemetry.replay_store import save_replay
 
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_replay.json.gz"
@@ -248,7 +248,7 @@ class TestFighterLoaderEdgeCases:
 
     def test_load_fighter_with_complex_imports(self):
         """Test loading fighter with various imports."""
-        from src.training.trainers.population.fighter_loader import load_fighter
+        from src.atom.training.trainers.population.fighter_loader import load_fighter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fighter_file = Path(tmpdir) / "complex.py"
@@ -266,7 +266,7 @@ def decide(state):
 
     def test_load_fighter_with_class(self):
         """Test loading fighter defined as a class method."""
-        from src.training.trainers.population.fighter_loader import load_fighter
+        from src.atom.training.trainers.population.fighter_loader import load_fighter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fighter_file = Path(tmpdir) / "class_fighter.py"

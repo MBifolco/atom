@@ -10,7 +10,7 @@ from typing import Any, List
 from unittest.mock import Mock, call, patch
 
 from src.arena import WorldConfig
-from src.training.trainers.population.population_evolution import (
+from src.atom.training.trainers.population.population_evolution import (
     EvolutionContext,
     PopulationEvolver,
 )
@@ -120,7 +120,7 @@ def test_load_parent_model_uses_checkpoint_when_available():
     )
     env = Mock()
 
-    with patch("src.training.trainers.population.population_evolution.PPO.load", return_value="loaded") as mock_load:
+    with patch("src.atom.training.trainers.population.population_evolution.PPO.load", return_value="loaded") as mock_load:
         loaded_model = evolver._load_parent_model(parent=parent, env=env)  # pylint: disable=protected-access
 
     assert loaded_model == "loaded"
@@ -142,7 +142,7 @@ def test_load_parent_model_without_checkpoint_saves_temp_copy():
     )
     env = Mock()
 
-    with patch("src.training.trainers.population.population_evolution.PPO.load", return_value="loaded") as mock_load:
+    with patch("src.atom.training.trainers.population.population_evolution.PPO.load", return_value="loaded") as mock_load:
         loaded_model = evolver._load_parent_model(parent=parent, env=env)  # pylint: disable=protected-access
 
     assert loaded_model == "loaded"

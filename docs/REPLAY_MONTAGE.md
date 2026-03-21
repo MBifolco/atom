@@ -658,7 +658,7 @@ Manual method:
 
 ### Custom Spectacle Weights
 
-The spectacle evaluator can be customized by modifying `src/evaluator/spectacle_evaluator.py`:
+The spectacle evaluator can be customized by modifying `src/atom/runtime/evaluator/spectacle_evaluator.py`:
 
 ```python
 # Default weights (all equal)
@@ -756,5 +756,5 @@ Both are included in the montage to show the complete learning journey.
 
 - [MONTAGE_CREATION.md](MONTAGE_CREATION.md) - Quick start guide
 - [POPULATION_TRAINING.md](POPULATION_TRAINING.md) - Population training details
-- [Spectacle Evaluator](../src/evaluator/spectacle_evaluator.py) - Scoring implementation
+- [Spectacle Evaluator](../src/atom/runtime/evaluator/spectacle_evaluator.py) - Scoring implementation
 - [Replay Recorder](../src/training/replay_recorder.py) - Recording implementation

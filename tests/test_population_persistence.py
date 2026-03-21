@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import torch
 
-from src.training.trainers.population.population_persistence import (
+from src.atom.training.trainers.population.population_persistence import (
     PopulationPersistenceContext,
     PopulationPersistenceService,
 )

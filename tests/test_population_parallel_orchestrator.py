@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
 from src.arena import WorldConfig
-from src.training.trainers.population.parallel_orchestrator import (
+from src.atom.training.trainers.population.parallel_orchestrator import (
     ModelArtifactStore,
     ParallelTrainingContext,
     ParallelTrainingOrchestrator,
@@ -175,8 +175,8 @@ def test_model_artifact_store_reload_updates_model_and_episode_count(tmp_path):
 
     fake_env = Mock()
 
-    with patch("src.training.trainers.population.parallel_orchestrator.DummyVecEnv", return_value=fake_env):
-        with patch("src.training.trainers.population.parallel_orchestrator.PPO.load", return_value="loaded-model"):
+    with patch("src.atom.training.trainers.population.parallel_orchestrator.DummyVecEnv", return_value=fake_env):
+        with patch("src.atom.training.trainers.population.parallel_orchestrator.PPO.load", return_value="loaded-model"):
             store.reload_updated_models([(fighter, [])], episodes_per_fighter=7)
 
     assert fighter.model == "loaded-model"

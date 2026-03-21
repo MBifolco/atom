@@ -14,6 +14,7 @@
 > - guardrail tests now enforce alias behavior and preferred `src.atom.*` imports across current repo surfaces
 > - utility modules now live under `src.atom.training.utils.*`; low-value legacy wrappers are being retired once current surfaces stop referencing them
 > - broader no-cov smoke coverage now includes training-tier baseline tests, CLI help surfaces, web app import, and both new/legacy Colab preflight entrypoints
+> - a namespace migration policy now defines when wrappers are kept, retired, and test-protected
 >
 > Purpose: make the architecture visible in the repository layout without breaking the working training, Colab, and CLI flows we rely on today.
 

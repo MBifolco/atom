@@ -15,7 +15,7 @@ from src.training.trainers.population.population_trainer import (
     PopulationFighter,
     PopulationCallback
 )
-from src.training.trainers.population.elo_tracker import EloTracker, FighterStats
+from src.atom.training.trainers.population.elo_tracker import EloTracker, FighterStats
 
 
 class TestVmapEnvAdapterMethods:

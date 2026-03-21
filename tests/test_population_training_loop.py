@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from src.training.trainers.population.population_training_loop import (
+from src.atom.training.trainers.population.population_training_loop import (
     PopulationTrainingLoopContext,
     PopulationTrainingLoopHelper,
 )

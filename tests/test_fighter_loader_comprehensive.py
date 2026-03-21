@@ -7,7 +7,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from src.training.trainers.population.fighter_loader import (
+from src.atom.training.trainers.population.fighter_loader import (
     load_fighter,
     validate_fighter,
     FighterLoadError,
@@ -335,7 +335,7 @@ class TestTestFighterInCombat:
 
     def test_fighter_runs_successfully(self, capsys):
         """Test that a valid fighter runs successfully in combat."""
-        from src.training.trainers.population.fighter_loader import test_fighter_in_combat
+        from src.atom.training.trainers.population.fighter_loader import test_fighter_in_combat
 
         def good_fighter(state):
             return {"stance": "neutral", "acceleration": 0.5}
@@ -347,7 +347,7 @@ class TestTestFighterInCombat:
 
     def test_fighter_runs_non_verbose(self):
         """Test running fighter without verbose output."""
-        from src.training.trainers.population.fighter_loader import test_fighter_in_combat
+        from src.atom.training.trainers.population.fighter_loader import test_fighter_in_combat
 
         def good_fighter(state):
             return {"stance": "extended", "acceleration": 1.0}
@@ -357,7 +357,7 @@ class TestTestFighterInCombat:
 
     def test_fighter_with_exception_fails(self, capsys):
         """Test that a fighter that raises exceptions fails."""
-        from src.training.trainers.population.fighter_loader import test_fighter_in_combat
+        from src.atom.training.trainers.population.fighter_loader import test_fighter_in_combat
 
         def bad_fighter(state):
             raise RuntimeError("Fighter crashed!")
@@ -369,7 +369,7 @@ class TestTestFighterInCombat:
 
     def test_fighter_uses_state_values(self, capsys):
         """Test that fighter receives proper state values."""
-        from src.training.trainers.population.fighter_loader import test_fighter_in_combat
+        from src.atom.training.trainers.population.fighter_loader import test_fighter_in_combat
 
         state_received = []
 
@@ -391,7 +391,7 @@ class TestTestFighterInCombat:
 
     def test_fighter_combat_simulation_updates(self):
         """Test that position and HP update during simulation."""
-        from src.training.trainers.population.fighter_loader import test_fighter_in_combat
+        from src.atom.training.trainers.population.fighter_loader import test_fighter_in_combat
 
         positions = []
 
@@ -410,7 +410,7 @@ class TestLoadHardcodedFighters:
 
     def test_load_from_explicit_path(self, capsys):
         """Test loading fighters from explicit atom path."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         # Use the actual atom path
         fighters = load_hardcoded_fighters("/home/biff/eng/atom", verbose=True)
@@ -423,7 +423,7 @@ class TestLoadHardcodedFighters:
 
     def test_load_from_none_path(self):
         """Test loading with base_path=None uses cwd detection."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         # Should not crash when base_path is None
         fighters = load_hardcoded_fighters(None, verbose=False)
@@ -431,14 +431,14 @@ class TestLoadHardcodedFighters:
 
     def test_load_non_verbose(self):
         """Test loading without verbose output."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         fighters = load_hardcoded_fighters("/home/biff/eng/atom", verbose=False)
         assert isinstance(fighters, dict)
 
     def test_load_handles_missing_files(self, capsys):
         """Test that missing fighter files are handled gracefully."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -454,7 +454,7 @@ class TestLoadHardcodedFighters:
 
     def test_load_handles_invalid_fighters(self, capsys):
         """Test that invalid fighter files are handled gracefully."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fighters_dir = Path(tmpdir) / "fighters" / "examples"
@@ -475,7 +475,7 @@ def not_decide(state):
 
     def test_load_handles_exception_during_load(self, capsys):
         """Test handling of exceptions during fighter load."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fighters_dir = Path(tmpdir) / "fighters" / "examples"
@@ -495,7 +495,7 @@ raise ValueError("Error during module load")
 
     def test_load_validation_failure(self, capsys):
         """Test handling of fighters that fail validation."""
-        from src.training.trainers.population.fighter_loader import load_hardcoded_fighters
+        from src.atom.training.trainers.population.fighter_loader import load_hardcoded_fighters
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fighters_dir = Path(tmpdir) / "fighters" / "examples"

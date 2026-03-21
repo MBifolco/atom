@@ -73,6 +73,18 @@ def test_selected_legacy_utility_wrappers_are_retired():
         repo_root / "src" / "training" / "utils" / "nan_detector.py",
         repo_root / "src" / "training" / "utils" / "stable_ppo.py",
         repo_root / "src" / "training" / "utils" / "stable_ppo_config.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "elo_tracker.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "fighter_loader.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "parallel_orchestrator.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "population_evaluation.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "population_evolution.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "population_persistence.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "population_protocols.py",
+        repo_root / "src" / "training" / "trainers" / "population" / "population_training_loop.py",
+        repo_root / "src" / "evaluator" / "spectacle_evaluator.py",
+        repo_root / "src" / "renderer" / "ascii_renderer.py",
+        repo_root / "src" / "renderer" / "html_renderer.py",
+        repo_root / "src" / "telemetry" / "replay_store.py",
     ]
 
     for path in retired_paths:

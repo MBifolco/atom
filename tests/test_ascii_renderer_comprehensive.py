@@ -6,8 +6,8 @@ import pytest
 from unittest.mock import Mock, patch
 from io import StringIO
 
-from src.renderer.ascii_renderer import AsciiRenderer
-from src.evaluator.spectacle_evaluator import SpectacleScore
+from src.atom.runtime.renderer.ascii_renderer import AsciiRenderer
+from src.atom.runtime.evaluator.spectacle_evaluator import SpectacleScore
 
 
 class TestAsciiRendererInit:

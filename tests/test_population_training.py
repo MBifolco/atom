@@ -3,7 +3,7 @@ Tests for population training system components.
 """
 
 import pytest
-from src.training.trainers.population.elo_tracker import EloTracker, FighterStats
+from src.atom.training.trainers.population.elo_tracker import EloTracker, FighterStats
 
 
 class TestFighterStats:

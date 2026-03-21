@@ -17,7 +17,7 @@ from src.training.trainers.population.population_trainer import (
     _reconstruct_config,
     _create_opponent_decide_func,
 )
-from src.training.trainers.population.elo_tracker import EloTracker
+from src.atom.training.trainers.population.elo_tracker import EloTracker
 from src.arena import WorldConfig
 
 

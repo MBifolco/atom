@@ -5,7 +5,7 @@ Tests callback lifecycle and episode tracking.
 
 import pytest
 from src.training.trainers.population.population_trainer import PopulationCallback
-from src.training.trainers.population.elo_tracker import EloTracker
+from src.atom.training.trainers.population.elo_tracker import EloTracker
 
 
 class TestPopulationCallbackInitialization:

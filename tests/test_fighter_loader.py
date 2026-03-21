@@ -5,7 +5,7 @@ Tests for fighter loading utility.
 import pytest
 import tempfile
 from pathlib import Path
-from src.training.trainers.population.fighter_loader import (
+from src.atom.training.trainers.population.fighter_loader import (
     load_fighter,
     validate_fighter,
     FighterLoadError,

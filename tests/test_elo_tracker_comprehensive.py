@@ -8,7 +8,7 @@ import numpy as np
 from io import StringIO
 import sys
 
-from src.training.trainers.population.elo_tracker import EloTracker, FighterStats
+from src.atom.training.trainers.population.elo_tracker import EloTracker, FighterStats
 
 
 class TestFighterStatsProperties:

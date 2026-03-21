@@ -3,7 +3,7 @@ Complete ELO tracker coverage - target uncovered lines 179-307.
 """
 
 import pytest
-from src.training.trainers.population.elo_tracker import EloTracker, FighterStats
+from src.atom.training.trainers.population.elo_tracker import EloTracker, FighterStats
 
 
 class TestEloTrackerMissingBranches:
