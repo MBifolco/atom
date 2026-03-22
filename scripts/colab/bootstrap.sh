@@ -26,6 +26,7 @@ INSTALL_JAX_CUDA="${ATOM_INSTALL_JAX_CUDA:-1}"
 JAX_VERSION="${ATOM_JAX_VERSION:-0.7.2}"
 SYNC_MODE="${ATOM_DRIVE_REPO_SYNC_MODE:-stash}"
 SKIP_PREFLIGHT="${ATOM_SKIP_PREFLIGHT:-0}"
+SCAN_UNTRACKED="${ATOM_DRIVE_REPO_SCAN_UNTRACKED:-0}"
 REQUIREMENTS_FILE="${ATOM_REQUIREMENTS_FILE:-$PROJECT_ROOT/requirements-colab.txt}"
 
 if [[ ! -f "$REQUIREMENTS_FILE" ]]; then
@@ -56,6 +57,23 @@ run_step() {
   fi
 }
 
+refresh_git_index() {
+  git update-index -q --refresh >/dev/null 2>&1 || true
+}
+
+has_tracked_changes() {
+  refresh_git_index
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    ! git diff-index --quiet HEAD --
+  else
+    ! git diff --quiet || ! git diff --cached --quiet
+  fi
+}
+
+find_first_untracked_file() {
+  git ls-files --others --exclude-standard | sed -n '1p'
+}
+
 cd "$PROJECT_ROOT"
 
 log "Bootstrap configuration:"
@@ -64,6 +82,7 @@ log "  WORK_REPO=$WORK_REPO"
 log "  BRANCH=$BRANCH"
 log "  SYNC_MODE=$SYNC_MODE"
 log "  INSTALL_JAX_CUDA=$INSTALL_JAX_CUDA"
+log "  SCAN_UNTRACKED=$SCAN_UNTRACKED"
 log "  REQUIREMENTS_FILE=$REQUIREMENTS_FILE"
 
 if [[ "$SKIP_PREFLIGHT" != "1" ]]; then
@@ -99,12 +118,25 @@ cd "$DRIVE_REPO"
 
 git config core.filemode false
 
+log "Checking Drive repo cache for tracked changes..."
 is_dirty=0
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if has_tracked_changes; then
   is_dirty=1
+  log "Tracked changes detected in Drive repo cache."
+else
+  log "No tracked changes detected in Drive repo cache."
 fi
-if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
-  is_dirty=1
+
+if [[ "$SCAN_UNTRACKED" == "1" ]]; then
+  log "Scanning Drive repo cache for untracked files..."
+  if [[ -n "$(find_first_untracked_file)" ]]; then
+    is_dirty=1
+    log "Untracked files detected in Drive repo cache."
+  else
+    log "No untracked files detected in Drive repo cache."
+  fi
+else
+  log "Skipping untracked file scan in Drive repo cache (ATOM_DRIVE_REPO_SCAN_UNTRACKED=0)."
 fi
 
 skip_pull=0
@@ -140,11 +172,12 @@ if [[ "$is_dirty" -eq 1 ]]; then
 fi
 
 if [[ "$skip_branch_sync" -eq 0 ]]; then
+  log "Re-checking Drive repo cache after sync preparation..."
   still_dirty=0
-  if ! git diff --quiet || ! git diff --cached --quiet; then
+  if has_tracked_changes; then
     still_dirty=1
   fi
-  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  if [[ "$SCAN_UNTRACKED" == "1" ]] && [[ -n "$(find_first_untracked_file)" ]]; then
     still_dirty=1
   fi
   if [[ "$still_dirty" -eq 1 ]]; then
