@@ -111,3 +111,32 @@ class TestHoldoutTiming:
 
             assert trainer._record_holdout_evaluation.call_count == 3
             assert trainer._pending_holdout_labels == []
+
+    def test_flush_loads_snapshot_model_for_tuple_entries(self):
+        """When queue contains (label, path) tuples, flush loads the snapshot."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            trainer = self._make_trainer(tmpdir)
+
+            # Create a fake snapshot file by saving a fresh PPO model
+            from stable_baselines3 import PPO
+            from gymnasium import spaces
+            import numpy as np
+
+            obs_space = spaces.Box(low=np.zeros(13), high=np.ones(13), dtype=np.float32)
+            act_space = spaces.Box(low=-np.ones(4), high=np.ones(4), dtype=np.float32)
+            snapshot_path = f"{tmpdir}/snapshot_test.zip"
+            dummy_model = PPO("MlpPolicy", "CartPole-v1")
+            dummy_model.save(snapshot_path)
+            del dummy_model
+
+            # Queue a tuple entry
+            trainer._pending_holdout_labels = [("test_label", snapshot_path)]
+            trainer._record_holdout_evaluation = MagicMock()
+
+            trainer._flush_pending_holdouts()
+
+            # Should have been called with the label and a model (not None)
+            assert trainer._record_holdout_evaluation.call_count == 1
+            call_args = trainer._record_holdout_evaluation.call_args
+            assert call_args.args[0] == "test_label"
+            assert call_args.kwargs.get("model") is not None

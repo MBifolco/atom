@@ -643,8 +643,15 @@ class CurriculumTrainer:
             {"category": "expert", "label": "slugger", "opponent_path": str(example_dir / "slugger.py")},
         ]
 
-    def _run_holdout_match(self, opponent_path: str, env_id: int = 0) -> dict[str, Any]:
-        """Run a single deterministic holdout match for the current model."""
+    def _run_holdout_match(self, opponent_path: str, env_id: int = 0, model=None) -> dict[str, Any]:
+        """Run a single deterministic holdout match.
+
+        Args:
+            opponent_path: Path to opponent fighter file.
+            env_id: Seed offset for environment.
+            model: Model to evaluate. If None, uses self.model.
+        """
+        eval_model = model if model is not None else self.model
         env = self.create_env(opponent_path, env_id=env_id)
         try:
             obs, _ = env.reset()
@@ -654,7 +661,7 @@ class CurriculumTrainer:
             fight_length = 0
 
             while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
+                action, _ = eval_model.predict(obs, deterministic=True)
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_reward += float(reward)
                 fight_length += 1
@@ -676,9 +683,16 @@ class CurriculumTrainer:
         finally:
             env.close()
 
-    def _evaluate_holdout_suite(self, checkpoint_label: str, matches_per_opponent: int | None = None) -> None:
-        """Evaluate the current curriculum model on the fixed holdout suite."""
-        if self.model is None:
+    def _evaluate_holdout_suite(self, checkpoint_label: str, matches_per_opponent: int | None = None, model=None) -> None:
+        """Evaluate a model on the fixed holdout suite.
+
+        Args:
+            checkpoint_label: Label for this evaluation snapshot.
+            matches_per_opponent: Matches per holdout opponent.
+            model: Model to evaluate. If None, uses self.model.
+        """
+        eval_model = model if model is not None else self.model
+        if eval_model is None:
             return
 
         if matches_per_opponent is None:
@@ -687,7 +701,7 @@ class CurriculumTrainer:
         suite_results: list[dict[str, Any]] = []
         for suite_entry in self._get_holdout_suite():
             match_results = [
-                self._run_holdout_match(suite_entry["opponent_path"], env_id=match_idx)
+                self._run_holdout_match(suite_entry["opponent_path"], env_id=match_idx, model=eval_model)
                 for match_idx in range(matches_per_opponent)
             ]
             wins = sum(1 for result in match_results if result["won"])
@@ -722,10 +736,10 @@ class CurriculumTrainer:
         }
         append_jsonl(self.analysis_dir / "holdout_eval.jsonl", record)
 
-    def _record_holdout_evaluation(self, checkpoint_label: str) -> None:
+    def _record_holdout_evaluation(self, checkpoint_label: str, model=None) -> None:
         """Run and record holdout evaluation without derailing training on failure."""
         try:
-            self._evaluate_holdout_suite(checkpoint_label)
+            self._evaluate_holdout_suite(checkpoint_label, model=model)
         except Exception as exc:
             self.logger.warning(f"Holdout evaluation failed for {checkpoint_label}: {exc}")
             self._record_failure_event(
@@ -737,14 +751,27 @@ class CurriculumTrainer:
             )
 
     def _flush_pending_holdouts(self) -> None:
-        """Run all queued holdout evaluations.
+        """Run all queued holdout evaluations using saved model snapshots.
 
-        Called from _on_rollout_start so evaluations use post-gradient-update
-        weights instead of stale mid-rollout weights.
+        Each entry is a (label, snapshot_path) tuple. The snapshot was saved
+        at graduation time so the holdout evaluation uses the exact weights
+        from that level, not the current (possibly further-trained) model.
         """
         while self._pending_holdout_labels:
-            label = self._pending_holdout_labels.pop(0)
-            self._record_holdout_evaluation(label)
+            entry = self._pending_holdout_labels.pop(0)
+            if isinstance(entry, tuple):
+                label, snapshot_path = entry
+                try:
+                    snapshot_model = PPO.load(snapshot_path, device="cpu")
+                    self._record_holdout_evaluation(label, model=snapshot_model)
+                    del snapshot_model
+                except Exception as exc:
+                    self.logger.warning(f"Failed to load holdout snapshot {snapshot_path}: {exc}")
+                    # Fall back to current model
+                    self._record_holdout_evaluation(label)
+            else:
+                # Backward compat: bare label string
+                self._record_holdout_evaluation(entry)
 
     def _current_model_timesteps(self) -> int:
         """Return the current model timestep counter when available."""
@@ -965,8 +992,14 @@ class CurriculumTrainer:
             f"level_{self.progress.current_level + 1}_"
             f"{current.name.lower().replace(' ', '_')}_graduated"
         )
-        # Queue holdout for after the next gradient update (not mid-rollout)
-        self._pending_holdout_labels.append(checkpoint_label)
+        # Save a snapshot of the current model so holdout evaluation uses
+        # the exact weights at graduation, not whatever weights exist later
+        # when the flush runs (which may be after further training).
+        snapshot_path = self.models_dir / "checkpoints" / f"holdout_snapshot_{checkpoint_label}.zip"
+        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.model is not None:
+            self.model.save(snapshot_path)
+        self._pending_holdout_labels.append((checkpoint_label, str(snapshot_path)))
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")

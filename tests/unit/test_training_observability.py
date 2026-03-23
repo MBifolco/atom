@@ -100,7 +100,7 @@ def test_curriculum_trainer_writes_holdout_eval_record(monkeypatch):
         monkeypatch.setattr(
             trainer,
             "_run_holdout_match",
-            lambda opponent_path, env_id=0: {
+            lambda opponent_path, env_id=0, model=None: {
                 "won": opponent_path.endswith("approach_slow.py"),
                 "damage_dealt": 12.0 + env_id,
                 "damage_taken": 3.0,
