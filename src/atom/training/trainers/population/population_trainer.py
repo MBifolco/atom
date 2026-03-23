@@ -406,7 +406,8 @@ def _create_vmap_training_environment(
     opponent_models: List[Tuple],
     config: WorldConfig,
     n_vmap_envs: int,
-    max_ticks: int
+    max_ticks: int,
+    seed: int = 42,
 ):
     """
     Create JAX vmap vectorized environment for GPU training.
@@ -440,7 +441,7 @@ def _create_vmap_training_environment(
         max_ticks=max_ticks,
         fighter_mass=fighter_mass,
         opponent_mass=fighter_mass,  # Assume same mass for simplicity
-        seed=42
+        seed=seed
     )
 
     return VmapEnvAdapter(vmap_env)
@@ -509,6 +510,7 @@ def _train_single_fighter_parallel(
     n_envs: int,
     episodes: int,
     max_ticks: int,
+    seed: int,
     algorithm: str,
     config_dict: dict,
     logs_dir: str,
@@ -574,7 +576,7 @@ def _train_single_fighter_parallel(
     # Create training environments (vmap for GPU or DummyVecEnv for CPU)
     if use_vmap:
         vec_env = _create_vmap_training_environment(
-            fighter_mass, opponent_models, config, n_vmap_envs, max_ticks
+            fighter_mass, opponent_models, config, n_vmap_envs, max_ticks, seed=seed
         )
     else:
         vec_env = _create_cpu_training_environment(
@@ -1187,6 +1189,7 @@ class PopulationTrainer:
             use_vmap=self.use_vmap,
             n_vmap_envs=self.n_vmap_envs,
             generation=self.generation,
+            seed=self.seed,
             verbose=self.verbose,
             logger=self.logger,
         )
