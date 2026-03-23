@@ -1,33 +1,34 @@
 """
-Defensive Stance Switcher - Focuses on defense with occasional counters
+Defensive Stance Switcher — focuses on defense with occasional counters.
+Mostly defending on a 20-tick cycle (15 defend, 5 counter).
+Approaches only when opponent is close; holds position otherwise.
+Completely stateless: uses state["tick"] for the cycle.
+Used for Level 3: Intermediate training.
 """
 
-# Track state
-_tick_count = 0
 
 def decide(state):
     """Defensively switch stances, focusing on blocking."""
-    global _tick_count
-    you = state["you"]
-    opponent = state["opponent"]
+    tick = state["tick"]
+    direction = state["opponent"]["direction"]
+    distance = state["opponent"]["distance"]
 
-    _tick_count += 1
-
-    # Maintain distance defensively
-    if opponent["distance"] < 1.0:
-        acceleration = -0.5 * opponent["direction"]  # Back away
+    # Approach when close, hold otherwise
+    if distance < 2.0:
+        accel = direction * 1.5
     else:
-        acceleration = 0.0  # Hold position
+        accel = 0.0
 
     # Mostly defend, occasionally counter
-    if _tick_count % 20 < 15:
+    if tick % 20 < 15:
         stance = "defending"
-    elif opponent["distance"] < 1.2:
-        stance = "extended"  # Quick counter
     else:
-        stance = "neutral"
+        if distance < 2.0:
+            stance = "extended"
+        else:
+            stance = "neutral"
 
     return {
-        "acceleration": acceleration,
-        "stance": stance
+        "acceleration": accel,
+        "stance": stance,
     }

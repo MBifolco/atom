@@ -1,19 +1,18 @@
 """
-Forward Charger test dummy - Always moves forward aggressively
+Forward Charger — always charges toward opponent at maximum acceleration.
+Used for Level 3: Intermediate training.
 """
 
+
 def decide(state):
-    """Always charge forward in extended stance."""
-    you = state["you"]
-    opponent = state["opponent"]
+    """Always charge forward at max acceleration."""
+    direction = state["opponent"]["direction"]
+    distance = state["opponent"]["distance"]
 
-    # Always move toward opponent aggressively
-    acceleration = 1.0 * opponent["direction"]
-
-    # Always attack when in range
-    stance = "extended" if opponent["distance"] < 1.5 else "neutral"
+    accel = direction * 4.0
+    stance = "extended" if distance < 1.5 else "neutral"
 
     return {
-        "acceleration": acceleration,
-        "stance": stance
+        "acceleration": accel,
+        "stance": stance,
     }

@@ -1,22 +1,28 @@
 """
-Retreater test dummy - Always moves away from opponent
+Retreater — always moves away from opponent with wall awareness.
+Bounces off walls to avoid getting cornered.
+Used for Level 3: Intermediate training.
 """
 
+
 def decide(state):
-    """Always move away from opponent."""
-    you = state["you"]
-    opponent = state["opponent"]
+    """Always move away from opponent, with wall bounce."""
+    direction = state["opponent"]["direction"]
+    distance = state["opponent"]["distance"]
+    position = state["you"]["position"]
+    arena_width = state["arena"]["width"]
 
-    # Always move away from opponent
-    acceleration = -0.8 * opponent["direction"]
+    accel = -direction * 0.8
 
-    # Defend when too close
-    if opponent["distance"] < 1.0:
-        stance = "defending"
-    else:
-        stance = "neutral"
+    # Wall bounce — reverse if near arena edges
+    if position < 1.0:
+        accel = abs(accel)
+    elif position > arena_width - 1.0:
+        accel = -abs(accel)
+
+    stance = "defending" if distance < 1.0 else "neutral"
 
     return {
-        "acceleration": acceleration,
-        "stance": stance
+        "acceleration": accel,
+        "stance": stance,
     }

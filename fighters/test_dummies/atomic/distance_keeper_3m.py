@@ -5,22 +5,17 @@ Used for Level 3: Intermediate training.
 
 def decide(state):
     """Maintains 3m distance for defensive play."""
-    distance = abs(state["opponent"]["distance"])
+    distance = state["opponent"]["distance"]
+    direction = state["opponent"]["direction"]
     target_distance = 3.0
     tolerance = 0.3
 
     if distance > target_distance + tolerance:
         # Too far, approach slowly
-        if state["opponent"]["distance"] > 0:
-            accel = 1.0  # Opponent is to right
-        else:
-            accel = -1.0  # Opponent is to left
+        accel = 1.0 * direction
     elif distance < target_distance - tolerance:
         # Too close, back away
-        if state["opponent"]["distance"] > 0:
-            accel = -2.0  # Back away left
-        else:
-            accel = 2.0  # Back away right
+        accel = -2.0 * direction
     else:
         # Good distance
         accel = 0.0

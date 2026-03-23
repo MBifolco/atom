@@ -23,7 +23,14 @@ class TestNewAtomicOpponents:
     """Test all newly created atomic opponents."""
 
     def create_state(self, distance=2.0, position=0.0, tick=0):
-        """Helper to create a test state."""
+        """Helper to create a test state.
+
+        distance: signed distance — positive means opponent to the right,
+        negative means opponent to the left. Internally split into abs
+        distance + direction to match the real snapshot format.
+        """
+        direction = 1.0 if distance > 0 else -1.0 if distance < 0 else 0.0
+        abs_distance = abs(distance)
         return {
             "tick": tick,
             "you": {
@@ -36,8 +43,8 @@ class TestNewAtomicOpponents:
                 "stance": "neutral"
             },
             "opponent": {
-                "distance": distance,
-                "direction": 1.0 if distance > 0 else -1.0 if distance < 0 else 0.0,
+                "distance": abs_distance,
+                "direction": direction,
                 "velocity": 0.0,
                 "stamina": 100.0,
                 "hp": 100.0,
@@ -120,16 +127,16 @@ class TestNewAtomicOpponents:
         assert decision["stance"] == "defending"  # Defensive at close range
 
     def test_sideways_mover_smooth(self):
-        """Test that sideways_mover_smooth oscillates smoothly."""
-        # Test at different tick points in the cycle (60 ticks per second)
+        """Test that sideways_mover_smooth oscillates based on position."""
+        # Position-based sine wave: accel = 2.0 * sin(position * 1.5)
         accelerations = []
-        for tick in [0, 30, 60, 90, 120, 150, 180, 210]:
-            state = self.create_state(distance=2.0, tick=tick)
+        for pos in [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]:
+            state = self.create_state(distance=2.0, position=pos)
             decision = sideways_mover_smooth.decide(state)
             accelerations.append(decision["acceleration"])
             assert decision["stance"] in ["neutral", "extended", "defending"]
 
-        # Check that it oscillates (changes direction)
+        # Check that it oscillates (sine wave produces positive and negative)
         assert max(accelerations) > 0  # Sometimes moves right
         assert min(accelerations) < 0  # Sometimes moves left
 
@@ -162,10 +169,10 @@ class TestNewAtomicOpponents:
         assert abs(decision["acceleration"]) == 1.5  # Controlled retreat
         assert decision["stance"] == "neutral"
 
-        # Test safe zone (> 3m)
+        # Test safe zone (> 3m) — slowly approaches with extended stance
         state = self.create_state(distance=4.0)
         decision = strategic_retreater.decide(state)
-        assert decision["acceleration"] == 0.0  # Can stop retreating
+        assert abs(decision["acceleration"]) <= 1.0  # Slow approach
         assert decision["stance"] == "extended"  # Can be aggressive
 
         # Test with opponent on left

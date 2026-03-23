@@ -123,6 +123,7 @@ def _make_python_state(
             "stamina": opp_stamina,
             "max_stamina": opp_max_stamina,
             "stance_hint": opp_stance_hint,
+            **({"position": opp_position} if opp_position is not None else {}),
         },
         "arena": {"width": arena_width},
     }
@@ -198,6 +199,7 @@ def _paired_states(
         - fighter_a = learner (the "opponent" from the dummy's viewpoint)
         - fighter_b = the dummy being tested
     """
+    # Distance is unsigned (abs), matching the real game's combat_protocol.py
     distance = abs(a_position - b_position)
     direction = 1.0 if a_position > b_position else (-1.0 if a_position < b_position else 0.0)
 
@@ -210,6 +212,7 @@ def _paired_states(
         max_stamina=b_max_stamina,
         opp_distance=distance,
         opp_direction=direction,
+        opp_position=a_position,
         opp_hp=a_hp,
         opp_max_hp=a_max_hp,
         opp_stamina=a_stamina,
@@ -358,44 +361,59 @@ class TestHoldoutSuiteIntegrity:
 # 8. Python/JAX parity
 # ---------------------------------------------------------------------------
 
+ALL_ATOMIC_OPPONENTS = [
+    # L1
+    "stationary_neutral", "stationary_extended", "stationary_defending",
+    # L2
+    "approach_slow", "approach_extended", "flee_always", "flee_defending",
+    "shuttle_medium", "circle_left", "circle_right",
+    # L3
+    "distance_keeper_1m", "distance_keeper_3m", "charge_on_approach",
+    "stamina_burner", "stamina_efficient", "forward_mover", "backward_mover",
+    # L4
+    "aggressive_stance_switcher", "defensive_stance_switcher",
+    "forward_charger", "oscillator", "sideways_mover_smooth", "strategic_retreater",
+    # L5
+    "hp_adaptive", "stamina_punisher", "range_switcher", "comeback_fighter",
+]
+
+
 class TestPythonJAXParity:
-    """For each of the 7 new fighters, verify that the Python decide() and the
-    corresponding JAX function produce the same stance and similar acceleration
-    when given equivalent game states."""
+    """Verify Python decide() and JAX function produce matching behavior
+    across all curriculum opponents, with multiple states including edge cases."""
 
-    ACCEL_TOLERANCE = 1.1  # Python and JAX use different spacing heuristics; allow for that
+    ACCEL_TOLERANCE = 0.5  # tight tolerance — implementations should match closely
 
-    # Two representative states: close range and far range
+    # 5 representative states covering normal, overlap, wall-edge, and threshold cases
     STATE_CONFIGS = [
-        {  # Close range: dummy at position 5, learner at 4
-            "b_position": 5.0,
-            "a_position": 4.0,
-            "tick": 0,
-            "b_hp": 93.7,
-            "b_max_hp": 93.7,
-            "a_hp": 93.7,
-            "a_max_hp": 93.7,
-            "b_stamina": 8.9,
-            "b_max_stamina": 8.9,
-            "a_stamina": 8.9,
-            "a_max_stamina": 8.9,
+        {  # Normal: close range, equal HP/stamina
+            "b_position": 5.0, "a_position": 4.0, "tick": 0,
+            "b_hp": 93.7, "b_max_hp": 93.7, "a_hp": 93.7, "a_max_hp": 93.7,
+            "b_stamina": 8.9, "b_max_stamina": 8.9, "a_stamina": 8.9, "a_max_stamina": 8.9,
         },
-        {  # Far range: dummy at position 2, learner at 10
-            "b_position": 2.0,
-            "a_position": 10.0,
-            "tick": 50,
-            "b_hp": 70.0,
-            "b_max_hp": 93.7,
-            "a_hp": 60.0,
-            "a_max_hp": 93.7,
-            "b_stamina": 5.0,
-            "b_max_stamina": 8.9,
-            "a_stamina": 3.0,
-            "a_max_stamina": 8.9,
+        {  # Far range, low opponent stamina, tick=50
+            "b_position": 2.0, "a_position": 10.0, "tick": 50,
+            "b_hp": 70.0, "b_max_hp": 93.7, "a_hp": 60.0, "a_max_hp": 93.7,
+            "b_stamina": 5.0, "b_max_stamina": 8.9, "a_stamina": 3.0, "a_max_stamina": 8.9,
+        },
+        {  # Overlap (direction=0): same position
+            "b_position": 6.0, "a_position": 6.0, "tick": 10,
+            "b_hp": 80.0, "b_max_hp": 93.7, "a_hp": 80.0, "a_max_hp": 93.7,
+            "b_stamina": 7.0, "b_max_stamina": 8.9, "a_stamina": 7.0, "a_max_stamina": 8.9,
+        },
+        {  # Near left wall
+            "b_position": 0.5, "a_position": 3.0, "tick": 30,
+            "b_hp": 93.7, "b_max_hp": 93.7, "a_hp": 93.7, "a_max_hp": 93.7,
+            "b_stamina": 8.9, "b_max_stamina": 8.9, "a_stamina": 8.9, "a_max_stamina": 8.9,
+        },
+        {  # Near right wall, low stamina, HP deficit, tick=200
+            "b_position": 12.0, "a_position": 9.0, "tick": 200,
+            "b_hp": 30.0, "b_max_hp": 93.7, "a_hp": 80.0, "a_max_hp": 93.7,
+            "b_stamina": 1.0, "b_max_stamina": 8.9, "a_stamina": 6.0, "a_max_stamina": 8.9,
         },
     ]
 
-    @pytest.mark.parametrize("fighter_name", NEW_FIGHTER_NAMES)
+    @pytest.mark.parametrize("fighter_name", ALL_ATOMIC_OPPONENTS)
     def test_parity(self, fighter_name):
         py_mod = _load_python_fighter(fighter_name)
         jax_id, jax_fn = JAX_OPPONENT_REGISTRY[fighter_name]
@@ -417,15 +435,16 @@ class TestPythonJAXParity:
                 f"({py_stance_int}) != JAX stance={jax_stance_int}"
             )
 
-            # Acceleration must be close (direction match is critical)
-            if py_accel != 0.0 or jax_accel != 0.0:
-                # At minimum, signs should agree (or one is zero)
-                if abs(py_accel) > 0.1 and abs(jax_accel) > 0.1:
-                    assert (py_accel > 0) == (jax_accel > 0), (
-                        f"{fighter_name} state#{i}: accel sign mismatch: "
-                        f"Python={py_accel:.2f}, JAX={jax_accel:.2f}"
-                    )
-                assert abs(py_accel - jax_accel) < self.ACCEL_TOLERANCE, (
-                    f"{fighter_name} state#{i}: accel mismatch: "
-                    f"Python={py_accel:.2f}, JAX={jax_accel:.2f}"
+            # Acceleration sign must match (unless one is near-zero)
+            if abs(py_accel) > 0.1 and abs(jax_accel) > 0.1:
+                assert (py_accel > 0) == (jax_accel > 0), (
+                    f"{fighter_name} state#{i}: accel sign mismatch: "
+                    f"Python={py_accel:.3f}, JAX={jax_accel:.3f}"
                 )
+
+            # Acceleration magnitude must be close
+            assert abs(py_accel - jax_accel) < self.ACCEL_TOLERANCE, (
+                f"{fighter_name} state#{i}: accel magnitude mismatch: "
+                f"Python={py_accel:.3f}, JAX={jax_accel:.3f} "
+                f"(diff={abs(py_accel - jax_accel):.3f}, tolerance={self.ACCEL_TOLERANCE})"
+            )

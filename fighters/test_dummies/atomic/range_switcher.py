@@ -1,6 +1,6 @@
 """
-Tick-based cycle: 45 ticks at safe range (~3m, neutral stance),
-then 15 ticks of burst attack (rush in, extended stance).
+Range Switcher — tick-based cycle: 45 ticks at safe range (~3m, neutral
+stance), then 15 ticks of burst attack (rush in, extended stance).
 Teaches the agent to read and react to timing-based patterns.
 Used for Level 5: Advanced training.
 """
@@ -12,13 +12,10 @@ def decide(state):
     direction = state["opponent"]["direction"]
     distance = state["opponent"]["distance"]
 
-    if direction == 0:
-        direction = 1.0  # Default direction if overlapping
-
     cycle = tick % 60
 
     if cycle < 45:
-        # Safe range phase -- maintain ~3m distance
+        # Safe range phase — maintain ~3m distance
         if distance < 2.5:
             accel = -direction * 2.0
         elif distance > 3.5:
@@ -27,7 +24,7 @@ def decide(state):
             accel = 0.0
         stance = "neutral"
     else:
-        # Burst attack phase -- rush in
+        # Burst attack phase — rush in
         accel = direction * 4.0
         stance = "extended"
 

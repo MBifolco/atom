@@ -27,59 +27,28 @@ def stationary_defending_jax(state, config):
 
 def approach_slow_jax(state, config):
     """Slow approach - moves toward opponent at speed 1.5."""
+    opp_pos = state.fighter_a.position
     my_pos = state.fighter_b.position
-    arena_width = config.arena_width
-    my_vel = state.fighter_b.velocity
+    # At overlap (same position), default to moving left (matching Python else branch)
+    direction = jnp.where(opp_pos > my_pos, 1.0, -1.0)
 
-    # Determine direction based on position
-    accel = lax.cond(
-        my_pos < arena_width * 0.3,
-        lambda _: 1.5,  # Left side -> move right
-        lambda _: lax.cond(
-            my_pos > arena_width * 0.7,
-            lambda _: -1.5,  # Right side -> move left
-            lambda _: lax.cond(
-                my_vel > 0,
-                lambda _: 1.5,  # Moving right -> continue
-                lambda _: lax.cond(
-                    my_vel < 0,
-                    lambda _: -1.5,  # Moving left -> continue
-                    lambda _: 1.5  # Stopped -> default right
-                )
-            )
-        ),
-        None
-    )
-
+    accel = 1.5 * direction
     return jnp.array([accel, 0])  # neutral stance
 
 
 def flee_always_jax(state, config):
     """Always flees from opponent."""
+    opp_pos = state.fighter_a.position
     my_pos = state.fighter_b.position
     arena_width = config.arena_width
-    my_vel = state.fighter_b.velocity
+    direction = jnp.sign(opp_pos - my_pos)
 
-    # Flee direction (opposite of approach)
-    accel = lax.cond(
-        my_pos < arena_width * 0.3,
-        lambda _: -1.5,  # Left side -> move left (away)
-        lambda _: lax.cond(
-            my_pos > arena_width * 0.7,
-            lambda _: 1.5,  # Right side -> move right (away)
-            lambda _: lax.cond(
-                my_vel > 0,
-                lambda _: 1.5,  # Moving right -> continue away
-                lambda _: lax.cond(
-                    my_vel < 0,
-                    lambda _: -1.5,  # Moving left -> continue away
-                    lambda _: -1.5  # Stopped -> default left
-                )
-            )
-        ),
-        None
-    )
-
+    # Flee away from opponent; at overlap (direction==0), default to fleeing right
+    flee_accel = jnp.where(direction > 0, -1.5, 1.5)
+    # Wall bounce: don't flee into walls
+    accel = jnp.where(my_pos < 1.0, 1.5,
+            jnp.where(my_pos > arena_width - 1.0, -1.5,
+                       flee_accel))
     return jnp.array([accel, 0])  # neutral stance
 
 
@@ -116,133 +85,57 @@ def circle_right_jax(state, config):
 
 def distance_keeper_1m_jax(state, config):
     """Maintains 1m distance from opponent."""
-    my_pos = state.fighter_b.position
-    my_vel = state.fighter_b.velocity
-    arena_width = config.arena_width
-
-    # Calculate distance between fighters
     opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
     distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
 
     target_distance = 1.0
     tolerance = 0.2
 
-    # Determine opponent direction
-    opponent_to_right = lax.cond(
-        my_pos < arena_width * 0.3,
-        lambda _: True,
-        lambda _: lax.cond(
-            my_pos > arena_width * 0.7,
-            lambda _: False,
-            lambda _: my_vel >= 0,
-            None
-        ),
-        None
-    )
+    # Distance control: approach if too far, back away if too close
+    accel = jnp.where(distance > target_distance + tolerance, 2.0 * direction,
+            jnp.where(distance < target_distance - tolerance, -2.0 * direction,
+                       0.0))
 
-    # Distance control
-    accel = lax.cond(
-        distance > target_distance + tolerance,
-        lambda _: lax.cond(opponent_to_right, lambda _: 2.0, lambda _: -2.0, None),  # Too far: approach
-        lambda _: lax.cond(
-            distance < target_distance - tolerance,
-            lambda _: lax.cond(opponent_to_right, lambda _: -2.0, lambda _: 2.0, None),  # Too close: back away
-            lambda _: 0.0,  # Perfect distance
-            None
-        ),
-        None
-    )
-
-    # Use extended stance at optimal range
-    stance = lax.cond(
-        jnp.abs(distance - target_distance) < tolerance,
-        lambda _: 1,  # extended
-        lambda _: 0,  # neutral
-        None
-    )
+    # Use extended stance at optimal range, neutral otherwise
+    stance = jnp.where(jnp.abs(distance - target_distance) < tolerance, 1, 0)
 
     return jnp.array([accel, stance])
 
 
 def distance_keeper_3m_jax(state, config):
     """Maintains 3m distance from opponent."""
-    my_pos = state.fighter_b.position
-    my_vel = state.fighter_b.velocity
-    arena_width = config.arena_width
     opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
     distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
 
     target_distance = 3.0
-    tolerance = 0.5
+    tolerance = 0.3
 
-    opponent_to_right = lax.cond(
-        my_pos < arena_width * 0.3,
-        lambda _: True,
-        lambda _: lax.cond(
-            my_pos > arena_width * 0.7,
-            lambda _: False,
-            lambda _: my_vel >= 0,
-            None
-        ),
-        None
-    )
+    # Too far: approach slowly (1.0). Too close: back away fast (2.0).
+    accel = jnp.where(distance > target_distance + tolerance, 1.0 * direction,
+            jnp.where(distance < target_distance - tolerance, -2.0 * direction,
+                       0.0))
 
-    accel = lax.cond(
-        distance > target_distance + tolerance,
-        lambda _: lax.cond(opponent_to_right, lambda _: 2.0, lambda _: -2.0, None),
-        lambda _: lax.cond(
-            distance < target_distance - tolerance,
-            lambda _: lax.cond(opponent_to_right, lambda _: -2.0, lambda _: 2.0, None),
-            lambda _: 0.0,
-            None
-        ),
-        None
-    )
-
-    stance = lax.cond(
-        jnp.abs(distance - target_distance) < tolerance,
-        lambda _: 1,  # extended
-        lambda _: 0,  # neutral
-        None
-    )
-
-    return jnp.array([accel, stance])
+    # Always neutral stance
+    return jnp.array([accel, 0])
 
 
 def distance_keeper_5m_jax(state, config):
     """Maintains 5m distance from opponent."""
-    my_pos = state.fighter_b.position
-    my_vel = state.fighter_b.velocity
-    arena_width = config.arena_width
     opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
     distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
 
     target_distance = 5.0
     tolerance = 0.8
 
-    opponent_to_right = lax.cond(
-        my_pos < arena_width * 0.3,
-        lambda _: True,
-        lambda _: lax.cond(
-            my_pos > arena_width * 0.7,
-            lambda _: False,
-            lambda _: my_vel >= 0,
-            None
-        ),
-        None
-    )
-
-    accel = lax.cond(
-        distance > target_distance + tolerance,
-        lambda _: lax.cond(opponent_to_right, lambda _: 2.0, lambda _: -2.0, None),
-        lambda _: lax.cond(
-            distance < target_distance - tolerance,
-            lambda _: lax.cond(opponent_to_right, lambda _: -2.0, lambda _: 2.0, None),
-            lambda _: 0.0,
-            None
-        ),
-        None
-    )
+    accel = jnp.where(distance > target_distance + tolerance, 2.0 * direction,
+            jnp.where(distance < target_distance - tolerance, -2.0 * direction,
+                       0.0))
 
     return jnp.array([accel, 0])  # neutral stance
 
@@ -462,10 +355,11 @@ def defensive_stance_switcher_jax(state, config):
     cycle_pos = state.tick % 20
     in_attack_window = cycle_pos >= 15  # last 5 ticks of 20
 
-    # Back away when close, otherwise hold
-    accel = jnp.where(distance < 2.0, -1.5 * direction, 0.0)
-    # Extended when close AND in attack window, else defending
-    stance = jnp.where(in_attack_window & (distance < 2.0), 1, 2)
+    # Approach when close, hold otherwise
+    accel = jnp.where(distance < 2.0, 1.5 * direction, 0.0)
+    # First 15 ticks: defending. Attack window: extended if close, neutral if far.
+    stance = jnp.where(~in_attack_window, 2,
+             jnp.where(distance < 2.0, 1, 0))
     return jnp.array([accel, stance])
 
 
@@ -547,10 +441,11 @@ def flee_defending_jax(state, config):
     direction = jnp.sign(opp_pos - my_pos)
     arena_width = config.arena_width
 
-    flee_accel = 2.0 * (-direction)
-    # Wall bounce
-    accel = jnp.where(my_pos < 1.0, jnp.abs(flee_accel),
-            jnp.where(my_pos > arena_width - 1.0, -jnp.abs(flee_accel),
+    # Flee away from opponent; pick accel=1.0 at overlap (direction==0)
+    flee_accel = jnp.where(direction == 0, 1.0, -direction * 2.0)
+    # Wall awareness overrides flee direction
+    accel = jnp.where(my_pos < 1.0, 2.0,
+            jnp.where(my_pos > arena_width - 1.0, -2.0,
                        flee_accel))
     return jnp.array([accel, 2])
 
@@ -721,15 +616,25 @@ def create_multi_opponent_func(opponent_paths, config):
     """
     from pathlib import Path
 
-    # Map opponent paths to JAX functions
+    # Map opponent paths to JAX functions (strict — no silent fallbacks)
     opponent_funcs = []
+    resolved_names = []
     for path in opponent_paths:
         name = Path(path).stem
         if name in JAX_OPPONENT_REGISTRY:
             opponent_funcs.append(JAX_OPPONENT_REGISTRY[name][1])
+            resolved_names.append(name)
         else:
-            # Fallback to stationary neutral
-            opponent_funcs.append(stationary_neutral_jax)
+            raise ValueError(
+                f"No JAX implementation for opponent '{name}' (path: {path}). "
+                f"Add it to JAX_OPPONENT_REGISTRY in opponents_jax.py. "
+                f"Available: {sorted(JAX_OPPONENT_REGISTRY.keys())}"
+            )
+
+    # Log resolved opponents for observability
+    import logging
+    logger = logging.getLogger("opponents_jax")
+    logger.info(f"Resolved {len(resolved_names)} JAX opponents: {resolved_names}")
 
     n_opponents = len(opponent_funcs)
 

@@ -1,32 +1,31 @@
 """
-Aggressive Stance Switcher - Rapidly switches between attacking stances
+Aggressive Stance Switcher — rapidly switches between extended and
+neutral stances on a 10-tick cycle while closing distance.
+Completely stateless: uses state["tick"] for the cycle.
+Used for Level 3: Intermediate training.
 """
 
-# Track state
-_tick_count = 0
 
 def decide(state):
     """Aggressively switch stances while closing distance."""
-    global _tick_count
-    you = state["you"]
-    opponent = state["opponent"]
+    tick = state["tick"]
+    direction = state["opponent"]["direction"]
+    stamina = state["you"]["stamina"]
 
-    _tick_count += 1
-
-    # Move toward opponent aggressively
-    acceleration = 0.9 * opponent["direction"]
+    # Move toward opponent at near-max acceleration
+    accel = direction * 0.9 * 4.0
 
     # Switch between aggressive stances rapidly
-    if _tick_count % 10 < 5:
+    if tick % 10 < 5:
         stance = "extended"
     else:
-        stance = "neutral"  # Reset to neutral to prepare next attack
+        stance = "neutral"
 
     # Override to defend only if very low stamina
-    if you["stamina"] < 2.0:
+    if stamina < 2.0:
         stance = "defending"
 
     return {
-        "acceleration": acceleration,
-        "stance": stance
+        "acceleration": accel,
+        "stance": stance,
     }
