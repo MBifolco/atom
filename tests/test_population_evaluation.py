@@ -59,9 +59,9 @@ def test_run_single_pair_updates_elo_and_returns_match_count():
     service = PopulationEvaluationService(_context(verbose=False))
 
     model_a = Mock()
-    model_a.predict.return_value = (np.array([0.0, 0.0]), None)
+    model_a.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
     model_b = Mock()
-    model_b.predict.return_value = (np.array([0.0, 0.0]), None)
+    model_b.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
     fighter_a = _DummyFighter(name="a", mass=70.0, model=model_a)
     fighter_b = _DummyFighter(name="b", mass=71.0, model=model_b)
 

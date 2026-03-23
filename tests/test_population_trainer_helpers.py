@@ -145,7 +145,7 @@ class TestCreateOpponentDecideFuncComplete:
         """Test wrapper returns callable function."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([0.5, 1.0]), None
+                return np.array([0.5, -1.0, 1.0, -1.0]), None
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -155,7 +155,7 @@ class TestCreateOpponentDecideFuncComplete:
         """Test wrapped function accepts snapshot dict."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([0.3, 0.5]), None
+                return np.array([0.3, 1.0, -1.0, -1.0]), None
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -190,7 +190,7 @@ class TestCreateOpponentDecideFuncComplete:
         """Test wrapped function returns valid acceleration."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([0.8, 1.5]), None
+                return np.array([0.8, -1.0, 1.0, -1.0]), None
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -211,7 +211,7 @@ class TestCreateOpponentDecideFuncComplete:
         """Test wrapped function returns valid stance."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([0.0, 2.5]), None  # Stance 2 = defending
+                return np.array([0.0, -1.0, -1.0, 1.0]), None  # Stance 2 = defending
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -234,7 +234,7 @@ class TestCreateOpponentDecideFuncComplete:
 
             def predict(self, obs, deterministic=False):
                 self.last_obs = obs
-                return np.array([0.0, 0.0]), None
+                return np.array([0.0, 1.0, -1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)

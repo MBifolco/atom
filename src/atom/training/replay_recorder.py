@@ -392,7 +392,8 @@ class ReplayRecorder:
 
         acceleration = float(np.clip(action[0], -1.0, 1.0))
 
-        stance_idx = int(np.clip(action[1], 0, 2))
+        from src.atom.training.action_codec import extract_stance
+        stance_idx = extract_stance(action)
         stance_map = ["neutral", "extended", "defending"]
         stance = stance_map[stance_idx]
 

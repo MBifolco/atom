@@ -45,7 +45,7 @@ class TestGymEnvTerminalRewards:
         env.reset()
 
         for _ in range(120):
-            action = np.array([0.8, 1.0])
+            action = np.array([0.8, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
             if done:
                 # Win reward should be large positive
@@ -67,7 +67,7 @@ class TestGymEnvTerminalRewards:
         env.reset()
 
         for _ in range(180):
-            action = np.array([0.0, 2.0])
+            action = np.array([0.0, -1.0, -1.0, 1.0])
             obs, reward, done, truncated, info = env.step(action)
             if done:
                 # Loss reward should be negative
@@ -89,7 +89,7 @@ class TestGymEnvTerminalRewards:
         env.reset()
 
         for _ in range(30):
-            action = np.array([0.7, 1.0])
+            action = np.array([0.7, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
             if truncated:
                 break

@@ -24,6 +24,7 @@ def _make_progress():
         episodes_at_level=0,
         wins_at_level=0,
         recent_episodes=[],
+        recent_damage_dealt=[],
         total_episodes=0,
         total_wins=0,
     )
@@ -75,11 +76,13 @@ def test_graduation_policy_requires_recent_and_overall():
     assert not decision.overall_passed
 
     progress.wins_at_level = 12  # 60% overall
+    progress.recent_damage_dealt = [15.0] * 5  # Good damage for combat quality gate
     decision = policy.evaluate(progress=progress, level=level, curriculum_size=5)
     assert decision.should_graduate
     assert decision.reason == "passed"
     assert decision.recent_passed
     assert decision.overall_passed
+    assert decision.combat_quality_passed
 
 
 def test_progress_reporter_updates_recent_lists():

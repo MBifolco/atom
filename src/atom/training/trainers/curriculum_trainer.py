@@ -132,6 +132,8 @@ class TrainingProgress:
     episodes_at_level: int = 0
     wins_at_level: int = 0
     recent_episodes: List[bool] = field(default_factory=list)  # Win/loss history
+    recent_damage_dealt: List[float] = field(default_factory=list)  # Per-episode damage
+    recent_stance_counts: List[dict] = field(default_factory=list)  # Per-episode stance usage
     graduated_levels: List[str] = field(default_factory=list)
     total_episodes: int = 0
     total_wins: int = 0
@@ -161,6 +163,11 @@ class CurriculumCallback(BaseCallback):
 
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
+        # Flush any holdout evaluations queued during the previous rollout.
+        # By this point, PPO has completed its gradient update from the
+        # previous rollout, so the model weights are current.
+        self.curriculum_trainer._flush_pending_holdouts()
+
         import time
         self.last_rollout_time = time.time()
 
@@ -283,7 +290,9 @@ class CurriculumTrainer:
                  enable_level1_sanity_gate: bool = True,
                  level1_sanity_gate_episode_threshold: int = 4000,
                  level1_sanity_gate_min_recent_win_rate: float = 0.15,
-                 level1_sanity_gate_min_overall_win_rate: float = 0.12):
+                 level1_sanity_gate_min_overall_win_rate: float = 0.12,
+                 min_mean_damage_dealt: float = 5.0,
+                 min_nonzero_damage_rate: float = 0.3):
         """
         Initialize the curriculum trainer.
 
@@ -383,6 +392,8 @@ class CurriculumTrainer:
         self.graduation_policy = GraduationPolicy(
             override_episodes_per_level=self.override_episodes_per_level,
             min_overall_win_rate=0.5,
+            min_mean_damage_dealt=min_mean_damage_dealt,
+            min_nonzero_damage_rate=min_nonzero_damage_rate,
         )
         self.progress_reporter = ProgressReporter(self.logger)
         self.recovery_manager = RecoveryManager(
@@ -419,6 +430,7 @@ class CurriculumTrainer:
         self._current_level_start_timesteps = 0
         self._current_level_summary_written = False
         self.holdout_matches_per_opponent = 1
+        self._pending_holdout_labels: list[str] = []
 
         # Log override setting
         if self.override_episodes_per_level is not None and self.verbose:
@@ -724,6 +736,16 @@ class CurriculumTrainer:
                 recovery_succeeded=False,
             )
 
+    def _flush_pending_holdouts(self) -> None:
+        """Run all queued holdout evaluations.
+
+        Called from _on_rollout_start so evaluations use post-gradient-update
+        weights instead of stale mid-rollout weights.
+        """
+        while self._pending_holdout_labels:
+            label = self._pending_holdout_labels.pop(0)
+            self._record_holdout_evaluation(label)
+
     def _current_model_timesteps(self) -> int:
         """Return the current model timestep counter when available."""
         value = getattr(self.model, "num_timesteps", 0)
@@ -794,9 +816,34 @@ class CurriculumTrainer:
             "graduation_recent_win_rate_required": float(level.graduation_win_rate),
             "graduation_window_episodes": int(level.graduation_episodes),
             "min_episodes": int(level.min_episodes),
+            # Combat quality metrics
+            "mean_damage_dealt": float(np.mean(self.progress.recent_damage_dealt))
+                if self.progress.recent_damage_dealt else None,
+            "nonzero_damage_rate": float(
+                sum(1 for d in self.progress.recent_damage_dealt if d > 0)
+                / max(1, len(self.progress.recent_damage_dealt))
+            ) if self.progress.recent_damage_dealt else None,
+            # Stance observability
+            **self._build_stance_summary(),
         }
         append_jsonl(self.analysis_dir / "level_summaries.jsonl", record)
         self._current_level_summary_written = True
+
+    def _build_stance_summary(self) -> dict:
+        """Compute stance usage rates from recent episodes."""
+        counts = getattr(self.progress, "recent_stance_counts", [])
+        if not counts:
+            return {"extended_stance_rate": None, "defending_stance_rate": None}
+        total_neutral = sum(c.get("neutral", 0) for c in counts)
+        total_extended = sum(c.get("extended", 0) for c in counts)
+        total_defending = sum(c.get("defending", 0) for c in counts)
+        total_ticks = total_neutral + total_extended + total_defending
+        if total_ticks == 0:
+            return {"extended_stance_rate": 0.0, "defending_stance_rate": 0.0}
+        return {
+            "extended_stance_rate": float(total_extended / total_ticks),
+            "defending_stance_rate": float(total_defending / total_ticks),
+        }
 
     def _record_failure_event_payload(self, payload: dict[str, Any]) -> None:
         """Append a structured failure/recovery event payload."""
@@ -863,6 +910,27 @@ class CurriculumTrainer:
             "This run is likely unhealthy; stop early, verify pinned Colab dependencies, and retry with the same seed."
         )
 
+    def _run_deterministic_sanity_check(self) -> bool:
+        """Run a few deterministic matches to verify the policy can actually fight.
+
+        Returns True if the model deals nonzero damage in at least one match.
+        This catches the stochastic-training-wins / deterministic-inference-collapse
+        failure mode where the policy passes stochastic win-rate checks but cannot
+        fight under deterministic=True.
+        """
+        sanity_opponents = [
+            "fighters/test_dummies/atomic/stationary_neutral.py",
+            "fighters/test_dummies/atomic/stationary_defending.py",
+        ]
+        for opp_path in sanity_opponents:
+            try:
+                result = self._run_holdout_match(opp_path, env_id=9999)
+                if result.get("damage_dealt", 0) > 0:
+                    return True
+            except Exception as e:
+                self.logger.warning(f"Deterministic sanity check failed for {opp_path}: {e}")
+        return False
+
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
         level = self.get_current_level()
@@ -878,6 +946,15 @@ class CurriculumTrainer:
         if should_log and decision.reason != "override":
             self.progress_reporter.log_graduation_decision(decision)
 
+        # If stochastic metrics pass, run deterministic sanity gate
+        if decision.should_graduate and decision.reason != "override":
+            if not self._run_deterministic_sanity_check():
+                self.logger.warning(
+                    "Deterministic sanity check FAILED — policy deals 0 damage "
+                    "under deterministic=True. Continuing training."
+                )
+                return False
+
         return decision.should_graduate
 
     def advance_level(self):
@@ -888,7 +965,8 @@ class CurriculumTrainer:
             f"level_{self.progress.current_level + 1}_"
             f"{current.name.lower().replace(' ', '_')}_graduated"
         )
-        self._record_holdout_evaluation(checkpoint_label)
+        # Queue holdout for after the next gradient update (not mid-rollout)
+        self._pending_holdout_labels.append(checkpoint_label)
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")
@@ -962,6 +1040,9 @@ class CurriculumTrainer:
 
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""
+        # Drain any holdout evaluations still in the queue
+        self._flush_pending_holdouts()
+
         elapsed = time.time() - self.progress.start_time
 
         self.logger.info("\n" + "="*80)

@@ -23,7 +23,7 @@ class TestTerminationRewards:
         # Simulate until termination
         total_reward = 0
         for _ in range(300):
-            action = np.array([1.0, 1.0], dtype=np.float32)
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
             if terminated:
@@ -43,7 +43,7 @@ class TestTerminationRewards:
 
         # Defend poorly
         for _ in range(300):
-            action = np.array([0.0, 0.0], dtype=np.float32)  # Passive
+            action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)  # Passive
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated:
                 break
@@ -62,7 +62,7 @@ class TestTruncationRewards:
 
         # Attack to build HP advantage
         for _ in range(50):
-            action = np.array([1.0, 1.0], dtype=np.float32)
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated or truncated:
                 break
@@ -78,7 +78,7 @@ class TestTruncationRewards:
 
         tick_count = 0
         for _ in range(25):
-            action = np.array([0.0, 2.0], dtype=np.float32)  # Defend
+            action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)  # Defend
             obs, reward, terminated, truncated, info = env.step(action)
             tick_count += 1
             if terminated or truncated:
@@ -100,7 +100,7 @@ class TestMidEpisodeRewards:
         # Attack close opponent
         rewards = []
         for _ in range(20):
-            action = np.array([1.0, 1.0], dtype=np.float32)  # Attack
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)  # Attack
             obs, reward, terminated, truncated, info = env.step(action)
             rewards.append(reward)
             if terminated:
@@ -117,7 +117,7 @@ class TestMidEpisodeRewards:
 
         # Run some steps to potentially deplete stamina then defend
         for _ in range(30):
-            action = np.array([0.0, 2.0], dtype=np.float32)  # Defend
+            action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)  # Defend
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated:
                 break
@@ -132,7 +132,7 @@ class TestMidEpisodeRewards:
 
         # Move forward and attack
         for _ in range(20):
-            action = np.array([1.0, 1.0], dtype=np.float32)
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated:
                 break
@@ -208,7 +208,7 @@ class TestInfoDict:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.5, 1.0], dtype=np.float32)
+        action = np.array([0.5, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert isinstance(info, dict)
@@ -219,7 +219,7 @@ class TestInfoDict:
         env = AtomCombatEnv(opponent_func, max_ticks=10)
         env.reset()
 
-        action = np.array([1.0, 1.0], dtype=np.float32)
+        action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
         for _ in range(15):
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated or truncated:
@@ -237,7 +237,7 @@ class TestStanceSelection:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 0.0], dtype=np.float32)  # Neutral
+        action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)  # Neutral
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert obs.shape == (13,)
@@ -248,7 +248,7 @@ class TestStanceSelection:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)  # Extended
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)  # Extended
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert obs.shape == (13,)
@@ -259,7 +259,7 @@ class TestStanceSelection:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 2.0], dtype=np.float32)  # Defending
+        action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)  # Defending
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert obs.shape == (13,)
@@ -270,8 +270,8 @@ class TestStanceSelection:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        # Action with stance > 2 should be clamped
-        action = np.array([0.0, 5.0], dtype=np.float32)
+        # Action with extreme logit values should still work
+        action = np.array([0.0, 5.0, -5.0, -5.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert obs.shape == (13,)
@@ -286,7 +286,7 @@ class TestAccelerationHandling:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([1.0, 0.0], dtype=np.float32)
+        action = np.array([1.0, 1.0, -1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
@@ -299,7 +299,7 @@ class TestAccelerationHandling:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([-1.0, 0.0], dtype=np.float32)
+        action = np.array([-1.0, 1.0, -1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
@@ -312,7 +312,7 @@ class TestAccelerationHandling:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 0.0], dtype=np.float32)
+        action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)
         obs, _, _, _, _ = env.step(action)
 
         assert obs.shape == (13,)
@@ -338,7 +338,7 @@ class TestEpisodeDamageTracking:
 
         # Run some steps
         for _ in range(10):
-            action = np.array([1.0, 1.0], dtype=np.float32)
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
             env.step(action)
 
         # Reset
@@ -381,7 +381,7 @@ class TestMultipleEpisodes:
         # Episode 1 with opponent A
         env.reset()
         for _ in range(20):
-            action = np.array([0.0, 1.0], dtype=np.float32)
+            action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
             _, _, terminated, truncated, _ = env.step(action)
             if terminated or truncated:
                 break
@@ -392,7 +392,7 @@ class TestMultipleEpisodes:
         # Episode 2 with opponent B
         env.reset()
         for _ in range(20):
-            action = np.array([0.0, 1.0], dtype=np.float32)
+            action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
             _, _, terminated, truncated, _ = env.step(action)
             if terminated or truncated:
                 break

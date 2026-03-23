@@ -108,7 +108,8 @@ class PopulationFighter:
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * 4.5  # max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 2))
+        from src.atom.training.action_codec import extract_stance
+        stance_idx = extract_stance(action)
         stances = ["neutral", "extended", "defending"]
         stance = stances[stance_idx]
 

@@ -390,10 +390,11 @@ def _create_opponent_decide_func(model):
 
         action, _ = model.predict(obs, deterministic=False)
 
+        from src.atom.training.action_codec import extract_stance
         acceleration = float(action[0]) * 4.5
-        stance_idx = int(np.clip(action[1], 0, 2))
+        stance_idx = extract_stance(action)
         stances = ["neutral", "extended", "defending"]
-        stance = stances[min(stance_idx, 2)]
+        stance = stances[stance_idx]
 
         return {"acceleration": acceleration, "stance": stance}
 
@@ -595,6 +596,7 @@ def _train_single_fighter_parallel(
     # Track statistics
     episode_count = 0
     recent_rewards = []
+    all_rewards = []  # Full trajectory for convergence analysis
     last_report_timestep = 0
 
     import time
@@ -622,13 +624,14 @@ def _train_single_fighter_parallel(
     # Enhanced callback with progress reporting
     class ProgressCallback(BaseCallback):
         def _on_step(self) -> bool:
-            nonlocal episode_count, recent_rewards, last_report_timestep, last_update_time
+            nonlocal episode_count, recent_rewards, all_rewards, last_report_timestep, last_update_time
 
             for info in self.locals.get("infos", []):
                 if "episode" in info:
                     episode_count += 1
                     reward = info["episode"]["r"]
                     recent_rewards.append(reward)
+                    all_rewards.append(reward)
                     if len(recent_rewards) > 100:
                         recent_rewards.pop(0)
 
@@ -706,12 +709,27 @@ def _train_single_fighter_parallel(
         import gc
         gc.collect()
 
+    # Compute reward trajectory quartiles for convergence analysis
+    n = len(all_rewards)
+    if n >= 4:
+        q = n // 4
+        trajectory = {
+            "q1": float(np.mean(all_rewards[:q])),
+            "q2": float(np.mean(all_rewards[q:2*q])),
+            "q3": float(np.mean(all_rewards[2*q:3*q])),
+            "q4": float(np.mean(all_rewards[3*q:])),
+            "total_episodes": n,
+        }
+    else:
+        trajectory = {"q1": None, "q2": None, "q3": None, "q4": None, "total_episodes": n}
+
     # Return statistics
     return {
         "fighter": fighter_name,
         "episodes": episode_count,
         "mean_reward": float(np.mean(recent_rewards)) if recent_rewards else 0.0,
-        "opponent_names": [name for name, _, _ in opponent_data]
+        "opponent_names": [name for name, _, _ in opponent_data],
+        "reward_trajectory": trajectory,
     }
 
 
@@ -736,6 +754,7 @@ class PopulationCallback(BaseCallback):
         self.elo_tracker = elo_tracker
         self.episode_count = 0
         self.recent_rewards = []
+        self.all_rewards = []  # Full trajectory for convergence analysis
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -743,12 +762,32 @@ class PopulationCallback(BaseCallback):
                 self.episode_count += 1
                 reward = info["episode"]["r"]
                 self.recent_rewards.append(reward)
+                self.all_rewards.append(reward)
 
-                # Keep only last 100 episodes
+                # Keep only last 100 for running mean
                 if len(self.recent_rewards) > 100:
                     self.recent_rewards.pop(0)
 
         return True
+
+    def reward_trajectory(self) -> dict:
+        """Compute reward at quartile points to measure convergence.
+
+        Returns mean reward over the first 25%, second 25%, third 25%, and
+        final 25% of episodes. If training is still improving at Q4, the
+        budget may be too small.
+        """
+        n = len(self.all_rewards)
+        if n < 4:
+            return {"q1": None, "q2": None, "q3": None, "q4": None, "total_episodes": n}
+        q = n // 4
+        return {
+            "q1": float(np.mean(self.all_rewards[:q])),
+            "q2": float(np.mean(self.all_rewards[q:2*q])),
+            "q3": float(np.mean(self.all_rewards[2*q:3*q])),
+            "q4": float(np.mean(self.all_rewards[3*q:])),
+            "total_episodes": n,
+        }
 
 
 class PopulationTrainer:
@@ -1056,10 +1095,11 @@ class PopulationTrainer:
             action, _ = fighter.model.predict(obs, deterministic=False)
 
             # Convert continuous action to game action
+            from src.atom.training.action_codec import extract_stance
             acceleration = float(action[0]) * 4.5  # Scale from [-1, 1] to [-4.5, 4.5]
-            stance_idx = int(action[1])
-            stances = ["neutral", "extended", "defending"]  # Only 3 stances now
-            stance = stances[min(stance_idx, 2)]  # Clamp to 0-2
+            stance_idx = extract_stance(action)
+            stances = ["neutral", "extended", "defending"]
+            stance = stances[stance_idx]
 
             return {"acceleration": acceleration, "stance": stance}
 
@@ -1218,7 +1258,8 @@ class PopulationTrainer:
             "fighter": fighter.name,
             "episodes": callback.episode_count,
             "mean_reward": np.mean(callback.recent_rewards) if callback.recent_rewards else 0,
-            "opponents": opponent_names
+            "opponents": opponent_names,
+            "reward_trajectory": callback.reward_trajectory(),
         }
 
         vec_env.close()
@@ -1489,7 +1530,8 @@ class PopulationTrainer:
                     "fighter": result.get("fighter"),
                     "episodes": int(result.get("episodes", 0)),
                     "mean_reward": float(result.get("mean_reward", 0.0)),
-                    "opponent_names": list(result.get("opponent_names", [])),
+                    "opponent_names": list(result.get("opponent_names", result.get("opponents", []))),
+                    "reward_trajectory": result.get("reward_trajectory"),
                 }
                 for result in results
             ],
@@ -1555,10 +1597,9 @@ class PopulationTrainer:
                     "fighter_name": stats.name,
                     "active_generation_rank": int(rank),
                     "active_generation_elo": float(stats.elo),
-                    "all_time_elo": float(stats.elo),
-                    "wins": int(stats.wins),
-                    "losses": int(stats.losses),
-                    "draws": int(stats.draws),
+                    "cumulative_wins": int(stats.wins),
+                    "cumulative_losses": int(stats.losses),
+                    "cumulative_draws": int(stats.draws),
                     "lineage_label": getattr(fighter, "lineage", None),
                     "fighter_generation": int(getattr(fighter, "generation", 0)) if fighter is not None else None,
                     "status_in_generation": (
@@ -1672,8 +1713,10 @@ class PopulationTrainer:
 
             loop_helper.log_generation_training_summary(results)
 
-            # Evaluation matches
+            # Evaluation matches — reset ELO so rankings reflect this
+            # generation only, not cumulative history.
             evaluation_started_at = time.time()
+            self.elo_tracker.reset_ratings()
             self.run_evaluation_matches(num_matches_per_pair=3)
             evaluation_seconds = time.time() - evaluation_started_at
             champion_after = self._top_active_stats(pre_population_names)

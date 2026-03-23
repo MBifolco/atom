@@ -109,7 +109,7 @@ class TestVmapEnvWrapperInit:
             opponent_decision_func=dummy_opponent
         )
 
-        assert env.action_space.shape == (2,)
+        assert env.action_space.shape == (4,)
 
     def test_metadata_exists(self):
         """Test metadata attribute exists."""
@@ -267,7 +267,7 @@ class TestVmapEnvWrapperStep:
         )
 
         env.reset()
-        actions = np.zeros((4, 2), dtype=np.float32)
+        actions = np.zeros((4, 4), dtype=np.float32)
         obs, rewards, dones, truncated, infos = env.step(actions)
 
         assert obs.shape == (4, 13)
@@ -290,7 +290,7 @@ class TestVmapEnvWrapperStep:
         env.reset()
         assert np.all(env.tick_counts == 0)
 
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
         env.step(actions)
         assert np.all(env.tick_counts == 1)
 
@@ -311,9 +311,9 @@ class TestVmapEnvWrapperStep:
 
         # Different actions for each env
         actions = np.array([
-            [0.5, 0.0],   # accelerate, neutral
-            [-0.5, 1.0],  # decelerate, extended
-            [0.0, 2.0],   # no accel, defending
+            [0.5, 1.0, -1.0, -1.0],   # accelerate, neutral
+            [-0.5, -1.0, 1.0, -1.0],  # decelerate, extended
+            [0.0, -1.0, -1.0, 1.0],   # no accel, defending
         ], dtype=np.float32)
 
         obs, rewards, dones, truncated, infos = env.step(actions)
@@ -331,7 +331,7 @@ class TestVmapEnvWrapperStep:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Run until max_ticks
         for _ in range(4):
@@ -355,7 +355,7 @@ class TestVmapEnvWrapperStep:
         env.reset()
         assert np.all(env.episode_rewards == 0)
 
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
         obs, rewards, dones, truncated, infos = env.step(actions)
 
         # Episode rewards should have accumulated
@@ -378,8 +378,8 @@ class TestVmapEnvWrapperStep:
         )
 
         env.reset()
-        actions = np.random.uniform(-1, 1, size=(4, 2)).astype(np.float32)
-        actions[:, 1] = np.clip(actions[:, 1], 0, 2.99)  # Valid stance range
+        actions = np.random.uniform(-1, 1, size=(4, 4)).astype(np.float32)
+        actions[:, 1:] = np.clip(actions[:, 1:], -5, 5)  # Valid logit range
 
         for _ in range(20):
             obs, rewards, dones, truncated, infos = env.step(actions)
@@ -456,7 +456,7 @@ class TestVmapEnvWrapperDones:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Run a few steps
         for _ in range(5):
@@ -502,7 +502,7 @@ class TestVmapEnvWrapperRewards:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Run until truncation
         for _ in range(5):
@@ -524,8 +524,8 @@ class TestVmapEnvWrapperRewards:
         )
 
         env.reset()
-        actions = np.random.uniform(-1, 1, size=(4, 2)).astype(np.float32)
-        actions[:, 1] = np.clip(actions[:, 1], 0, 2.99)
+        actions = np.random.uniform(-1, 1, size=(4, 4)).astype(np.float32)
+        actions[:, 1:] = np.clip(actions[:, 1:], -5, 5)  # Valid logit range
 
         for _ in range(15):
             obs, rewards, dones, truncated, infos = env.step(actions)
@@ -605,7 +605,7 @@ class TestVmapEnvWrapperMultipleSteps:
         )
 
         env.reset()
-        actions = np.zeros((4, 2), dtype=np.float32)
+        actions = np.zeros((4, 4), dtype=np.float32)
 
         for i in range(50):
             obs, rewards, dones, truncated, infos = env.step(actions)
@@ -624,7 +624,7 @@ class TestVmapEnvWrapperMultipleSteps:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Run past max_ticks to trigger truncation/reset
         for _ in range(6):
@@ -649,7 +649,7 @@ class TestVmapEnvWrapperInfos:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Step until truncation
         for _ in range(3):
@@ -682,7 +682,7 @@ class TestVmapEnvWrapperEdgeCases:
         obs, _ = env.reset()
         assert obs.shape == (1, 13)
 
-        actions = np.zeros((1, 2), dtype=np.float32)
+        actions = np.zeros((1, 4), dtype=np.float32)
         obs, rewards, dones, truncated, infos = env.step(actions)
         assert obs.shape == (1, 13)
 
@@ -713,8 +713,8 @@ class TestVmapEnvWrapperEdgeCases:
 
         # Extreme actions (will be clipped internally)
         actions = np.array([
-            [100.0, 0.0],   # Very high acceleration
-            [-100.0, 2.0],  # Very negative acceleration
+            [100.0, 1.0, -1.0, -1.0],   # Very high acceleration
+            [-100.0, -1.0, -1.0, 1.0],  # Very negative acceleration
         ], dtype=np.float32)
 
         obs, rewards, dones, truncated, infos = env.step(actions)
@@ -739,7 +739,7 @@ class TestVmapEnvWrapperProximityRewards:
         # Initially last_distance may be None or set to initial
         initial_last_distance = env.last_distance
 
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
         env.step(actions)
 
         # After step, last_distance should be set
@@ -777,7 +777,7 @@ class TestVmapEnvWrapperDamageTracking:
         )
 
         env.reset()
-        actions = np.zeros((2, 2), dtype=np.float32)
+        actions = np.zeros((2, 4), dtype=np.float32)
 
         # Run several steps
         for _ in range(20):

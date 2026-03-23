@@ -29,7 +29,7 @@ class TestTerminalRewardBranches:
 
         # Attack aggressively to win fast
         for _ in range(100):
-            action = np.array([1.0, 1.0])  # Max attack
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Max attack
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -53,7 +53,7 @@ class TestTerminalRewardBranches:
 
         # Win while keeping high HP
         for _ in range(150):
-            action = np.array([0.8, 1.0])
+            action = np.array([0.8, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -78,9 +78,9 @@ class TestTerminalRewardBranches:
         for i in range(120):
             # Alternate: approach (neutral) then attack (extended)
             if i % 3 == 0:
-                action = np.array([1.0, 0.0])  # Approach, save stamina
+                action = np.array([1.0, 1.0, -1.0, -1.0])  # Approach, save stamina
             else:
-                action = np.array([0.3, 1.0])  # Attack
+                action = np.array([0.3, -1.0, 1.0, -1.0])  # Attack
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -104,7 +104,7 @@ class TestTerminalRewardBranches:
 
         # Both attack until potential tie
         for _ in range(250):
-            action = np.array([1.0, 1.0])
+            action = np.array([1.0, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -130,7 +130,7 @@ class TestTerminalRewardBranches:
 
         # Try to defend but likely lose
         for _ in range(250):
-            action = np.array([0.0, 2.0])  # Just defend
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # Just defend
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -159,7 +159,7 @@ class TestTimeoutRewardBranches:
 
         # Deal some damage then timeout
         for _ in range(35):
-            action = np.array([0.8, 1.0])
+            action = np.array([0.8, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if truncated:
@@ -185,7 +185,7 @@ class TestTimeoutRewardBranches:
         env.reset()
 
         for _ in range(30):
-            action = np.array([0.5, 1.0])
+            action = np.array([0.5, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if truncated:
@@ -208,7 +208,7 @@ class TestTimeoutRewardBranches:
         env.reset()
 
         for _ in range(25):
-            action = np.array([0.0, 2.0])  # Just defend
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # Just defend
             obs, reward, done, truncated, info = env.step(action)
 
             if truncated:
@@ -236,7 +236,7 @@ class TestMidEpisodeRewardBranches:
 
         # Fight at close range
         for _ in range(40):
-            action = np.array([1.0, 1.0])
+            action = np.array([1.0, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if done or truncated:
@@ -262,7 +262,7 @@ class TestMidEpisodeRewardBranches:
 
         # Conserve stamina while opponent wastes it
         for _ in range(25):
-            action = np.array([0.0, 2.0])  # Defend to save stamina
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # Defend to save stamina
             env.step(action)
 
         # Stamina advantage reward tracked
@@ -286,9 +286,9 @@ class TestMidEpisodeRewardBranches:
         # Exhaust stamina then keep fighting (not defending)
         for i in range(50):
             if i < 25:
-                action = np.array([1.0, 1.0])  # Exhaust stamina
+                action = np.array([1.0, -1.0, 1.0, -1.0])  # Exhaust stamina
             else:
-                action = np.array([0.5, 1.0])  # Keep attacking despite low stamina
+                action = np.array([0.5, -1.0, 1.0, -1.0])  # Keep attacking despite low stamina
             env.step(action)
 
         # Penalty should be tracked
@@ -312,9 +312,9 @@ class TestMidEpisodeRewardBranches:
         # Damage opponent first, then close distance
         for i in range(60):
             if i < 20:
-                action = np.array([1.0, 1.0])  # Attack to lower opponent HP
+                action = np.array([1.0, -1.0, 1.0, -1.0])  # Attack to lower opponent HP
             else:
-                action = np.array([1.0, 0.0])  # Close distance
+                action = np.array([1.0, 1.0, -1.0, -1.0])  # Close distance
             env.step(action)
 
         # Proximity reward tracked
@@ -338,10 +338,10 @@ class TestMidEpisodeRewardBranches:
         # Exhaust stamina then back off
         for i in range(45):
             if i < 20:
-                action = np.array([1.0, 1.0])  # Exhaust
+                action = np.array([1.0, -1.0, 1.0, -1.0])  # Exhaust
             else:
                 direction_away = -1 if i % 2 == 0 else 1
-                action = np.array([direction_away * -0.8, 2.0])  # Back away and defend
+                action = np.array([direction_away * -0.8, -1.0, -1.0, 1.0])  # Back away and defend
             env.step(action)
 
         # Proximity reward tracked
@@ -367,7 +367,7 @@ class TestMidEpisodeRewardBranches:
 
         # Normal fighting
         for _ in range(35):
-            action = np.array([0.6, 1.0])
+            action = np.array([0.6, -1.0, 1.0, -1.0])
             env.step(action)
 
         # Rewards tracked
@@ -389,7 +389,7 @@ class TestMidEpisodeRewardBranches:
 
         # Attack until opponent is hurt, keep attacking
         for _ in range(55):
-            action = np.array([0.7, 1.0])  # Extended stance
+            action = np.array([0.7, -1.0, 1.0, -1.0])  # Extended stance
             env.step(action)
 
         # Stance reward tracked
@@ -413,9 +413,9 @@ class TestMidEpisodeRewardBranches:
         # Exhaust stamina then use defending stance
         for i in range(40):
             if i < 18:
-                action = np.array([1.0, 1.0])  # Exhaust
+                action = np.array([1.0, -1.0, 1.0, -1.0])  # Exhaust
             else:
-                action = np.array([0.0, 2.0])  # Defend with low stamina
+                action = np.array([0.0, -1.0, -1.0, 1.0])  # Defend with low stamina
             env.step(action)
 
         # Stance reward should exist

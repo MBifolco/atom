@@ -38,6 +38,11 @@ class GraduationDecision:
     recent_passed: bool
     overall_passed: bool
     episodes_at_level: int
+    # Combat quality metrics (populated when win rate checks pass)
+    mean_damage_dealt: float = 0.0
+    nonzero_damage_rate: float = 0.0
+    combat_quality_passed: bool = True  # default True for backward compat
+    deterministic_sanity_passed: bool = True
 
 
 @dataclass(frozen=True)
@@ -125,9 +130,17 @@ class PeriodicCheckpointCallback(BaseCallback):
 class GraduationPolicy:
     """Encapsulates level graduation rules."""
 
-    def __init__(self, override_episodes_per_level: Optional[int], min_overall_win_rate: float = 0.5):
+    def __init__(
+        self,
+        override_episodes_per_level: Optional[int],
+        min_overall_win_rate: float = 0.5,
+        min_mean_damage_dealt: float = 5.0,
+        min_nonzero_damage_rate: float = 0.3,
+    ):
         self.override_episodes_per_level = override_episodes_per_level
         self.min_overall_win_rate = min_overall_win_rate
+        self.min_mean_damage_dealt = min_mean_damage_dealt
+        self.min_nonzero_damage_rate = min_nonzero_damage_rate
 
     def evaluate(self, *, progress, level, curriculum_size: int) -> GraduationDecision:
         """Evaluate whether the current level should graduate."""
@@ -200,14 +213,31 @@ class GraduationPolicy:
 
         recent_passed = recent_win_rate >= level.graduation_win_rate
         overall_passed = overall_win_rate >= self.min_overall_win_rate
-        should_graduate = recent_passed and overall_passed
+
+        # Combat quality gate: check damage metrics from recent episodes
+        recent_damage = getattr(progress, "recent_damage_dealt", [])
+        if recent_damage:
+            mean_damage = sum(recent_damage) / len(recent_damage)
+            nonzero_rate = sum(1 for d in recent_damage if d > 0) / len(recent_damage)
+        else:
+            mean_damage = 0.0
+            nonzero_rate = 0.0
+
+        combat_quality_passed = (
+            mean_damage >= self.min_mean_damage_dealt
+            and nonzero_rate >= self.min_nonzero_damage_rate
+        )
+
+        should_graduate = recent_passed and overall_passed and combat_quality_passed
 
         if should_graduate:
             reason = "passed"
-        elif recent_passed and not overall_passed:
-            reason = "overall_too_low"
         elif not recent_passed:
             reason = "recent_too_low"
+        elif not overall_passed:
+            reason = "overall_too_low"
+        elif not combat_quality_passed:
+            reason = "combat_quality_too_low"
         else:
             reason = "failed"
 
@@ -223,6 +253,9 @@ class GraduationPolicy:
             recent_passed=recent_passed,
             overall_passed=overall_passed,
             episodes_at_level=episodes,
+            mean_damage_dealt=mean_damage,
+            nonzero_damage_rate=nonzero_rate,
+            combat_quality_passed=combat_quality_passed,
         )
 
 
@@ -244,6 +277,23 @@ class ProgressReporter:
         if len(progress.recent_episodes) > level.graduation_episodes:
             progress.recent_episodes.pop(0)
 
+        # Track combat quality metrics
+        if not hasattr(progress, "recent_damage_dealt"):
+            progress.recent_damage_dealt = []
+        episode_damage = float(info.get("episode_damage_dealt", 0.0)) if info else 0.0
+        progress.recent_damage_dealt.append(episode_damage)
+        if len(progress.recent_damage_dealt) > level.graduation_episodes:
+            progress.recent_damage_dealt.pop(0)
+
+        # Track stance distribution
+        if not hasattr(progress, "recent_stance_counts"):
+            progress.recent_stance_counts = []
+        stance_dist = info.get("stance_distribution") if info else None
+        if stance_dist:
+            progress.recent_stance_counts.append(stance_dist)
+            if len(progress.recent_stance_counts) > level.graduation_episodes:
+                progress.recent_stance_counts.pop(0)
+
         if not hasattr(progress, "recent_rewards"):
             progress.recent_rewards = []
             progress.recent_reward_breakdowns = []
@@ -261,18 +311,23 @@ class ProgressReporter:
             self._log_progress_snapshot(progress=progress, level=level)
 
     def log_graduation_decision(self, decision: GraduationDecision):
-        status = "✅ PASSED" if decision.should_graduate else "❌ FAILED (overall too low)"
-        self.logger.info(f"🎓 GRADUATION CHECK {status}")
+        status = "PASSED" if decision.should_graduate else f"FAILED ({decision.reason})"
+        self.logger.info(f"GRADUATION CHECK {status}")
         self.logger.info(f"   Recent wins: {decision.recent_wins}/{decision.recent_total}")
         self.logger.info(
             f"   Recent WR: {decision.recent_win_rate:.2%} "
             f"(need {decision.required_recent_win_rate:.1%}) "
-            f"{'✓' if decision.recent_passed else '✗'}"
+            f"{'pass' if decision.recent_passed else 'fail'}"
         )
         self.logger.info(
             f"   Overall WR: {decision.overall_win_rate:.2%} "
             f"(need {decision.required_overall_win_rate:.1%}) "
-            f"{'✓' if decision.overall_passed else '✗'}"
+            f"{'pass' if decision.overall_passed else 'fail'}"
+        )
+        self.logger.info(
+            f"   Combat quality: mean_dmg={decision.mean_damage_dealt:.1f} "
+            f"nonzero_rate={decision.nonzero_damage_rate:.1%} "
+            f"{'pass' if decision.combat_quality_passed else 'fail'}"
         )
         self.logger.info(f"   Episodes at level: {decision.episodes_at_level}")
 
@@ -827,9 +882,10 @@ class ReplayEvaluationService:
                     if action.ndim > 1:
                         action = action[0]
 
+                    from src.atom.training.action_codec import extract_stance
                     acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
                     acceleration = acceleration_normalized * config.max_acceleration
-                    stance_idx = int(np.clip(action[1], 0, 2))
+                    stance_idx = extract_stance(action)
                     stance = ["neutral", "extended", "defending"][stance_idx]
                     return {"acceleration": acceleration, "stance": stance}
                 except Exception as exc:

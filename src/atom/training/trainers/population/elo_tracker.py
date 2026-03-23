@@ -69,6 +69,16 @@ class EloTracker:
         if name in self.fighters:
             del self.fighters[name]
 
+    def reset_ratings(self) -> None:
+        """Reset all ELO ratings to initial_elo for a new generation.
+
+        Preserves all-time wins/losses/draws, damage stats, and match history.
+        Only resets the ELO score so that each generation's evaluation starts
+        from a level playing field.
+        """
+        for stats in self.fighters.values():
+            stats.elo = self.initial_elo
+
     def expected_score(self, rating_a: float, rating_b: float) -> float:
         """
         Calculate expected score for fighter A against fighter B.

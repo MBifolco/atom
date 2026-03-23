@@ -183,10 +183,10 @@ def decide(snapshot):
     outputs = session.run(output_names, {{input_name: obs}})
 
     # Parse action
-    # Action space is Box: [acceleration_normalized, stance_selector]
+    # Action space is Box: [acceleration, logit_neutral, logit_extended, logit_defending]
     action = outputs[0][0]
     acceleration_normalized = np.clip(action[0], -1.0, 1.0)
-    stance_idx = int(np.clip(action[1], 0, 2))
+    stance_idx = int(np.argmax(action[1:4]))
 
     # Scale acceleration (max_acceleration = 4.5)
     acceleration = float(acceleration_normalized * 4.5)

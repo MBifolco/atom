@@ -27,6 +27,7 @@ from .signal_engine import (
     build_observation_batch,
     compute_step_rewards_batch,
 )
+from .action_codec import ACTION_SPACE_LOW, ACTION_SPACE_HIGH, extract_stance_batch
 from src.atom.runtime.protocol import generate_snapshot
 
 
@@ -128,8 +129,8 @@ class VmapEnvWrapper(gym.Env):
         )
 
         self.action_space = spaces.Box(
-            low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 2.99], dtype=np.float32),  # 3 stances (0-2.99)
+            low=ACTION_SPACE_LOW,
+            high=ACTION_SPACE_HIGH,
             dtype=np.float32
         )
 
@@ -173,6 +174,7 @@ class VmapEnvWrapper(gym.Env):
         self.episode_damage_dealt = None
         self.episode_damage_taken = None
         self.episode_stamina_used = None  # Track accumulated stamina usage
+        self.episode_stance_ticks = None  # [n_envs, 3] per-episode stance counters
 
         # Episode-level reward breakdowns (for debugging/analysis)
         self.episode_damage_reward = None
@@ -231,6 +233,7 @@ class VmapEnvWrapper(gym.Env):
         self.episode_damage_dealt = np.zeros(self.n_envs, dtype=np.float32)
         self.episode_damage_taken = np.zeros(self.n_envs, dtype=np.float32)
         self.episode_stamina_used = np.zeros(self.n_envs, dtype=np.float32)
+        self.episode_stance_ticks = np.zeros((self.n_envs, 3), dtype=np.int32)
 
         # Initialize reward breakdowns
         self.episode_damage_reward = np.zeros(self.n_envs, dtype=np.float32)
@@ -260,22 +263,24 @@ class VmapEnvWrapper(gym.Env):
             infos: list of dicts
         """
         # Convert actions to JAX format
-        # actions[:, 0] = acceleration (-1 to 1) - MUST SCALE like gym_env.py does!
-        # actions[:, 1] = stance selector (0 to 3.99) -> int(stance)
-
-        # Scale acceleration to match gym_env.py (line 171: acceleration_normalized * max_acceleration)
+        # actions[:, 0] = acceleration (-1 to 1), actions[:, 1:4] = stance logits
         accel = jnp.array(actions[:, 0]) * self.max_accel
-        stance_int = jnp.array(actions[:, 1].astype(np.int32))
+        stance_int = jnp.array(extract_stance_batch(actions))
+
+        # Track stance usage per episode
+        for i in range(self.n_envs):
+            self.episode_stance_ticks[i, int(stance_int[i])] += 1
 
         # Get opponent actions
         if self.use_opponent_models:
             # Population training: Use trained models to predict opponent actions
             opponent_observations = self._get_opponent_observations()  # [n_envs, obs_dim]
-            opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 2]
+            opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 4]
             opponent_accel = jnp.array(opponent_actions_np[:, 0]) * self.max_accel
-            opponent_stance = jnp.array(opponent_actions_np[:, 1].astype(np.int32))
+            opponent_stance = jnp.array(extract_stance_batch(opponent_actions_np))
         elif self.use_multi_opponent:
             # Curriculum training: Call batched JAX opponent functions
+            # Opponent functions return [accel, stance_int] directly (not logits)
             env_indices = jnp.arange(self.n_envs)
             opponent_actions = self.opponent_decide(self.jax_states, env_indices)
             opponent_accel = opponent_actions[:, 0]
@@ -286,7 +291,7 @@ class VmapEnvWrapper(gym.Env):
             opponent_accel = jnp.array(opponent_accel_np, dtype=jnp.float32)
             opponent_stance = jnp.array(opponent_stance_np, dtype=jnp.int32)
 
-        # Stack actions
+        # Stack actions as [accel, stance_int] for arena (arena always uses 2D actions)
         actions_a = jnp.stack([accel, stance_int], axis=1)
         actions_b = jnp.stack([opponent_accel, opponent_stance], axis=1)
 
@@ -306,7 +311,7 @@ class VmapEnvWrapper(gym.Env):
         if self.debug and self.tick_counts[0] % 50 == 0:
             i = 0  # Log first env
             print(f"\n=== DEBUG: Env 0, Tick {self.tick_counts[i]} ===")
-            print(f"Actions: accel={actions[i, 0]:.2f}, stance={int(actions[i, 1])}")
+            print(f"Actions: accel={actions[i, 0]:.2f}, stance={extract_stance_batch(actions[i:i+1])[0]}")
             print(f"Fighter: pos={self.jax_states.fighter_a.position[i]:.2f}, vel={self.jax_states.fighter_a.velocity[i]:.2f}, HP={self.jax_states.fighter_a.hp[i]:.1f}, stamina={self.jax_states.fighter_a.stamina[i]:.1f}")
             print(f"Opponent: pos={self.jax_states.fighter_b.position[i]:.2f}, vel={self.jax_states.fighter_b.velocity[i]:.2f}, HP={self.jax_states.fighter_b.hp[i]:.1f}, stamina={self.jax_states.fighter_b.stamina[i]:.1f}")
             print(f"Distance: {abs(self.jax_states.fighter_b.position[i] - self.jax_states.fighter_a.position[i]):.2f}")
@@ -358,6 +363,13 @@ class VmapEnvWrapper(gym.Env):
                     "won": won,  # Add win/loss flag for curriculum trainer
                     "fighter_hp": fighter_hp,
                     "opponent_hp": opponent_hp,
+                    "episode_damage_dealt": float(self.episode_damage_dealt[i]),
+                    "episode_damage_taken": float(self.episode_damage_taken[i]),
+                    "stance_distribution": {
+                        "neutral": int(self.episode_stance_ticks[i, 0]),
+                        "extended": int(self.episode_stance_ticks[i, 1]),
+                        "defending": int(self.episode_stance_ticks[i, 2]),
+                    },
                     "reward_breakdown": {
                         "proximity": float(self.episode_proximity_reward[i]),
                         "damage": float(self.episode_damage_reward[i]),
@@ -483,12 +495,12 @@ class VmapEnvWrapper(gym.Env):
             opponent_observations: [n_envs, obs_dim] numpy array
 
         Returns:
-            actions: [n_envs, 2] numpy array (acceleration, stance_selector)
+            actions: [n_envs, 4] numpy array (acceleration, logit_neutral, logit_extended, logit_defending)
         """
         n_models = len(self.opponent_models)
         envs_per_model = self.n_envs // n_models
 
-        all_actions = np.zeros((self.n_envs, 2), dtype=np.float32)
+        all_actions = np.zeros((self.n_envs, 4), dtype=np.float32)
 
         # Predict in batches for each model
         for i, model in enumerate(self.opponent_models):
@@ -703,6 +715,7 @@ class VmapEnvWrapper(gym.Env):
                 self.episode_damage_dealt[i] = 0.0
                 self.episode_damage_taken[i] = 0.0
                 self.episode_stamina_used[i] = 0.0
+                self.episode_stance_ticks[i] = 0
 
                 # Reset reward breakdowns
                 self.episode_damage_reward[i] = 0.0

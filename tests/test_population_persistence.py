@@ -98,7 +98,7 @@ def test_export_model_to_onnx_uses_default_obs_shape_when_missing_observation_sp
     class _Policy(torch.nn.Module):
         def __init__(self):
             super().__init__()
-            self.net = torch.nn.Linear(9, 2)
+            self.net = torch.nn.Linear(9, 4)
 
         def forward(self, x):
             return self.net(x)

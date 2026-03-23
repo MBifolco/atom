@@ -65,6 +65,25 @@ class PopulationEvolver:
     def __init__(self, context: EvolutionContext):
         self.context = context
 
+    @staticmethod
+    def rank_weights(n: int) -> list[int]:
+        """Compute rank-based weights: [n, n-1, ..., 1].
+
+        Top-ranked survivor gets weight n, bottom gets weight 1.
+        """
+        return list(range(n, 0, -1))
+
+    @staticmethod
+    def select_parent(survivors: list) -> Any:
+        """Select a parent using rank-weighted probability.
+
+        Survivors are assumed to be sorted best-first (index 0 = top rank).
+        Top-ranked fighters get proportionally more offspring, but every
+        survivor has a nonzero chance — balancing exploitation and exploration.
+        """
+        weights = PopulationEvolver.rank_weights(len(survivors))
+        return random.choices(survivors, weights=weights, k=1)[0]
+
     def evolve(
         self,
         population: List[PopulationFighterProtocol],
@@ -91,7 +110,7 @@ class PopulationEvolver:
         rankings = elo_tracker.get_rankings()
         lineage_events: list[LineageEvent] = []
         for old_fighter in selection.to_replace:
-            parent = random.choice(selection.survivors)
+            parent = self.select_parent(selection.survivors)
             population_index = population.index(old_fighter)
             new_name = create_fighter_name(population_index, self.context.generation)
             new_mass = self._sample_child_mass(parent.mass)

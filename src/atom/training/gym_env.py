@@ -12,6 +12,7 @@ from gymnasium import spaces
 from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
 from src.atom.runtime.protocol import generate_snapshot
 from .signal_engine import build_observation, compute_step_reward_scalar
+from .action_codec import ACTION_SPACE_LOW, ACTION_SPACE_HIGH, extract_stance
 
 
 class AtomCombatEnv(gym.Env):
@@ -75,12 +76,12 @@ class AtomCombatEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Define action space: Box (continuous) for finer control
-        # [acceleration_normalized (-1 to 1), stance_selector (0 to 3.99)]
-        # PPO works well with continuous action spaces
+        # Action space: [acceleration, logit_neutral, logit_extended, logit_defending]
+        # Stance selected via argmax over logits — works with both stochastic
+        # and deterministic PPO policies (no int-truncation collapse).
         self.action_space = spaces.Box(
-            low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 2.99], dtype=np.float32),  # Changed from 3.99 to 2.99 for 3 stances
+            low=ACTION_SPACE_LOW,
+            high=ACTION_SPACE_HIGH,
             dtype=np.float32
         )
 
@@ -96,6 +97,9 @@ class AtomCombatEnv(gym.Env):
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
+
+        # Stance usage tracking (per-episode tick counts)
+        self.stance_ticks = [0, 0, 0]  # neutral, extended, defending
 
         # Reward component tracking
         self.episode_proximity_reward = 0
@@ -141,6 +145,7 @@ class AtomCombatEnv(gym.Env):
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
+        self.stance_ticks = [0, 0, 0]
 
         # Reset reward component tracking
         self.episode_proximity_reward = 0
@@ -161,18 +166,19 @@ class AtomCombatEnv(gym.Env):
         Execute one step in the environment.
 
         Args:
-            action: numpy array [acceleration_normalized, stance_selector] from Box space
+            action: numpy array [accel, logit_neutral, logit_extended, logit_defending]
 
         Returns:
             observation, reward, terminated, truncated, info
         """
         # Convert action to arena format
         # action[0] is acceleration normalized (-1 to 1)
-        # action[1] is stance selector (0.0-3.99, int cast to 0-3)
+        # action[1:4] are stance logits — argmax selects stance
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * self.config.max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 2))  # Clip to 2 for 3 stances (0,1,2)
+        stance_idx = extract_stance(action)
+        self.stance_ticks[stance_idx] += 1
 
         # Use integer stance for JAX arena, string stance for Python arena
         from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit
@@ -273,6 +279,12 @@ class AtomCombatEnv(gym.Env):
             "hits_taken": self.hits_taken,
             "stamina_used": self.stamina_used,
             "won": fighter_hp_pct > opponent_hp_pct if (terminated or truncated) else None,
+            # Stance usage for this episode
+            "stance_distribution": {
+                "neutral": self.stance_ticks[0],
+                "extended": self.stance_ticks[1],
+                "defending": self.stance_ticks[2],
+            } if (terminated or truncated) else None,
             # Reward breakdown (only available at episode end)
             "reward_breakdown": {
                 "proximity": self.episode_proximity_reward,

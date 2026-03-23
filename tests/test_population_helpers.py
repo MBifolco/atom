@@ -82,7 +82,7 @@ class TestCreateOpponentDecideFunc:
             def predict(self, obs, deterministic=False):
                 import numpy as np
                 # Return simple action
-                return np.array([0.5, 1.0]), None
+                return np.array([0.5, -1.0, 1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)
@@ -94,7 +94,7 @@ class TestCreateOpponentDecideFunc:
         class MockModel:
             def predict(self, obs, deterministic=False):
                 import numpy as np
-                return np.array([0.3, 0.5]), None
+                return np.array([0.3, 1.0, -1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)
@@ -139,7 +139,7 @@ class TestCreateOpponentDecideFunc:
             def predict(self, obs, deterministic=False):
                 self.last_obs = obs
                 import numpy as np
-                return np.array([0.0, 1.0]), None
+                return np.array([0.0, -1.0, 1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)

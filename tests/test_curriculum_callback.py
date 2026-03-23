@@ -15,6 +15,7 @@ class TestCurriculumCallbackInitialization:
         """Test callback stores reference to curriculum trainer."""
         class MockCurriculumTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         trainer = MockCurriculumTrainer()
         callback = CurriculumCallback(curriculum_trainer=trainer, verbose=0)
@@ -25,6 +26,7 @@ class TestCurriculumCallbackInitialization:
         """Test callback initializes episode tracking lists."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -38,6 +40,7 @@ class TestCurriculumCallbackInitialization:
         """Test callback initializes rollout and train time trackers."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -57,6 +60,7 @@ class TestCurriculumCallbackInitialization:
         """Test callback created with quiet mode."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -70,6 +74,7 @@ class TestCurriculumCallbackRolloutMethods:
         """Test _on_rollout_start records start time."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -83,6 +88,7 @@ class TestCurriculumCallbackRolloutMethods:
         """Test _on_rollout_start increments rollout counter."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -98,6 +104,7 @@ class TestCurriculumCallbackRolloutMethods:
         """Test _on_rollout_end calculates rollout duration."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -119,6 +126,7 @@ class TestCurriculumCallbackRolloutMethods:
         """Test _on_rollout_end sets training start time."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -135,6 +143,7 @@ class TestCurriculumCallbackAlgorithmHandling:
         """Test callback behavior with PPO algorithm."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=1)
 
@@ -148,6 +157,7 @@ class TestCurriculumCallbackAlgorithmHandling:
         """Test rollout count is initialized on first rollout."""
         class MockTrainer:
             algorithm = "ppo"
+            def _flush_pending_holdouts(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
