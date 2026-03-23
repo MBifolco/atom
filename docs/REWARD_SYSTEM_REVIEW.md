@@ -11,6 +11,9 @@ scalar, then normalized by VecNormalize (running mean/variance, clipped to
 
 ### Component Summary
 
+Empirical averages are **raw logged episode-sum component means** (pre-
+normalization). PPO sees normalized/clipped values, not these magnitudes.
+
 | Component | Per-Step Magnitude | Empirical Avg | % of Signal | Type |
 |-----------|-------------------|---------------|-------------|------|
 | Damage | ±10.0 per HP point | 272–728 | 60–85% | Per-tick |
@@ -20,9 +23,23 @@ scalar, then normalized by VecNormalize (running mean/variance, clipped to
 | Proximity | +0.1 to +0.2 | +0.7 to +1.0 | <0.2% | Per-tick |
 | Stamina | -0.05 to +0.02 | -5.5 to -6.3 | ~1% | Per-tick |
 
-**Key finding:** Damage reward dominates (60–85% of signal). Proximity,
-stamina, and stance rewards are 100–1000x smaller — likely invisible to
-the agent after VecNormalize.
+**Key finding:** Damage reward dominates (60–85% of raw signal). Proximity,
+stamina, and stance rewards are 100–1000x smaller — likely too weak to
+reliably shape behavior, even though VecNormalize operates on the combined
+reward (not per-component). The secondary signals may be underweighted
+relative to damage rather than literally invisible.
+
+### Non-Reward Guardrails Already In Place
+
+Reward tuning is no longer the only defense against bad graduates. The
+current trainer has:
+- Combat-quality graduation gate (`min_mean_damage_dealt`, `min_nonzero_damage_rate`)
+- Deterministic sanity check (must deal damage under `deterministic=True`)
+- Per-level stance observability (`extended_stance_rate` in level summaries)
+
+Reward improvements now target **faster learning**, **better per-level
+shaping**, and **cleaner generalization** — not basic "can the fighter
+fight at all?"
 
 ---
 
@@ -52,10 +69,10 @@ create a real incentive for efficient KOs.
 ### Medium (Moderate Risk, Meaningful Impact)
 
 **4. Scale up proximity rewards 10x.**
-Proximity is currently 0.2/0.1/0.1 per step — invisible next to damage at
-10.0 per point. Scaling to 2.0/1.0/1.0 makes proximity a real secondary
-signal. The pursuit/recovery/engagement logic is well-designed but currently
-drowned out.
+Proximity is currently 0.2/0.1/0.1 per step — likely too weak to shape
+behavior reliably next to damage at 10.0 per point. Scaling to 2.0/1.0/1.0
+makes proximity a real secondary signal. The pursuit/recovery/engagement
+logic is well-designed but currently drowned out.
 
 **5. Scale up stance rewards 5x.**
 Extended bonus 0.05 → 0.25, defending bonus 0.10 → 0.50. Currently stance
@@ -63,17 +80,29 @@ rewards total ~4.5 per episode vs 500+ for damage. The fighter already uses
 all 3 stances (from the logit fix), but the reward doesn't reinforce
 *situationally appropriate* stance choices.
 
-**6. Add damage-dealt-per-tick reward for extended stance in range.**
+**6. Add per-tick reward for extended stance in range.**
 No direct reward for *being in extended stance while close enough to hit*.
 Damage reward fires only when damage actually happens (distance + stance +
 cooldown aligned). A small per-tick bonus for "extended stance within reach"
 (distance < 0.82m) bridges the gap between intent and execution.
+
+**Caution:** Must be gated carefully to avoid rewarding **camping in extended
+stance** near the opponent. Consider requiring recent closing movement or a
+short time horizon (e.g., only reward if distance decreased in the last
+2-3 ticks). Otherwise it creates a new exploit: stand next to opponent in
+extended and collect free reward without timing attacks.
 
 **7. Add defending-while-taking-hits bonus.**
 Blocking costs 1.0 stamina but gives no reward signal. A small bonus when
 taking damage in defending stance (e.g., +0.5 per hit blocked) teaches that
 blocking is the right response to incoming attacks. Currently the only
 defending incentive is a -0.05 stamina penalty avoidance — too weak.
+
+**Implementation note:** Requires new runtime instrumentation. The reward
+engine (`signal_engine.py`) only receives damage/stamina/stance inputs.
+Blocked-hit detection happens in `arena_1d_jax_jit.py:598` but is not
+currently surfaced to the reward function. Would need a new field like
+`blocked_hit_count` or `blocked_damage` in the env info dict.
 
 ### Large (Higher Risk, Architectural)
 
@@ -112,12 +141,27 @@ This approach:
 the weight dict, multiply each component before summing. Pass the current
 level's difficulty from the curriculum trainer through the env.
 
+**Scope note:** The reward weights table applies only to curriculum training.
+Population training uses the same reward engine but should always use 1.0x
+weights (no curriculum-level shaping). The weight lookup should default to
+all-1.0 when no level name is provided, ensuring population training is
+unaffected.
+
 **9. Curriculum-aware reward normalization.**
 VecNormalize running mean/variance persists across level transitions. When
 graduating from L1 (easy, high rewards) to L2 (harder, lower rewards), the
 normalization is calibrated to L1's distribution. L2 rewards look
-artificially deflated until stats catch up. Consider resetting VecNormalize
-on level transition or per-level normalization.
+artificially deflated until stats catch up.
+
+Options (increasing scope):
+- **Reward-stat reset only:** Reset running reward mean/variance on level
+  transition, keep observation normalization intact. Lowest risk.
+- **Full obs+reward reset:** Reset both. Higher risk — observation stats
+  may need to persist for stability.
+- **Per-level normalizer snapshots:** Save/restore normalizer state per
+  level. Most robust but most complex.
+
+Recommend starting with reward-stat reset only.
 
 **10. Replace inaction penalty with engagement reward.**
 Inaction penalty is negative-only (-0.02 to -0.1). It punishes not doing
@@ -126,52 +170,30 @@ being within striking range, higher for active combat) would be more
 informative. Requires rethinking inaction/proximity interaction.
 
 **11. Opponent-aware damage scaling.**
-All damage rewarded equally regardless of opponent difficulty. 10 damage to
-a stationary target = 10 damage to the boxer. Consider scaling by opponent
-strength (level difficulty or evaluation win rate). Prevents reward hacking
-by preferring easier opponents in population training.
+All damage rewarded equally regardless of opponent difficulty. In population
+training with mixed-opponent batches, dealing 10 damage to a weak assigned
+opponent has the same reward as 10 damage to a strong one. Consider scaling
+by opponent strength (level difficulty or evaluation win rate) to prevent
+overvaluation of damage against weaker assigned opponents.
 
 ---
 
-## Prerequisite: JAX/Python Opponent Parity
+## JAX/Python Opponent Parity — DONE
 
-Before reward changes matter, the vmap curriculum must train against the
-correct opponents. Run4 analysis revealed that several JAX implementations
-diverge from their Python counterparts in wall handling, acceleration
-magnitudes, and overlap behavior. Reward tuning on misaligned opponents
-is wasted effort.
+All items completed March 2026:
+- 14 Python fighters rewritten to match JAX canonical behavior
+- 6 pre-existing JAX functions rewritten for direction-based logic
+- Strict ValueError on unknown JAX opponents (no silent fallback)
+- 27 parity tests × 5 states each, 0.5 accel tolerance
+- Resolved-opponent logging in `create_multi_opponent_func()`
 
-**All items fixed (March 2026):**
-
-1. **Patch 5 new-fighter JAX mismatches** — `hp_adaptive`, `comeback_fighter`,
-   `flee_defending`, `stamina_burner`, `range_switcher` all have wall-awareness
-   and/or acceleration magnitude drift between Python and JAX.
-
-2. **Patch backfilled existing-fighter mismatches** — `forward_mover` keys
-   off absolute distance (not direction), `aggressive_stance_switcher` uses
-   different acceleration scaling in JAX. Decide canonical behavior (stateless,
-   direction-based), fix Python if needed, then align JAX.
-
-3. **Fail hard on unknown JAX opponents** — Replace silent `stationary_neutral`
-   fallback in `create_multi_opponent_func()` with an error. This would have
-   caught the 9 missing JAX implementations in earlier runs.
-
-4. **Expand parity tests** — Cover all JAX-backed curriculum opponents (not
-   just the 7 new ones). Add overlap, wall-edge, and threshold-boundary
-   states. Tighten acceleration tolerance.
-
-5. **Log resolved JAX opponent names** — When a curriculum level starts in
-   vmap mode, log the resolved opponent stems/IDs for post-run verification.
+---
 
 ## Recommended Priority
 
-**Phase 0 — JAX parity (DONE):**
-- ~~Fix all Python/JAX mismatches for curriculum opponents~~
-- ~~Fail hard on unknown JAX opponents~~
-- ~~Expand parity tests to cover all opponents with tight tolerance~~
-- ~~Add resolved-opponent logging~~
+**Phase 0 — JAX parity: DONE**
 
-**Phase A — reward fixes (after parity is clean):**
+**Phase A — reward fixes (next):**
 - Small fixes #1 (first-step proximity), #2 (tie penalty → -50), #3 (time bonus)
 - #8 (per-level reward scaling) — this subsumes #4 and #5 by applying
   level-appropriate multipliers instead of uniform scaling. It also properly
@@ -180,8 +202,8 @@ is wasted effort.
 **Phase B — after validating Phase A on a training run:**
 - #6 (extended-in-range bonus) and #7 (blocking bonus) if stance behavior
   still isn't situationally appropriate after scaling
-- #9 (VecNormalize reset on level transition) if level summaries show
-  reward distribution artifacts at level boundaries
+- #9 (VecNormalize reward-stat reset on level transition) if level summaries
+  show reward distribution artifacts at level boundaries
 - #10 and #11 are longer-term architectural considerations
 
 ---
