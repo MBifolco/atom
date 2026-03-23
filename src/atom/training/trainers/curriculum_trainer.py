@@ -683,13 +683,21 @@ class CurriculumTrainer:
         finally:
             env.close()
 
-    def _evaluate_holdout_suite(self, checkpoint_label: str, matches_per_opponent: int | None = None, model=None) -> None:
+    def _evaluate_holdout_suite(
+        self,
+        checkpoint_label: str,
+        matches_per_opponent: int | None = None,
+        model=None,
+        snapshot_metadata: dict | None = None,
+    ) -> None:
         """Evaluate a model on the fixed holdout suite.
 
         Args:
             checkpoint_label: Label for this evaluation snapshot.
             matches_per_opponent: Matches per holdout opponent.
             model: Model to evaluate. If None, uses self.model.
+            snapshot_metadata: Level/timestep metadata captured at graduation.
+                If None, uses current trainer state.
         """
         eval_model = model if model is not None else self.model
         if eval_model is None:
@@ -722,13 +730,16 @@ class CurriculumTrainer:
 
         overall_matches = sum(result["matches"] for result in suite_results)
         overall_wins = sum(result["wins"] for result in suite_results)
+        # Use snapshot metadata (captured at graduation) when available,
+        # otherwise fall back to current trainer state.
+        meta = snapshot_metadata or {}
         record = {
             "timestamp": datetime.now().isoformat(),
             "checkpoint_label": checkpoint_label,
-            "level_index": int(self.progress.current_level),
-            "level_name": self.get_current_level().name,
-            "global_timestep": self._current_model_timesteps(),
-            "global_total_episodes": int(self.progress.total_episodes),
+            "level_index": meta.get("level_index", int(self.progress.current_level)),
+            "level_name": meta.get("level_name", self.get_current_level().name),
+            "global_timestep": meta.get("global_timestep", self._current_model_timesteps()),
+            "global_total_episodes": meta.get("global_total_episodes", int(self.progress.total_episodes)),
             "overall_matches": overall_matches,
             "overall_wins": overall_wins,
             "overall_win_rate": overall_wins / max(1, overall_matches),
@@ -736,10 +747,10 @@ class CurriculumTrainer:
         }
         append_jsonl(self.analysis_dir / "holdout_eval.jsonl", record)
 
-    def _record_holdout_evaluation(self, checkpoint_label: str, model=None) -> None:
+    def _record_holdout_evaluation(self, checkpoint_label: str, model=None, snapshot_metadata: dict | None = None) -> None:
         """Run and record holdout evaluation without derailing training on failure."""
         try:
-            self._evaluate_holdout_suite(checkpoint_label, model=model)
+            self._evaluate_holdout_suite(checkpoint_label, model=model, snapshot_metadata=snapshot_metadata)
         except Exception as exc:
             self.logger.warning(f"Holdout evaluation failed for {checkpoint_label}: {exc}")
             self._record_failure_event(
@@ -753,22 +764,24 @@ class CurriculumTrainer:
     def _flush_pending_holdouts(self) -> None:
         """Run all queued holdout evaluations using saved model snapshots.
 
-        Each entry is a (label, snapshot_path) tuple. The snapshot was saved
-        at graduation time so the holdout evaluation uses the exact weights
-        from that level, not the current (possibly further-trained) model.
+        Each entry is a (label, snapshot_path, metadata) tuple. The snapshot
+        was saved at graduation time so the holdout evaluation uses the exact
+        weights and metadata from that level.
         """
+        model_cls = PPO if self.algorithm == "ppo" else SAC
         while self._pending_holdout_labels:
             entry = self._pending_holdout_labels.pop(0)
             if isinstance(entry, tuple):
-                label, snapshot_path = entry
+                label = entry[0]
+                snapshot_path = entry[1]
+                metadata = entry[2] if len(entry) > 2 else None
                 try:
-                    snapshot_model = PPO.load(snapshot_path, device="cpu")
-                    self._record_holdout_evaluation(label, model=snapshot_model)
+                    snapshot_model = model_cls.load(snapshot_path, device="cpu")
+                    self._record_holdout_evaluation(label, model=snapshot_model, snapshot_metadata=metadata)
                     del snapshot_model
                 except Exception as exc:
                     self.logger.warning(f"Failed to load holdout snapshot {snapshot_path}: {exc}")
-                    # Fall back to current model
-                    self._record_holdout_evaluation(label)
+                    self._record_holdout_evaluation(label, snapshot_metadata=metadata)
             else:
                 # Backward compat: bare label string
                 self._record_holdout_evaluation(entry)
@@ -999,7 +1012,14 @@ class CurriculumTrainer:
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         if self.model is not None:
             self.model.save(snapshot_path)
-        self._pending_holdout_labels.append((checkpoint_label, str(snapshot_path)))
+        # Queue label, path, and metadata captured at graduation time
+        snapshot_metadata = {
+            "level_index": int(self.progress.current_level),
+            "level_name": current.name,
+            "global_timestep": self._current_model_timesteps(),
+            "global_total_episodes": int(self.progress.total_episodes),
+        }
+        self._pending_holdout_labels.append((checkpoint_label, str(snapshot_path), snapshot_metadata))
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")
