@@ -149,14 +149,18 @@ class ProgressiveTrainer:
         Returns:
             Path to the trained model
         """
-        self._write_run_manifest(
-            phase="curriculum",
-            extra_config={
-                "curriculum_timesteps": timesteps,
-                "curriculum_resume_from_latest": resume_from_latest,
-                "curriculum_n_envs_requested": n_envs,
-            },
-        )
+        # Only write manifest if one hasn't been written already (e.g., by
+        # run_complete_pipeline which writes "complete_pipeline" first).
+        manifest_path = self.analysis_dir / "run_manifest.json"
+        if not manifest_path.exists():
+            self._write_run_manifest(
+                phase="curriculum",
+                extra_config={
+                    "curriculum_timesteps": timesteps,
+                    "curriculum_resume_from_latest": resume_from_latest,
+                    "curriculum_n_envs_requested": n_envs,
+                },
+            )
 
         # Use instance n_envs if not overridden, otherwise set default based on vmap usage
         if n_envs is None:

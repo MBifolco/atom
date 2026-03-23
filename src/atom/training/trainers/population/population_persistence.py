@@ -100,27 +100,36 @@ class PopulationPersistenceService:
 
         policy = model.policy
 
-        # Backward-compatible default for tests/mocks lacking observation_space.
-        obs_shape = (9,)
-        space = getattr(model, "observation_space", None)
-        shape = getattr(space, "shape", None)
-        if isinstance(shape, tuple):
-            obs_shape = shape
-        elif isinstance(shape, list):
-            obs_shape = tuple(shape)
-        if len(obs_shape) != 1:
-            raise ValueError(f"Expected 1D observation space, got shape={obs_shape}")
-        dummy_input = torch.zeros((1, obs_shape[0]), dtype=torch.float32)
+        # Move policy to CPU for export to avoid mixed-device tensor errors
+        # (training may leave tensors on CUDA while ONNX export expects CPU).
+        original_device = next(policy.parameters()).device
+        policy.to("cpu")
 
-        torch.onnx.export(
-            policy,
-            dummy_input,
-            str(output_path),
-            input_names=["observation"],
-            output_names=["action"],
-            dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
-            opset_version=17,
-        )
+        try:
+            # Backward-compatible default for tests/mocks lacking observation_space.
+            obs_shape = (9,)
+            space = getattr(model, "observation_space", None)
+            shape = getattr(space, "shape", None)
+            if isinstance(shape, tuple):
+                obs_shape = shape
+            elif isinstance(shape, list):
+                obs_shape = tuple(shape)
+            if len(obs_shape) != 1:
+                raise ValueError(f"Expected 1D observation space, got shape={obs_shape}")
+            dummy_input = torch.zeros((1, obs_shape[0]), dtype=torch.float32)
+
+            torch.onnx.export(
+                policy,
+                dummy_input,
+                str(output_path),
+                input_names=["observation"],
+                output_names=["action"],
+                dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
+                opset_version=17,
+            )
+        finally:
+            # Restore policy to original device so training can continue
+            policy.to(original_device)
 
     def create_fighter_wrapper(self, fighter: Any, output_path: Path, onnx_filename: str) -> None:
         """Create a Python wrapper file with decide() for atom_fight.py."""

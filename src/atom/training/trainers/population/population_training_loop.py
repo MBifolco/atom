@@ -155,7 +155,7 @@ class PopulationTrainingLoopHelper:
             print("=" * 80)
             print(f"Total Generations: {generation}")
             print(f"Total Matches: {total_matches}")
-            print("\nFinal Rankings (All Time):")
+            print("\nFinal Rankings (Current Generation):")
             elo_tracker.print_leaderboard()
 
             metrics = elo_tracker.get_diversity_metrics()
