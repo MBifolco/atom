@@ -149,10 +149,22 @@ class ProgressiveTrainer:
         Returns:
             Path to the trained model
         """
-        # Only write manifest if one hasn't been written already (e.g., by
-        # run_complete_pipeline which writes "complete_pipeline" first).
+        # Skip manifest write if run_complete_pipeline already wrote one —
+        # its "complete_pipeline" phase is more accurate than "curriculum".
+        # For standalone curriculum runs (or reused dirs from prior runs),
+        # always write so the manifest reflects the current run.
+        import json as _json
         manifest_path = self.analysis_dir / "run_manifest.json"
-        if not manifest_path.exists():
+        skip_manifest = False
+        if manifest_path.exists():
+            try:
+                existing = _json.loads(manifest_path.read_text())
+                existing_phase = existing.get("training", {}).get("phase", "")
+                if existing_phase == "complete_pipeline":
+                    skip_manifest = True
+            except Exception:
+                pass
+        if not skip_manifest:
             self._write_run_manifest(
                 phase="curriculum",
                 extra_config={
