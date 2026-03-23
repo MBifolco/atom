@@ -141,7 +141,7 @@ diverge from their Python counterparts in wall handling, acceleration
 magnitudes, and overlap behavior. Reward tuning on misaligned opponents
 is wasted effort.
 
-**Must fix before next A100 run:**
+**All items fixed (March 2026):**
 
 1. **Patch 5 new-fighter JAX mismatches** — `hp_adaptive`, `comeback_fighter`,
    `flee_defending`, `stamina_burner`, `range_switcher` all have wall-awareness
@@ -165,11 +165,11 @@ is wasted effort.
 
 ## Recommended Priority
 
-**Phase 0 — JAX parity (implement first):**
-- Fix all Python/JAX mismatches for curriculum opponents
-- Fail hard on unknown JAX opponents
-- Expand parity tests to cover all opponents with tight tolerance
-- Add resolved-opponent logging
+**Phase 0 — JAX parity (DONE):**
+- ~~Fix all Python/JAX mismatches for curriculum opponents~~
+- ~~Fail hard on unknown JAX opponents~~
+- ~~Expand parity tests to cover all opponents with tight tolerance~~
+- ~~Add resolved-opponent logging~~
 
 **Phase A — reward fixes (after parity is clean):**
 - Small fixes #1 (first-step proximity), #2 (tie penalty → -50), #3 (time bonus)
