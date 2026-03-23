@@ -32,7 +32,7 @@ class TestDifficultyLevel:
     def test_difficulty_level_iteration(self):
         """Test iterating over difficulty levels."""
         levels = list(DifficultyLevel)
-        assert len(levels) == 6
+        assert len(levels) == 8
 
 
 class TestCurriculumLevel:

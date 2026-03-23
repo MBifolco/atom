@@ -106,11 +106,13 @@ class VmapEnvAdapter(VecEnv):
 class DifficultyLevel(Enum):
     """Training difficulty levels."""
     FUNDAMENTALS = "fundamentals"      # Level 1: Stationary targets
-    BASIC_SKILLS = "basic_skills"      # Level 2: Simple movements
-    INTERMEDIATE = "intermediate"       # Level 3: Distance/stamina management
-    ADVANCED = "advanced"               # Level 4: Behavioral fighters
-    EXPERT = "expert"                   # Level 5: Hardcoded fighters
-    POPULATION = "population"           # Level 6: Population training
+    BASIC_SKILLS = "basic_skills"      # Level 2: Movement basics
+    INTERMEDIATE = "intermediate"       # Level 3: Stance & stamina awareness
+    ADVANCED = "advanced"               # Level 4: Complex patterns
+    ADAPTIVE = "adaptive"              # Level 5: Adaptive behavior
+    EXPERT = "expert"                   # Level 6: Expert fighters
+    GAUNTLET = "gauntlet"              # Level 7: Mixed generalization test
+    POPULATION = "population"           # Population training (post-curriculum)
 
 
 @dataclass
@@ -437,100 +439,128 @@ class CurriculumTrainer:
             self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
-        """Build the training curriculum."""
-        test_dummy_dir = Path("fighters/test_dummies")
-        example_dir = Path("fighters/examples")
+        """Build the 7-level training curriculum."""
+        td = Path("fighters/test_dummies/atomic")
+        ex = Path("fighters/examples")
 
-        curriculum = []
-
-        # Level 1: Fundamentals (stationary dummies)
-        curriculum.append(CurriculumLevel(
-            name="Fundamentals",
-            difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponents=[
-                str(test_dummy_dir / "atomic/stationary_neutral.py"),
-                str(test_dummy_dir / "atomic/stationary_extended.py"),
-                str(test_dummy_dir / "atomic/stationary_defending.py"),
-            ],
-            min_episodes=200,
-            graduation_win_rate=0.9,  # Should easily beat stationary targets
-            graduation_episodes=50,  # Increased from 10 to prevent lucky streaks
-            description="Learn basic attacking and stance usage against stationary targets"
-        ))
-
-        # Level 2: Basic Skills (simple movements)
-        curriculum.append(CurriculumLevel(
-            name="Basic Skills",
-            difficulty=DifficultyLevel.BASIC_SKILLS,
-            opponents=[
-                str(test_dummy_dir / "atomic/approach_slow.py"),
-                str(test_dummy_dir / "atomic/flee_always.py"),
-                str(test_dummy_dir / "atomic/shuttle_slow.py"),
-                str(test_dummy_dir / "atomic/shuttle_medium.py"),
-                str(test_dummy_dir / "atomic/circle_left.py"),
-                str(test_dummy_dir / "atomic/circle_right.py"),
-            ],
-            min_episodes=300,
-            graduation_win_rate=0.88,  # High standards maintained
-            graduation_episodes=50,
-            description="Learn pursuit, evasion, and predictive movement"
-        ))
-
-        # Level 3: Intermediate (distance/stamina management)
-        curriculum.append(CurriculumLevel(
-            name="Intermediate",
-            difficulty=DifficultyLevel.INTERMEDIATE,
-            opponents=[
-                str(test_dummy_dir / "atomic/distance_keeper_1m.py"),
-                str(test_dummy_dir / "atomic/stamina_efficient.py"),
-                str(test_dummy_dir / "atomic/charge_on_approach.py"),
-                # Using some Level 2 opponents as substitutes for missing files
-                str(test_dummy_dir / "atomic/forward_mover.py"),
-                str(test_dummy_dir / "atomic/backward_mover.py"),
-                str(test_dummy_dir / "atomic/sideways_mover_smooth.py"),
-            ],
-            min_episodes=400,
-            graduation_win_rate=0.85,  # Maintained high standards
-            graduation_episodes=50,
-            description="Learn spacing control, resource management, and wall combat"
-        ))
-
-        # Level 4: Advanced (stance switchers and complex movement)
-        curriculum.append(CurriculumLevel(
-            name="Advanced",
-            difficulty=DifficultyLevel.ADVANCED,
-            opponents=[
-                str(test_dummy_dir / "atomic/aggressive_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/balanced_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/defensive_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/forward_charger.py"),
-                str(test_dummy_dir / "atomic/oscillator.py"),
-                str(test_dummy_dir / "atomic/retreater.py"),
-            ],
-            min_episodes=500,
-            graduation_win_rate=0.83,  # Staying near 85% standards
-            graduation_episodes=50,
-            description="Learn complex strategies and counter-strategies"
-        ))
-
-        # Level 5: Expert (example fighters)
-        curriculum.append(CurriculumLevel(
-            name="Expert",
-            difficulty=DifficultyLevel.EXPERT,
-            opponents=[
-                str(example_dir / "boxer.py"),
-                str(example_dir / "counter_puncher.py"),
-                str(example_dir / "out_fighter.py"),
-                str(example_dir / "slugger.py"),
-                str(example_dir / "swarmer.py"),
-            ],
-            min_episodes=600,
-            graduation_win_rate=0.80,  # Excellence required even at final level
-            graduation_episodes=50,
-            description="Master combat against diverse expert strategies"
-        ))
-
-        return curriculum
+        return [
+            # Level 1: Fundamentals — basic stance recognition
+            CurriculumLevel(
+                name="Fundamentals",
+                difficulty=DifficultyLevel.FUNDAMENTALS,
+                opponents=[
+                    str(td / "stationary_neutral.py"),
+                    str(td / "stationary_extended.py"),
+                    str(td / "stationary_defending.py"),
+                ],
+                min_episodes=200,
+                graduation_win_rate=0.9,
+                graduation_episodes=50,
+                description="Learn basic attacking and stance usage against stationary targets",
+            ),
+            # Level 2: Movement Basics — pursuit, evasion, all 3 stances in motion
+            CurriculumLevel(
+                name="Basic Skills",
+                difficulty=DifficultyLevel.BASIC_SKILLS,
+                opponents=[
+                    str(td / "approach_slow.py"),
+                    str(td / "approach_extended.py"),
+                    str(td / "flee_always.py"),
+                    str(td / "flee_defending.py"),
+                    str(td / "shuttle_medium.py"),
+                    str(td / "circle_left.py"),
+                    str(td / "circle_right.py"),
+                ],
+                min_episodes=300,
+                graduation_win_rate=0.88,
+                graduation_episodes=50,
+                description="Learn pursuit, evasion, and predictive movement against all stances",
+            ),
+            # Level 3: Stance & Stamina Awareness — read opponent state
+            CurriculumLevel(
+                name="Intermediate",
+                difficulty=DifficultyLevel.INTERMEDIATE,
+                opponents=[
+                    str(td / "distance_keeper_1m.py"),
+                    str(td / "distance_keeper_3m.py"),
+                    str(td / "charge_on_approach.py"),
+                    str(td / "stamina_burner.py"),
+                    str(td / "stamina_efficient.py"),
+                    str(td / "forward_mover.py"),
+                    str(td / "backward_mover.py"),
+                ],
+                min_episodes=400,
+                graduation_win_rate=0.85,
+                graduation_episodes=50,
+                description="Learn spacing control, stamina exploitation, and resource management",
+            ),
+            # Level 4: Complex Patterns — multi-state behavioral patterns
+            CurriculumLevel(
+                name="Advanced",
+                difficulty=DifficultyLevel.ADVANCED,
+                opponents=[
+                    str(td / "aggressive_stance_switcher.py"),
+                    str(td / "defensive_stance_switcher.py"),
+                    str(td / "forward_charger.py"),
+                    str(td / "oscillator.py"),
+                    str(td / "sideways_mover_smooth.py"),
+                    str(td / "strategic_retreater.py"),
+                ],
+                min_episodes=500,
+                graduation_win_rate=0.83,
+                graduation_episodes=50,
+                description="Read and counter multi-state behavioral patterns",
+            ),
+            # Level 5: Adaptive Behavior — opponents react to match state
+            CurriculumLevel(
+                name="Adaptive",
+                difficulty=DifficultyLevel.ADAPTIVE,
+                opponents=[
+                    str(td / "hp_adaptive.py"),
+                    str(td / "stamina_punisher.py"),
+                    str(td / "range_switcher.py"),
+                    str(td / "comeback_fighter.py"),
+                ],
+                min_episodes=400,
+                graduation_win_rate=0.80,
+                graduation_episodes=75,
+                description="Fight opponents that adapt to HP, stamina, and match phase",
+            ),
+            # Level 6: Expert Fighters — diverse expert-level strategies
+            CurriculumLevel(
+                name="Expert",
+                difficulty=DifficultyLevel.EXPERT,
+                opponents=[
+                    str(ex / "boxer.py"),
+                    str(ex / "counter_puncher.py"),
+                    str(ex / "out_fighter.py"),
+                    str(ex / "slugger.py"),
+                    str(ex / "swarmer.py"),
+                ],
+                min_episodes=600,
+                graduation_win_rate=0.78,
+                graduation_episodes=75,
+                description="Master combat against diverse expert strategies",
+            ),
+            # Level 7: Gauntlet — prove generalization across all difficulty levels
+            CurriculumLevel(
+                name="Gauntlet",
+                difficulty=DifficultyLevel.GAUNTLET,
+                opponents=[
+                    str(td / "stationary_defending.py"),       # L1
+                    str(td / "flee_defending.py"),              # L2
+                    str(td / "charge_on_approach.py"),          # L3
+                    str(td / "aggressive_stance_switcher.py"),  # L4
+                    str(td / "hp_adaptive.py"),                 # L5
+                    str(ex / "boxer.py"),                       # L6
+                    str(ex / "swarmer.py"),                     # L6
+                ],
+                min_episodes=600,
+                graduation_win_rate=0.75,
+                graduation_episodes=100,
+                description="Prove generalization against a mixed field spanning all difficulty levels",
+            ),
+        ]
 
     def _setup_logging(self):
         """Setup logging for curriculum training."""
@@ -639,6 +669,8 @@ class CurriculumTrainer:
             {"category": "spacing", "label": "charge_on_approach", "opponent_path": str(test_dummy_dir / "charge_on_approach.py")},
             {"category": "advanced", "label": "aggressive_stance_switcher", "opponent_path": str(test_dummy_dir / "aggressive_stance_switcher.py")},
             {"category": "advanced", "label": "retreater", "opponent_path": str(test_dummy_dir / "retreater.py")},
+            {"category": "adaptive", "label": "hp_adaptive", "opponent_path": str(test_dummy_dir / "hp_adaptive.py")},
+            {"category": "adaptive", "label": "stamina_punisher", "opponent_path": str(test_dummy_dir / "stamina_punisher.py")},
             {"category": "expert", "label": "boxer", "opponent_path": str(example_dir / "boxer.py")},
             {"category": "expert", "label": "slugger", "opponent_path": str(example_dir / "slugger.py")},
         ]

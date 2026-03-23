@@ -167,9 +167,9 @@ class TestCurriculumTrainerInit:
                 verbose=False
             )
 
-            assert len(trainer.curriculum) == 5  # 5 levels
+            assert len(trainer.curriculum) == 7  # 7 levels
             assert trainer.curriculum[0].name == "Fundamentals"
-            assert trainer.curriculum[-1].name == "Expert"
+            assert trainer.curriculum[-1].name == "Gauntlet"
 
     def test_init_with_replay_recording(self):
         """Test initialization with replay recording enabled."""
@@ -200,12 +200,14 @@ class TestCurriculumTrainerCurriculum:
 
             curriculum = trainer.curriculum
 
-            # Check all 5 levels
+            # Check all 7 levels
             assert curriculum[0].difficulty == DifficultyLevel.FUNDAMENTALS
             assert curriculum[1].difficulty == DifficultyLevel.BASIC_SKILLS
             assert curriculum[2].difficulty == DifficultyLevel.INTERMEDIATE
             assert curriculum[3].difficulty == DifficultyLevel.ADVANCED
-            assert curriculum[4].difficulty == DifficultyLevel.EXPERT
+            assert curriculum[4].difficulty == DifficultyLevel.ADAPTIVE
+            assert curriculum[5].difficulty == DifficultyLevel.EXPERT
+            assert curriculum[6].difficulty == DifficultyLevel.GAUNTLET
 
     def test_curriculum_opponents_exist(self):
         """Test that curriculum references opponent files."""
@@ -362,7 +364,7 @@ class TestCurriculumTrainerGraduation:
             # Set to beyond curriculum length
             trainer.progress.current_level = 100
             level = trainer.get_current_level()
-            assert level.name == "Expert"  # Should return last level
+            assert level.name == "Gauntlet"  # Should return last level
 
     def test_should_graduate_not_enough_episodes(self):
         """Test graduation fails when not enough episodes."""
