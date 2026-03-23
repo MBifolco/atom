@@ -896,6 +896,14 @@ class PopulationTrainer:
         self.population: List[PopulationFighter] = []
         self.elo_tracker = EloTracker()
 
+        # Style diversity matchmaking
+        from .style_matchmaking import (
+            StyleFingerprinter, DiversityMatchmaker, DiversityMatchmakingContext,
+        )
+        self.fingerprinter = StyleFingerprinter()
+        self.matchmaker = DiversityMatchmaker(DiversityMatchmakingContext())
+        self._cached_fingerprints: dict = {}
+
         # Training state
         self.generation = 0
         self.total_matches = 0
@@ -1266,19 +1274,23 @@ class PopulationTrainer:
 
         return stats
 
-    def run_evaluation_matches(self, num_matches_per_pair: int = 3) -> None:
+    def run_evaluation_matches(self, num_matches_per_pair: int = 3):
         """
         Run evaluation matches between all fighters to update ELO ratings.
+
+        Returns:
+            EvaluationRunResult with match count and per-fighter stats.
         """
         service = PopulationEvaluationService(self._build_evaluation_context())
-        matches_run = service.run(
+        eval_result = service.run(
             population=self.population,
             elo_tracker=self.elo_tracker,
             decision_func_factory=self._get_fighter_decision_func,
             env_factory=AtomCombatEnv,
             num_matches_per_pair=num_matches_per_pair,
         )
-        self.total_matches += matches_run
+        self.total_matches += eval_result.matches_run
+        return eval_result
 
     def _build_evaluation_context(self) -> EvaluationContext:
         """Build immutable context for evaluation helpers."""
@@ -1608,6 +1620,52 @@ class PopulationTrainer:
                 },
             )
 
+    def _log_style_matchmaking_record(
+        self,
+        *,
+        stage: str,
+        generation: int,
+        fighter_opponent_pairs: list | None = None,
+    ) -> None:
+        """Write a style matchmaking record to analysis/style_matchmaking.jsonl."""
+        record: dict = {
+            "timestamp": datetime.now().isoformat(),
+            "stage": stage,
+        }
+        if stage == "post_evaluation":
+            record["generation"] = int(generation)
+            record["fingerprints"] = {
+                name: {
+                    "stance_neutral_pct": fp.stance_neutral_pct,
+                    "stance_extended_pct": fp.stance_extended_pct,
+                    "stance_defending_pct": fp.stance_defending_pct,
+                    "damage_efficiency": fp.damage_efficiency,
+                    "avg_fight_length_pct": fp.avg_fight_length_pct,
+                    "source": fp.source,
+                }
+                for name, fp in self._cached_fingerprints.items()
+            }
+        elif stage == "pre_training":
+            record["applies_to_generation"] = int(generation)
+            record["roster"] = [f.name for f in self.population]
+            record["fingerprints"] = {
+                name: {
+                    "stance_neutral_pct": fp.stance_neutral_pct,
+                    "stance_extended_pct": fp.stance_extended_pct,
+                    "stance_defending_pct": fp.stance_defending_pct,
+                    "damage_efficiency": fp.damage_efficiency,
+                    "avg_fight_length_pct": fp.avg_fight_length_pct,
+                    "source": fp.source,
+                }
+                for name, fp in self._cached_fingerprints.items()
+            }
+            if fighter_opponent_pairs:
+                record["matchmaking_assignments"] = [
+                    {"fighter": f.name, "opponents": [o.name for o in opps]}
+                    for f, opps in fighter_opponent_pairs
+                ]
+        append_jsonl(self.analysis_dir / "style_matchmaking.jsonl", record)
+
     def _record_export_failure(
         self,
         *,
@@ -1695,11 +1753,23 @@ class PopulationTrainer:
             pre_population_names = [fighter.name for fighter in self.population]
             champion_before = self._top_active_stats(pre_population_names)
 
-            # Create matchmaking pairs
-            pairs = self.create_matchmaking_pairs()
-
-            # Prepare fighter-opponent pairs for parallel training
-            fighter_opponent_pairs = loop_helper.build_fighter_opponent_pairs(self.population, pairs)
+            # Assign opponents via diversity matchmaking (or random for Gen 0)
+            if self._cached_fingerprints:
+                fighter_opponent_pairs = self.matchmaker.assign_opponents(
+                    population=self.population,
+                    fingerprints=self._cached_fingerprints,
+                    elo_tracker=self.elo_tracker,
+                )
+            else:
+                fighter_opponent_pairs = self.matchmaker.assign_random_opponents(
+                    population=self.population,
+                    opponents_per_fighter=min(3, len(self.population) - 1),
+                )
+            self._log_style_matchmaking_record(
+                stage="pre_training",
+                generation=self.generation + 1,
+                fighter_opponent_pairs=fighter_opponent_pairs,
+            )
             episodes_per_fighter = episodes_per_generation // len(self.population)
 
             # Train all fighters in parallel
@@ -1717,9 +1787,20 @@ class PopulationTrainer:
             # generation only, not cumulative history.
             evaluation_started_at = time.time()
             self.elo_tracker.reset_ratings()
-            self.run_evaluation_matches(num_matches_per_pair=3)
+            eval_result = self.run_evaluation_matches(num_matches_per_pair=3)
             evaluation_seconds = time.time() - evaluation_started_at
             champion_after = self._top_active_stats(pre_population_names)
+
+            # Compute style fingerprints from evaluation data
+            self._cached_fingerprints = self.fingerprinter.compute_fingerprints(
+                evaluation_stats=eval_result.per_fighter_stats,
+                max_ticks=self.max_ticks,
+                active_fighter_names=[f.name for f in self.population],
+            )
+            self._log_style_matchmaking_record(
+                stage="post_evaluation",
+                generation=self.generation,
+            )
 
             # Record replays if enabled (based on frequency)
             loop_helper.maybe_record_replays(
@@ -1739,6 +1820,11 @@ class PopulationTrainer:
                     keep_top=keep_top,
                     mutation_rate=mutation_rate,
                 )
+                # Inherit parent fingerprints for new children, prune replaced
+                if lineage_events and self._cached_fingerprints:
+                    self.fingerprinter.inherit_for_children(
+                        self._cached_fingerprints, lineage_events,
+                    )
 
             post_population_names = [fighter.name for fighter in self.population]
             new_child_names = {event.child_name for event in lineage_events}

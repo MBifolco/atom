@@ -52,7 +52,7 @@ def test_run_returns_zero_when_no_pairs():
         num_matches_per_pair=1,
     )
 
-    assert matches == 0
+    assert matches.matches_run == 0
 
 
 def test_run_single_pair_updates_elo_and_returns_match_count():
@@ -87,6 +87,6 @@ def test_run_single_pair_updates_elo_and_returns_match_count():
         num_matches_per_pair=1,
     )
 
-    assert matches == 1
+    assert matches.matches_run == 1
     assert elo_tracker.update_ratings.call_count == 1
     mock_env.close.assert_called()
