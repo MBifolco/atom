@@ -68,9 +68,9 @@ class StyleFingerprint:
 # ---------------------------------------------------------------------------
 
 _DEFAULT_FINGERPRINT_VALUES = dict(
-    stance_neutral_pct=0.5,
-    stance_extended_pct=0.5,
-    stance_defending_pct=0.5,
+    stance_neutral_pct=1.0 / 3.0,
+    stance_extended_pct=1.0 / 3.0,
+    stance_defending_pct=1.0 / 3.0,
     damage_efficiency=0.5,
     avg_fight_length_pct=0.5,
 )

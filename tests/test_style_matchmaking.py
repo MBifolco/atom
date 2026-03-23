@@ -268,6 +268,9 @@ class TestFingerprintInheritance:
         assert "Orphan" in fps
         assert fps["Orphan"].source == "default"
         assert fps["Orphan"].damage_efficiency == pytest.approx(0.5)
+        # Stance percentages must sum to 1.0 (valid distribution)
+        fp = fps["Orphan"]
+        assert fp.stance_neutral_pct + fp.stance_extended_pct + fp.stance_defending_pct == pytest.approx(1.0)
 
 
 # ---------------------------------------------------------------------------

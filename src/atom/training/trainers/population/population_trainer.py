@@ -1763,7 +1763,10 @@ class PopulationTrainer:
             else:
                 fighter_opponent_pairs = self.matchmaker.assign_random_opponents(
                     population=self.population,
-                    opponents_per_fighter=min(3, len(self.population) - 1),
+                    opponents_per_fighter=min(
+                        self.matchmaker.context.opponents_per_fighter,
+                        len(self.population) - 1,
+                    ),
                 )
             self._log_style_matchmaking_record(
                 stage="pre_training",
