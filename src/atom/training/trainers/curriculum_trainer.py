@@ -219,6 +219,7 @@ class CurriculumCallback(BaseCallback):
         self.last_rollout_time = None
         self.last_train_time = None
         self.replay_evaluation_service = ReplayEvaluationService(self.curriculum_trainer)
+        self._skip_until_rollout_start = False
         self.step_processor = CallbackStepProcessor(
             curriculum_trainer=self.curriculum_trainer,
             replay_evaluation_service=self.replay_evaluation_service,
@@ -227,9 +228,16 @@ class CurriculumCallback(BaseCallback):
                 total_episodes,
             ),
         )
+        self.step_processor._callback_ref = self
 
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
+        # Clear the level-transition skip flag. After a level transition,
+        # process_infos skips episodes because SB3's collect_rollouts holds
+        # a stale local reference to the OLD env. The new env only takes
+        # effect at the start of the next rollout (here).
+        self._skip_until_rollout_start = False
+
         # Flush any holdout evaluations queued during the previous rollout.
         self.curriculum_trainer._flush_pending_holdouts()
 

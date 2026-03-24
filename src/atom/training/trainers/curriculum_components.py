@@ -1000,6 +1000,14 @@ class CallbackStepProcessor:
         self.record_evaluation_replay_fn = record_evaluation_replay_fn
 
     def process_infos(self, infos, episode_rewards, episode_wins, recent_reward_components) -> bool:
+        # After a level transition, SB3's collect_rollouts continues using the
+        # OLD env (captured as a local variable) for the remainder of the rollout.
+        # Episodes from the old env have wrong opponent names and should not be
+        # counted toward the new level's stats. Skip until the next rollout starts.
+        callback = getattr(self, '_callback_ref', None)
+        if callback is not None and getattr(callback, '_skip_until_rollout_start', False):
+            return True
+
         for info in infos:
             if "episode" not in info:
                 continue
@@ -1048,6 +1056,17 @@ class CallbackStepProcessor:
                 if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
                     self.curriculum_trainer.logger.info("Curriculum complete - stopping training early")
                     return False
+                # After a level transition, SB3's collect_rollouts still holds
+                # a local reference to the OLD env. Skip remaining episodes in
+                # this rollout — they'd have wrong opponent names and pollute
+                # the new level's per-opponent tracking.
+                callback = getattr(self, '_callback_ref', None)
+                if callback is not None:
+                    callback._skip_until_rollout_start = True
+                    self.curriculum_trainer.logger.info(
+                        "Skipping remaining episodes in this rollout (stale env after level transition)"
+                    )
+                return True
 
         return True
 
