@@ -1152,6 +1152,19 @@ class CurriculumTrainer:
         """
         level_names = self._get_level_opponent_names()
 
+        # Periodic diagnostic: log per-opponent buffer sizes to detect tracking issues
+        if self.progress.episodes_at_level > 0 and self.progress.episodes_at_level % 500 == 0:
+            self.logger.info(f"Mastery diagnostic (L{self.progress.current_level} ep {self.progress.episodes_at_level}):")
+            for name in level_names:
+                n_recent = len(self.progress.per_opponent_recent.get(name, []))
+                n_eps = self.progress.per_opponent_episodes.get(name, 0)
+                n_wins = self.progress.per_opponent_wins.get(name, 0)
+                n_dmg = len(self.progress.per_opponent_recent_damage.get(name, []))
+                state = "mastered" if name in self.progress.mastered_opponents else (
+                    "pending" if name in self.progress.pending_mastery else "active"
+                )
+                self.logger.info(f"  {name}: {state} eps={n_eps} wins={n_wins} recent={n_recent} dmg_buf={n_dmg}")
+
         # Snapshot mastery state before check to detect any transition
         prev_mastered = frozenset(self.progress.mastered_opponents)
         prev_pending = frozenset(self.progress.pending_mastery)
@@ -1221,7 +1234,11 @@ class CurriculumTrainer:
             if not all_mastered:
                 unmastered = [o for o in level_names if o not in self.progress.mastered_opponents]
                 if self.progress.episodes_at_level % 100 == 0:
-                    self.logger.info(f"Aggregate checks pass but {len(unmastered)} opponents unmastered: {unmastered}")
+                    per_opp_eps = {n: self.progress.per_opponent_episodes.get(n, 0) for n in unmastered}
+                    self.logger.info(
+                        f"Aggregate checks pass but {len(unmastered)} opponents unmastered: "
+                        f"{unmastered} (per-opp eps: {per_opp_eps})"
+                    )
                 return False
 
         # Deterministic sanity gate

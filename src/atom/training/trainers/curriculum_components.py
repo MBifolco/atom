@@ -212,7 +212,11 @@ class GraduationPolicy:
         overall_win_rate = progress.wins_at_level / max(1, episodes)
 
         recent_passed = recent_win_rate >= level.graduation_win_rate
-        overall_passed = overall_win_rate >= self.min_overall_win_rate
+        # Overall WR is tracked for observability but no longer gates graduation.
+        # Per-opponent mastery (checked in should_graduate) supersedes the aggregate
+        # overall check — if every opponent is individually mastered at 50%+ WR,
+        # the aggregate is necessarily well above 50%.
+        overall_passed = True
 
         # Combat quality gate: check damage metrics from recent episodes
         recent_damage = getattr(progress, "recent_damage_dealt", [])
@@ -228,14 +232,12 @@ class GraduationPolicy:
             and nonzero_rate >= self.min_nonzero_damage_rate
         )
 
-        should_graduate = recent_passed and overall_passed and combat_quality_passed
+        should_graduate = recent_passed and combat_quality_passed
 
         if should_graduate:
             reason = "passed"
         elif not recent_passed:
             reason = "recent_too_low"
-        elif not overall_passed:
-            reason = "overall_too_low"
         elif not combat_quality_passed:
             reason = "combat_quality_too_low"
         else:
@@ -310,6 +312,11 @@ class ProgressReporter:
 
         # Per-opponent tracking (keyed by opponent_name from info dict)
         opp_name = info.get("opponent_name") if info else None
+        # Diagnostic: log once per level when first per-opponent episode arrives
+        if opp_name and opp_name not in progress.per_opponent_episodes:
+            self.logger.info(f"  [mastery] First episode for opponent '{opp_name}' at level ep {progress.episodes_at_level}")
+        elif not opp_name and progress.episodes_at_level == 1:
+            self.logger.warning("  [mastery] First episode has no opponent_name in info dict!")
         if opp_name:
             progress.per_opponent_episodes[opp_name] = progress.per_opponent_episodes.get(opp_name, 0) + 1
             if won:
@@ -340,9 +347,7 @@ class ProgressReporter:
             f"{'pass' if decision.recent_passed else 'fail'}"
         )
         self.logger.info(
-            f"   Overall WR: {decision.overall_win_rate:.2%} "
-            f"(need {decision.required_overall_win_rate:.1%}) "
-            f"{'pass' if decision.overall_passed else 'fail'}"
+            f"   Overall WR: {decision.overall_win_rate:.2%} (informational, not gating)"
         )
         self.logger.info(
             f"   Combat quality: mean_dmg={decision.mean_damage_dealt:.1f} "

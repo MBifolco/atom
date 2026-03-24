@@ -61,27 +61,29 @@ def test_graduation_policy_respects_override():
     assert decision.reason == "override"
 
 
-def test_graduation_policy_requires_recent_and_overall():
+def test_graduation_policy_requires_recent_and_combat_quality():
+    """Overall WR no longer gates graduation (per-opponent mastery supersedes it).
+    Graduation requires recent WR + combat quality."""
     policy = GraduationPolicy(override_episodes_per_level=None, min_overall_win_rate=0.5)
     progress = _make_progress()
     level = _make_level()
 
+    # Good recent WR but no damage — should fail on combat quality
     progress.episodes_at_level = 20
-    progress.wins_at_level = 8  # 40% overall
+    progress.wins_at_level = 8  # 40% overall (informational, not gating)
     progress.recent_episodes = [True, True, True, True, True]  # 100% recent
+    progress.recent_damage_dealt = []  # No damage data
     decision = policy.evaluate(progress=progress, level=level, curriculum_size=5)
     assert not decision.should_graduate
-    assert decision.reason == "overall_too_low"
+    assert decision.reason == "combat_quality_too_low"
     assert decision.recent_passed
-    assert not decision.overall_passed
 
-    progress.wins_at_level = 12  # 60% overall
-    progress.recent_damage_dealt = [15.0] * 5  # Good damage for combat quality gate
+    # Add good damage — should pass even with low overall WR
+    progress.recent_damage_dealt = [15.0] * 5
     decision = policy.evaluate(progress=progress, level=level, curriculum_size=5)
     assert decision.should_graduate
     assert decision.reason == "passed"
     assert decision.recent_passed
-    assert decision.overall_passed
     assert decision.combat_quality_passed
 
 
