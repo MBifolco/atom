@@ -823,6 +823,8 @@ class TestCurriculumTrainerStateRestore:
 
             old_env = Mock()
             new_env = Mock()
+            new_env.num_envs = 4
+            new_env.reset = Mock(return_value=np.zeros((4, 18)))
             trainer.envs = old_env
             trainer.model = Mock()
             trainer.create_envs_for_level = Mock(return_value=new_env)

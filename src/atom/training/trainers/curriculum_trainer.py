@@ -1138,6 +1138,11 @@ class CurriculumTrainer:
             )
             self.envs = self.create_envs_for_level(reduced_level)
             self.model.set_env(self.envs)
+            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+            # new env to populate _last_obs so the next collect_rollouts doesn't
+            # crash with "Unrecognized type of observation NoneType".
+            self.model._last_obs = self.envs.reset()
+            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
         else:
             # CPU path: retarget existing envs to unmastered opponents only
             for env_idx in range(self.n_envs):
@@ -1339,9 +1344,11 @@ class CurriculumTrainer:
 
                 # Update model's environment reference
                 self.model.set_env(self.envs)
-
-                # Note: Old environment will be garbage collected automatically
-                # Don't manually delete attributes as the model may still hold references
+                # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+                # new env to populate _last_obs so the next collect_rollouts doesn't
+                # crash with "Unrecognized type of observation NoneType".
+                self.model._last_obs = self.envs.reset()
+                self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
             else:
                 # For CPU: Switch opponents in existing environments (avoids closing/recreating VecEnv)
                 # This prevents Monitor file handle issues during level transitions
@@ -1568,6 +1575,11 @@ class CurriculumTrainer:
             old_envs = self.envs
             self.envs = self.create_envs_for_level(restored_level)
             self.model.set_env(self.envs)
+            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+            # new env to populate _last_obs so the next collect_rollouts doesn't
+            # crash with "Unrecognized type of observation NoneType".
+            self.model._last_obs = self.envs.reset()
+            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
             if old_envs is not self.envs and hasattr(old_envs, "close"):
                 old_envs.close()
             return
