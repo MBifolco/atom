@@ -955,40 +955,48 @@ class PopulationTrainer:
         self.logger.info("="*80)
 
     def _create_fighter_name(self, index: int, generation: int = 0) -> str:
-        """Generate a deterministic fighter name with optional funkybob support."""
+        """Generate a unique fighter name, retrying on collision.
+
+        Names are deterministic for a given (index, generation) seed, but
+        with only 144 possible adjective-animal combinations, collisions
+        occur ~4% per generation. A retry loop with incrementing seed
+        ensures uniqueness within the current population.
+        """
         import random
 
-        # Reproducible seed based on index and generation.
-        seed = index + (generation * 1000)
-        rng = random.Random(seed)
+        existing_names = {f.name for f in self.population}
 
-        try:
-            import funkybob
-        except ImportError:
-            # Fallback path for environments where funkybob is unavailable (e.g., some Colab runtimes).
-            adjectives = [
-                "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
-                "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
-            ]
-            animals = [
-                "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
-                "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
-            ]
-            base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
-        else:
-            # funkybob uses global random state; isolate and restore it.
-            previous_state = random.getstate()
-            random.seed(seed)
+        for attempt in range(20):
+            seed = index + (generation * 1000) + (attempt * 7919)  # prime offset per retry
+            rng = random.Random(seed)
+
             try:
-                name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
-                base_name = next(iter(name_generator))
-            finally:
-                random.setstate(previous_state)
+                import funkybob
+            except ImportError:
+                adjectives = [
+                    "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
+                    "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
+                ]
+                animals = [
+                    "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
+                    "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
+                ]
+                base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
+            else:
+                previous_state = random.getstate()
+                random.seed(seed)
+                try:
+                    name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
+                    base_name = next(iter(name_generator))
+                finally:
+                    random.setstate(previous_state)
 
-        # Add generation suffix if not first generation
-        if generation > 0:
-            return f"{base_name}_G{generation}"
-        return base_name
+            full_name = f"{base_name}_G{generation}" if generation > 0 else base_name
+            if full_name not in existing_names:
+                return full_name
+
+        # Fallback: append index to guarantee uniqueness
+        return f"{base_name}_{index}_G{generation}" if generation > 0 else f"{base_name}_{index}"
 
     def initialize_population(self, base_model_path: Optional[str] = None, variation_factor: float = 0.1):
         """
