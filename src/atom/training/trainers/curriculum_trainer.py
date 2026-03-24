@@ -1226,13 +1226,10 @@ class CurriculumTrainer:
             curriculum_size=len(self.curriculum),
         )
 
-        should_log = decision.should_graduate or (
-            decision.recent_passed and self.progress.episodes_at_level % 100 == 0
-        )
-        if should_log and decision.reason != "override":
-            self.progress_reporter.log_graduation_decision(decision)
-
         if not decision.should_graduate:
+            # Log failed checks periodically (not every episode)
+            if decision.recent_passed and self.progress.episodes_at_level % 100 == 0:
+                self.progress_reporter.log_graduation_decision(decision)
             return False
 
         # Per-opponent mastery gate: all opponents must be individually mastered
@@ -1257,6 +1254,10 @@ class CurriculumTrainer:
                     "under deterministic=True. Continuing training."
                 )
                 return False
+
+        # All gates passed — log and graduate
+        if decision.reason != "override":
+            self.progress_reporter.log_graduation_decision(decision)
 
         return True
 
