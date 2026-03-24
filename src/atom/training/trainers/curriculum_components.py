@@ -312,11 +312,14 @@ class ProgressReporter:
 
         # Per-opponent tracking (keyed by opponent_name from info dict)
         opp_name = info.get("opponent_name") if info else None
-        # Diagnostic: log once per level when first per-opponent episode arrives
+        # Diagnostic: log when first per-opponent episode arrives, warn if missing
         if opp_name and opp_name not in progress.per_opponent_episodes:
             self.logger.info(f"  [mastery] First episode for opponent '{opp_name}' at level ep {progress.episodes_at_level}")
-        elif not opp_name and progress.episodes_at_level == 1:
-            self.logger.warning("  [mastery] First episode has no opponent_name in info dict!")
+        elif not opp_name and progress.episodes_at_level in (1, 100, 500):
+            self.logger.warning(
+                f"  [mastery] Episode {progress.episodes_at_level} has no opponent_name in info! "
+                f"info keys: {sorted(info.keys()) if info else 'None'}"
+            )
         if opp_name:
             progress.per_opponent_episodes[opp_name] = progress.per_opponent_episodes.get(opp_name, 0) + 1
             if won:
@@ -1006,6 +1009,14 @@ class CallbackStepProcessor:
 
             won = info.get("won", False)
             episode_wins.append(won)
+
+            # Diagnostic: log info dict keys on first few episodes to catch missing opponent_name
+            n_eps = len(episode_rewards)
+            if n_eps <= 3 or (n_eps == 100 and "opponent_name" not in info):
+                self.curriculum_trainer.logger.info(
+                    f"  [mastery-debug] ep={n_eps} info keys={sorted(info.keys())} "
+                    f"opponent_name={info.get('opponent_name', '<MISSING>')}"
+                )
 
             if "reward_breakdown" in info:
                 recent_reward_components.append(info["reward_breakdown"])
