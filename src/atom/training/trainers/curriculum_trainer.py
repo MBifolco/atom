@@ -687,13 +687,16 @@ class CurriculumTrainer:
             {"category": "expert", "label": "slugger", "opponent_path": str(example_dir / "slugger.py")},
         ]
 
-    def _run_holdout_match(self, opponent_path: str, env_id: int = 0, model=None) -> dict[str, Any]:
-        """Run a single deterministic holdout match.
+    def _run_holdout_match(self, opponent_path: str, env_id: int = 0, model=None, deterministic: bool = False) -> dict[str, Any]:
+        """Run a single holdout match.
 
         Args:
             opponent_path: Path to opponent fighter file.
             env_id: Seed offset for environment.
             model: Model to evaluate. If None, uses self.model.
+            deterministic: If True, use deterministic policy (mean action).
+                Defaults to False (stochastic) so holdout reflects actual
+                learned behavior, not the flattened deterministic mean.
         """
         eval_model = model if model is not None else self.model
         env = self.create_env(opponent_path, env_id=env_id)
@@ -705,7 +708,7 @@ class CurriculumTrainer:
             fight_length = 0
 
             while not done:
-                action, _ = eval_model.predict(obs, deterministic=True)
+                action, _ = eval_model.predict(obs, deterministic=deterministic)
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_reward += float(reward)
                 fight_length += 1
@@ -1008,7 +1011,7 @@ class CurriculumTrainer:
         ]
         for opp_path in sanity_opponents:
             try:
-                result = self._run_holdout_match(opp_path, env_id=9999)
+                result = self._run_holdout_match(opp_path, env_id=9999, deterministic=True)
                 if result.get("damage_dealt", 0) > 0:
                     return True
             except Exception as e:
