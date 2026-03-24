@@ -70,7 +70,8 @@ class VmapEnvWrapper(gym.Env):
         fighter_mass: float = 70.0,
         opponent_mass: float = 70.0,
         seed: int = 42,
-        debug: bool = False
+        debug: bool = False,
+        reward_weights: dict = None,
     ):
         """
         Initialize vectorized environment.
@@ -95,6 +96,7 @@ class VmapEnvWrapper(gym.Env):
         self.opponent_mass = opponent_mass
         self.seed_base = seed
         self.debug = debug
+        self.reward_weights = reward_weights
 
         # Setup opponent system
 
@@ -226,8 +228,11 @@ class VmapEnvWrapper(gym.Env):
         self.prev_fighter_stamina = np.array(self.jax_states.fighter_a.stamina, dtype=np.float32)
         self.prev_opponent_stamina = np.array(self.jax_states.fighter_b.stamina, dtype=np.float32)
 
-        # Initialize distance tracking (None = first step)
-        self.last_distance = None
+        # Initialize distance tracking to starting distance (not None — avoids
+        # losing proximity reward on the first step after reset).
+        fighter_pos = np.array(self.jax_states.fighter_a.position, dtype=np.float32)
+        opponent_pos = np.array(self.jax_states.fighter_b.position, dtype=np.float32)
+        self.last_distance = np.abs(opponent_pos - fighter_pos)
 
         # Initialize episode statistics
         self.episode_damage_dealt = np.zeros(self.n_envs, dtype=np.float32)
@@ -632,6 +637,7 @@ class VmapEnvWrapper(gym.Env):
             arena_width=self.arena_width,
             episode_damage_dealt=self.episode_damage_dealt,
             episode_stamina_used=self.episode_stamina_used,
+            reward_weights=self.reward_weights,
         )
 
         rewards = reward_result.rewards

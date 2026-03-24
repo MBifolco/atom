@@ -19,6 +19,22 @@ STANCE_NEUTRAL = 0
 STANCE_EXTENDED = 1
 STANCE_DEFENDING = 2
 
+# Per-level reward weights for curriculum training.  Damage and terminal
+# always stay at 1.0x.  These scale the secondary shaping signals so each
+# level focuses on the skill cluster it's supposed to teach.  Population
+# training (and any path that doesn't provide a level) uses DEFAULT_REWARD_WEIGHTS.
+DEFAULT_REWARD_WEIGHTS = {"proximity": 1.0, "inaction": 1.0, "stance": 1.0, "stamina": 1.0}
+
+LEVEL_REWARD_WEIGHTS = {
+    "fundamentals":  {"proximity": 20.0, "inaction": 3.0, "stance": 5.0, "stamina": 1.0},
+    "basic_skills":  {"proximity": 15.0, "inaction": 2.0, "stance": 5.0, "stamina": 2.0},
+    "intermediate":  {"proximity": 10.0, "inaction": 1.5, "stance": 8.0, "stamina": 5.0},
+    "advanced":      {"proximity": 5.0,  "inaction": 1.0, "stance": 5.0, "stamina": 3.0},
+    "adaptive":      {"proximity": 3.0,  "inaction": 1.0, "stance": 3.0, "stamina": 2.0},
+    "expert":        {"proximity": 1.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "gauntlet":      {"proximity": 1.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+}
+
 _STANCE_NAME_TO_INT = {
     "neutral": STANCE_NEUTRAL,
     "extended": STANCE_EXTENDED,
@@ -271,6 +287,7 @@ def compute_step_rewards_batch(
     arena_width: float,
     episode_damage_dealt,
     episode_stamina_used,
+    reward_weights: dict | None = None,
 ) -> RewardStepBatchResult:
     """
     Canonical batched reward computation shared by single and vmap envs.
@@ -294,6 +311,8 @@ def compute_step_rewards_batch(
     episode_damage_dealt = _to_float_array(episode_damage_dealt)
     episode_stamina_used = _to_float_array(episode_stamina_used)
 
+    w = reward_weights if reward_weights is not None else DEFAULT_REWARD_WEIGHTS
+
     n = distance.shape[0]
     rewards = np.zeros(n, dtype=np.float32)
     damage_component = np.zeros(n, dtype=np.float32)
@@ -313,7 +332,7 @@ def compute_step_rewards_batch(
         tie_mask = terminal_mask & (fighter_hp_pct == opponent_hp_pct)
         loss_mask = terminal_mask & (fighter_hp_pct < opponent_hp_pct)
 
-        time_bonus = np.maximum(0.0, (float(max_ticks) - tick_counts) / 40.0)
+        time_bonus = np.maximum(0.0, (float(max_ticks) - tick_counts) / 15.0)
         hp_diff = fighter_hp_pct - opponent_hp_pct
         hp_bonus = hp_diff * 50.0
         damage_per_stamina = episode_damage_dealt / np.maximum(episode_stamina_used, 1.0)
@@ -341,7 +360,7 @@ def compute_step_rewards_batch(
         rewards = np.where(slight_win_mask, 0.0, rewards)
         rewards = np.where(clear_loss_mask, -100.0 + (hp_pct_diff * 50.0), rewards)
         rewards = np.where(slight_loss_mask, -50.0, rewards)
-        rewards = np.where(exact_tie_mask, -200.0, rewards)
+        rewards = np.where(exact_tie_mask, -50.0, rewards)
         terminal_component = np.where(timeout_mask, rewards, terminal_component)
 
     # Mid-episode shaping rewards.
@@ -406,11 +425,11 @@ def compute_step_rewards_batch(
         inaction_component += np.where(far_inaction_mask, -0.02, 0.0)
 
         mid_total = (
-            damage_component
-            + proximity_component
-            + stamina_component
-            + stance_component
-            + inaction_component
+            damage_component                                     # always 1.0x
+            + proximity_component * w.get("proximity", 1.0)
+            + stamina_component * w.get("stamina", 1.0)
+            + stance_component * w.get("stance", 1.0)
+            + inaction_component * w.get("inaction", 1.0)
         )
         rewards = np.where(mid_mask, mid_total, rewards)
 
@@ -446,6 +465,7 @@ def compute_step_reward_scalar(
     arena_width: float,
     episode_damage_dealt: float,
     episode_stamina_used: float,
+    reward_weights: dict | None = None,
 ) -> RewardStepScalarResult:
     """Scalar convenience wrapper around `compute_step_rewards_batch`."""
     last_distance_array = None if last_distance is None else np.array([last_distance], dtype=np.float32)
@@ -466,6 +486,7 @@ def compute_step_reward_scalar(
         arena_width=arena_width,
         episode_damage_dealt=np.array([episode_damage_dealt], dtype=np.float32),
         episode_stamina_used=np.array([episode_stamina_used], dtype=np.float32),
+        reward_weights=reward_weights,
     )
     return RewardStepScalarResult(
         reward=float(batch_result.rewards[0]),

@@ -1047,6 +1047,7 @@ class EnvFactory:
         create_env_fn,
         vmap_adapter_cls,
         seed_base: int,
+        reward_weights_fn=None,
     ):
         self.n_envs = n_envs
         self.max_ticks = max_ticks
@@ -1057,6 +1058,7 @@ class EnvFactory:
         self.create_env_fn = create_env_fn
         self.vmap_adapter_cls = vmap_adapter_cls
         self.seed_base = seed_base
+        self.reward_weights_fn = reward_weights_fn
 
     def create_envs_for_level(self, level):
         if self.use_vmap:
@@ -1078,6 +1080,7 @@ class EnvFactory:
                     print(f"     {i+1}. {Path(path).stem}")
             print("\n⏳ Initializing JAX vmap environment (this may take 30-60 seconds for JIT compilation)...", flush=True)
 
+        reward_weights = self.reward_weights_fn(level) if self.reward_weights_fn else None
         vmap_env = VmapEnvWrapper(
             n_envs=self.n_envs,
             opponent_paths=opponent_paths,
@@ -1087,6 +1090,7 @@ class EnvFactory:
             opponent_mass=70.0,
             seed=self.seed_base,
             debug=self.debug,
+            reward_weights=reward_weights,
         )
 
         if self.verbose:

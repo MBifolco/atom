@@ -44,7 +44,8 @@ class AtomCombatEnv(gym.Env):
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
         opponent_mass: float = 70.0,
-        seed: int = None
+        seed: int = None,
+        reward_weights: dict = None,
     ):
         """
         Initialize the environment.
@@ -65,6 +66,7 @@ class AtomCombatEnv(gym.Env):
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self._seed = seed
+        self.reward_weights = reward_weights
 
         # Define observation space (13 values for enhanced training)
         # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
@@ -93,7 +95,7 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
-        self.last_distance = None
+        self.last_distance = None  # initialized to real distance in reset()
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
@@ -141,7 +143,7 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
-        self.last_distance = None
+        self.last_distance = float(abs(self.fighter.position - self.opponent.position))
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
@@ -253,6 +255,7 @@ class AtomCombatEnv(gym.Env):
             arena_width=self.config.arena_width,
             episode_damage_dealt=self.episode_damage_dealt,
             episode_stamina_used=self.stamina_used,
+            reward_weights=self.reward_weights,
         )
 
         reward = reward_result.reward

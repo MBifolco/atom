@@ -409,6 +409,10 @@ class CurriculumTrainer:
             logger=self.logger,
             recovery_manager=self.recovery_manager,
         )
+        def _reward_weights_for_level(level):
+            from ..signal_engine import LEVEL_REWARD_WEIGHTS, DEFAULT_REWARD_WEIGHTS
+            return LEVEL_REWARD_WEIGHTS.get(level.difficulty.value, DEFAULT_REWARD_WEIGHTS)
+
         self.env_factory = EnvFactory(
             n_envs=self.n_envs,
             max_ticks=self.max_ticks,
@@ -419,6 +423,7 @@ class CurriculumTrainer:
             create_env_fn=self.create_env,
             vmap_adapter_cls=VmapEnvAdapter,
             seed_base=self.seed,
+            reward_weights_fn=_reward_weights_for_level,
         )
         self.model_factory = ModelFactory(
             logs_dir=self.logs_dir,
@@ -613,6 +618,12 @@ class CurriculumTrainer:
             # Return a dummy opponent that does nothing
             return lambda s: {"acceleration": 0, "stance": "neutral"}
 
+    def _current_reward_weights(self) -> dict:
+        """Get reward weights for the current curriculum level."""
+        from ..signal_engine import LEVEL_REWARD_WEIGHTS, DEFAULT_REWARD_WEIGHTS
+        level = self.get_current_level()
+        return LEVEL_REWARD_WEIGHTS.get(level.difficulty.value, DEFAULT_REWARD_WEIGHTS)
+
     def create_env(self, opponent_path: str, env_id: int = 0) -> Any:
         """Create a single environment with the specified opponent."""
         from ..gym_env import AtomCombatEnv
@@ -624,7 +635,8 @@ class CurriculumTrainer:
             max_ticks=self.max_ticks,
             fighter_mass=70.0,
             opponent_mass=70.0,
-            seed=self.seed + env_id
+            seed=self.seed + env_id,
+            reward_weights=self._current_reward_weights(),
         )
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
