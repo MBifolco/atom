@@ -262,8 +262,9 @@ class GraduationPolicy:
 class ProgressReporter:
     """Updates progress state and emits periodic progress logs."""
 
-    def __init__(self, logger):
+    def __init__(self, logger, mastery_window: int = 20):
         self.logger = logger
+        self.mastery_window = mastery_window
 
     def update_progress(self, *, progress, level, won: bool, reward: float = 0, info: Optional[dict] = None):
         progress.episodes_at_level += 1
@@ -306,6 +307,25 @@ class ProgressReporter:
             progress.recent_reward_breakdowns.append(info["reward_breakdown"])
             if len(progress.recent_reward_breakdowns) > 20:
                 progress.recent_reward_breakdowns.pop(0)
+
+        # Per-opponent tracking (keyed by opponent_name from info dict)
+        opp_name = info.get("opponent_name") if info else None
+        if opp_name:
+            progress.per_opponent_episodes[opp_name] = progress.per_opponent_episodes.get(opp_name, 0) + 1
+            if won:
+                progress.per_opponent_wins[opp_name] = progress.per_opponent_wins.get(opp_name, 0) + 1
+
+            if opp_name not in progress.per_opponent_recent:
+                progress.per_opponent_recent[opp_name] = []
+            progress.per_opponent_recent[opp_name].append(won)
+            if len(progress.per_opponent_recent[opp_name]) > self.mastery_window:
+                progress.per_opponent_recent[opp_name].pop(0)
+
+            if opp_name not in progress.per_opponent_recent_damage:
+                progress.per_opponent_recent_damage[opp_name] = []
+            progress.per_opponent_recent_damage[opp_name].append(episode_damage)
+            if len(progress.per_opponent_recent_damage[opp_name]) > self.mastery_window:
+                progress.per_opponent_recent_damage[opp_name].pop(0)
 
         if progress.episodes_at_level % 100 == 0:
             self._log_progress_snapshot(progress=progress, level=level)
@@ -832,6 +852,13 @@ class LevelTransitionStateMachine:
         progress.episodes_at_level = 0
         progress.wins_at_level = 0
         progress.recent_episodes = []
+        # Reset per-opponent mastery tracking for new level
+        progress.per_opponent_episodes = {}
+        progress.per_opponent_wins = {}
+        progress.per_opponent_recent = {}
+        progress.per_opponent_recent_damage = {}
+        progress.mastered_opponents = set()
+        progress.pending_mastery = set()
 
         completed = progress.current_level >= len(curriculum)
         return LevelTransitionResult(
@@ -986,6 +1013,10 @@ class CallbackStepProcessor:
             )
 
             self.curriculum_trainer.update_progress(won, reward, info)
+
+            # Check per-opponent mastery continuously (may queue pool refresh)
+            if hasattr(self.curriculum_trainer, '_check_and_refresh_mastery'):
+                self.curriculum_trainer._check_and_refresh_mastery()
 
             sanity_abort_reason = None
             if hasattr(self.curriculum_trainer, "check_training_sanity_gate"):

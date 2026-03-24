@@ -872,16 +872,17 @@ JAX_OPPONENT_REGISTRY = {
 }
 
 
-def create_multi_opponent_func(opponent_paths, config):
+def create_multi_opponent_func(opponent_paths, config, n_envs=250):
     """
     Create a JAX function that selects different opponents based on environment index.
 
     Args:
         opponent_paths: List of opponent file paths
         config: WorldConfig
+        n_envs: Number of parallel environments (used for env→opponent mapping)
 
     Returns:
-        A JIT-compiled function that takes (batched_states) and returns batched opponent actions
+        Tuple of (jit_compiled_vmap_func, resolved_names: List[str])
     """
     from pathlib import Path
 
@@ -903,7 +904,7 @@ def create_multi_opponent_func(opponent_paths, config):
     # Log resolved opponents for observability
     import logging
     logger = logging.getLogger("opponents_jax")
-    logger.info(f"Resolved {len(resolved_names)} JAX opponents: {resolved_names}")
+    logger.info(f"Resolved {len(resolved_names)} JAX opponents for {n_envs} envs: {resolved_names}")
 
     n_opponents = len(opponent_funcs)
 
@@ -913,22 +914,16 @@ def create_multi_opponent_func(opponent_paths, config):
         for f in opponent_funcs
     ]
 
+    # Capture n_envs in closure for env→opponent mapping
+    _n_envs = int(n_envs)
+    _envs_per_opponent = max(1, _n_envs // n_opponents)
+
     # Create vmapped selector for batch processing
     def single_opponent_decide(state, env_idx):
         """Select and execute opponent logic for a single environment."""
-        # Distribute environments evenly across opponents
-        n_envs = 250  # Fixed for now (could be dynamic)
-        envs_per_opponent = n_envs // n_opponents
-        opponent_idx = env_idx // envs_per_opponent
-        # Clamp to avoid index out of bounds
+        opponent_idx = env_idx // _envs_per_opponent
         opponent_idx = jnp.minimum(opponent_idx, n_opponents - 1)
+        return lax.switch(opponent_idx, wrapped_funcs, state)
 
-        # Use switch to select opponent function (config captured in closure)
-        return lax.switch(
-            opponent_idx,
-            wrapped_funcs,
-            state
-        )
-
-    # Return vmapped version that handles batches
-    return jax.jit(jax.vmap(single_opponent_decide))
+    func = jax.jit(jax.vmap(single_opponent_decide))
+    return func, resolved_names

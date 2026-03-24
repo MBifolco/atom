@@ -207,6 +207,7 @@ class TestProgressiveReplayIntegration:
             # Mock should_graduate to return False
             mock_curriculum_trainer.should_graduate = MagicMock(return_value=False)
             mock_curriculum_trainer.update_progress = MagicMock()
+            mock_curriculum_trainer.check_training_sanity_gate = MagicMock(return_value=None)
 
             callback = CurriculumCallback(mock_curriculum_trainer, verbose=0)
 

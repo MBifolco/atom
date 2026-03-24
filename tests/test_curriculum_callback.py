@@ -16,6 +16,7 @@ class TestCurriculumCallbackInitialization:
         class MockCurriculumTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         trainer = MockCurriculumTrainer()
         callback = CurriculumCallback(curriculum_trainer=trainer, verbose=0)
@@ -27,6 +28,7 @@ class TestCurriculumCallbackInitialization:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -41,6 +43,7 @@ class TestCurriculumCallbackInitialization:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -61,6 +64,7 @@ class TestCurriculumCallbackInitialization:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -75,6 +79,7 @@ class TestCurriculumCallbackRolloutMethods:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -89,6 +94,7 @@ class TestCurriculumCallbackRolloutMethods:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -105,6 +111,7 @@ class TestCurriculumCallbackRolloutMethods:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -127,6 +134,7 @@ class TestCurriculumCallbackRolloutMethods:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 
@@ -144,6 +152,7 @@ class TestCurriculumCallbackAlgorithmHandling:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=1)
 
@@ -158,6 +167,7 @@ class TestCurriculumCallbackAlgorithmHandling:
         class MockTrainer:
             algorithm = "ppo"
             def _flush_pending_holdouts(self): pass
+            def _apply_opponent_pool_refresh(self): pass
 
         callback = CurriculumCallback(curriculum_trainer=MockTrainer(), verbose=0)
 

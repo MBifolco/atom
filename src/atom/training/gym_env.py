@@ -46,6 +46,7 @@ class AtomCombatEnv(gym.Env):
         opponent_mass: float = 70.0,
         seed: int = None,
         reward_weights: dict = None,
+        opponent_name: str = None,
     ):
         """
         Initialize the environment.
@@ -67,6 +68,7 @@ class AtomCombatEnv(gym.Env):
         self.opponent_mass = opponent_mass
         self._seed = seed
         self.reward_weights = reward_weights
+        self.opponent_name = opponent_name
 
         # Define observation space (13 values for enhanced training)
         # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
@@ -270,6 +272,7 @@ class AtomCombatEnv(gym.Env):
         # Info dict
         info = {
             "tick": self.tick,
+            "opponent_name": self.opponent_name,
             "damage_dealt": damage_dealt,
             "damage_taken": damage_taken,
             "episode_damage_dealt": self.episode_damage_dealt,

@@ -140,6 +140,71 @@ class TrainingProgress:
     total_episodes: int = 0
     total_wins: int = 0
     start_time: float = field(default_factory=time.time)
+    # Per-opponent mastery tracking (keyed by Path(opponent_path).stem)
+    per_opponent_episodes: dict = field(default_factory=dict)
+    per_opponent_wins: dict = field(default_factory=dict)
+    per_opponent_recent: dict = field(default_factory=dict)       # name → List[bool]
+    per_opponent_recent_damage: dict = field(default_factory=dict) # name → List[float]
+    mastered_opponents: set = field(default_factory=set)
+    pending_mastery: set = field(default_factory=set)
+
+
+class OpponentMasteryTracker:
+    """Tracks per-opponent mastery for curriculum levels.
+
+    Mastery requires sustained performance (wins + damage) over a rolling
+    window, confirmed by 2 consecutive checks. Mastered opponents are retired
+    from the active training pool.
+    """
+
+    def __init__(
+        self,
+        mastery_win_rate: float = 0.50,
+        min_per_opponent_damage: float = 10.0,
+        min_per_opponent_nonzero: float = 0.5,
+        min_mastery_episodes: int = 10,
+        mastery_window: int = 20,
+    ):
+        self.mastery_win_rate = mastery_win_rate
+        self.min_damage = min_per_opponent_damage
+        self.min_nonzero = min_per_opponent_nonzero
+        self.min_episodes = min_mastery_episodes
+        self.mastery_window = mastery_window
+
+    def check_mastery(self, progress, level_opponent_names):
+        """Check per-opponent mastery. Returns (all_mastered, pool_changed)."""
+        pool_changed = False
+        for opp in level_opponent_names:
+            if opp in progress.mastered_opponents:
+                continue
+            recent = progress.per_opponent_recent.get(opp, [])
+            damage = progress.per_opponent_recent_damage.get(opp, [])
+            if len(recent) < self.min_episodes:
+                continue
+
+            window = recent[-self.mastery_window:]
+            dmg_window = damage[-self.mastery_window:]
+            if not window or not dmg_window:
+                continue
+
+            wr = sum(window) / len(window)
+            mean_dmg = sum(dmg_window) / len(dmg_window)
+            nz_rate = sum(1 for d in dmg_window if d > 0) / len(dmg_window)
+
+            if (wr >= self.mastery_win_rate
+                    and mean_dmg >= self.min_damage
+                    and nz_rate >= self.min_nonzero):
+                if opp in progress.pending_mastery:
+                    progress.mastered_opponents.add(opp)
+                    progress.pending_mastery.discard(opp)
+                    pool_changed = True
+                else:
+                    progress.pending_mastery.add(opp)
+            else:
+                progress.pending_mastery.discard(opp)
+
+        all_mastered = all(o in progress.mastered_opponents for o in level_opponent_names)
+        return all_mastered, pool_changed
 
 
 class CurriculumCallback(BaseCallback):
@@ -166,9 +231,10 @@ class CurriculumCallback(BaseCallback):
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
         # Flush any holdout evaluations queued during the previous rollout.
-        # By this point, PPO has completed its gradient update from the
-        # previous rollout, so the model weights are current.
         self.curriculum_trainer._flush_pending_holdouts()
+
+        # Apply deferred opponent pool refresh if mastery changed
+        self.curriculum_trainer._apply_opponent_pool_refresh()
 
         import time
         self.last_rollout_time = time.time()
@@ -380,6 +446,11 @@ class CurriculumTrainer:
                 max_ticks=max_ticks,
                 verbose=verbose
             )
+
+        # Per-opponent mastery tracker
+        self.mastery_tracker = OpponentMasteryTracker()
+        self._active_level_opponents: List[str] = []
+        self._pending_opponent_pool_refresh = False
 
         # Initialize NaN detector for debugging
         self.nan_detector = NaNDetector(
@@ -848,6 +919,9 @@ class CurriculumTrainer:
         self._current_level_start_total_wins = int(self.progress.total_wins)
         self._current_level_start_timesteps = self._current_model_timesteps()
         self._current_level_summary_written = False
+        # Initialize active opponent pool for the new level
+        self._active_level_opponents = self._get_level_opponent_names()
+        self._pending_opponent_pool_refresh = False
 
     def _build_reward_component_means(self) -> dict[str, float]:
         """Aggregate recent reward component breakdowns into mean values."""
@@ -1018,6 +1092,110 @@ class CurriculumTrainer:
                 self.logger.warning(f"Deterministic sanity check failed for {opp_path}: {e}")
         return False
 
+    def _apply_opponent_pool_refresh(self):
+        """Rebuild vmap envs with only unmastered opponents (deferred from callback)."""
+        if not self._pending_opponent_pool_refresh:
+            return
+        self._pending_opponent_pool_refresh = False
+
+        level = self.get_current_level()
+        all_names = [Path(p).stem for p in level.opponents]
+        unmastered = [p for p, n in zip(level.opponents, all_names)
+                      if n not in self.progress.mastered_opponents]
+
+        # Idempotent: skip if pool hasn't actually changed
+        unmastered_names = [Path(p).stem for p in unmastered]
+        if set(unmastered_names) == set(self._active_level_opponents):
+            return
+
+        if not unmastered:
+            return  # All mastered — graduation will handle this
+
+        self.logger.info(f"Refreshing opponent pool: {len(unmastered)}/{len(level.opponents)} remain")
+        for name in sorted(unmastered_names):
+            self.logger.info(f"  → {name}")
+
+        self._active_level_opponents = unmastered_names
+
+        if self.use_vmap:
+            # Create a temporary CurriculumLevel with reduced opponents
+            reduced_level = CurriculumLevel(
+                name=level.name,
+                difficulty=level.difficulty,
+                opponents=unmastered,
+                min_episodes=level.min_episodes,
+                graduation_win_rate=level.graduation_win_rate,
+                graduation_episodes=level.graduation_episodes,
+                description=level.description,
+            )
+            self.envs = self.create_envs_for_level(reduced_level)
+            self.model.set_env(self.envs)
+        else:
+            # CPU path: retarget existing envs to unmastered opponents only
+            for env_idx in range(self.n_envs):
+                opponent_idx = env_idx % len(unmastered)
+                opponent_path = unmastered[opponent_idx]
+                opponent_func = self.load_opponent(opponent_path)
+                self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
+
+    def _get_level_opponent_names(self) -> List[str]:
+        """Get opponent stem names for the current level."""
+        level = self.get_current_level()
+        return [Path(p).stem for p in level.opponents]
+
+    def _check_and_refresh_mastery(self):
+        """Check per-opponent mastery continuously (every episode).
+
+        If mastery state changes, queues a pool refresh for rollout start.
+        This is called from the callback on every episode, NOT gated behind
+        aggregate graduation checks.
+        """
+        level_names = self._get_level_opponent_names()
+
+        # Snapshot mastery state before check to detect any transition
+        prev_mastered = frozenset(self.progress.mastered_opponents)
+        prev_pending = frozenset(self.progress.pending_mastery)
+
+        all_mastered, pool_changed = self.mastery_tracker.check_mastery(
+            self.progress, level_names,
+        )
+        if pool_changed and not all_mastered:
+            self._pending_opponent_pool_refresh = True
+            newly = self.progress.mastered_opponents & set(level_names)
+            self.logger.info(f"Opponent mastery update: {len(newly)}/{len(level_names)} mastered")
+            for opp in sorted(self.progress.mastered_opponents & set(level_names)):
+                self.logger.info(f"  ✓ {opp} mastered")
+
+        # Log per-opponent mastery snapshot on ANY state transition:
+        # pending entry, pending revocation, or mastered promotion.
+        state_changed = (
+            frozenset(self.progress.mastered_opponents) != prev_mastered
+            or frozenset(self.progress.pending_mastery) != prev_pending
+        )
+        if state_changed:
+            level = self.get_current_level()
+            for opp_name in level_names:
+                recent = self.progress.per_opponent_recent.get(opp_name, [])
+                damage = self.progress.per_opponent_recent_damage.get(opp_name, [])
+                wr = sum(recent) / len(recent) if recent else 0.0
+                mean_dmg = sum(damage) / len(damage) if damage else 0.0
+                nz_rate = sum(1 for d in damage if d > 0) / len(damage) if damage else 0.0
+                state = "mastered" if opp_name in self.progress.mastered_opponents else (
+                    "pending" if opp_name in self.progress.pending_mastery else "active"
+                )
+                append_jsonl(self.analysis_dir / "per_opponent_mastery.jsonl", {
+                    "timestamp": datetime.now().isoformat(),
+                    "level_index": self.progress.current_level,
+                    "level_name": level.name,
+                    "opponent": opp_name,
+                    "state": state,
+                    "recent_win_rate": round(wr, 3),
+                    "recent_mean_damage": round(mean_dmg, 2),
+                    "recent_nonzero_rate": round(nz_rate, 3),
+                    "episodes": self.progress.per_opponent_episodes.get(opp_name, 0),
+                    "total_episodes_at_level": self.progress.episodes_at_level,
+                })
+
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
         level = self.get_current_level()
@@ -1033,8 +1211,21 @@ class CurriculumTrainer:
         if should_log and decision.reason != "override":
             self.progress_reporter.log_graduation_decision(decision)
 
-        # If stochastic metrics pass, run deterministic sanity gate
-        if decision.should_graduate and decision.reason != "override":
+        if not decision.should_graduate:
+            return False
+
+        # Per-opponent mastery gate: all opponents must be individually mastered
+        if decision.reason != "override":
+            level_names = self._get_level_opponent_names()
+            all_mastered = all(o in self.progress.mastered_opponents for o in level_names)
+            if not all_mastered:
+                unmastered = [o for o in level_names if o not in self.progress.mastered_opponents]
+                if self.progress.episodes_at_level % 100 == 0:
+                    self.logger.info(f"Aggregate checks pass but {len(unmastered)} opponents unmastered: {unmastered}")
+                return False
+
+        # Deterministic sanity gate
+        if decision.reason != "override":
             if not self._run_deterministic_sanity_check():
                 self.logger.warning(
                     "Deterministic sanity check FAILED — policy deals 0 damage "
@@ -1042,7 +1233,7 @@ class CurriculumTrainer:
                 )
                 return False
 
-        return decision.should_graduate
+        return True
 
     def advance_level(self):
         """Advance to the next curriculum level."""
@@ -1138,6 +1329,92 @@ class CurriculumTrainer:
 
             self._begin_level_observation_window()
 
+    def _validate_curriculum_graduate(self) -> bool:
+        """Run comprehensive post-curriculum validation against all unique opponents.
+
+        Tests both stochastic and deterministic modes against every unique opponent
+        across all curriculum levels. Writes structured results to
+        analysis/post_curriculum_validation.jsonl.
+
+        Returns True if validation passes (soft gate: always True for v1).
+        """
+        validation_matches = 5
+        validation_min_win_rate = 0.40
+
+        # Deduplicate opponents across all levels, preserving order
+        all_opponents = list(dict.fromkeys(
+            opp for level in self.curriculum for opp in level.opponents
+        ))
+
+        # Build source_levels mapping: which levels use each opponent
+        def _find_source_levels(opp_path):
+            return [
+                {"level_index": i, "level_name": level.name}
+                for i, level in enumerate(self.curriculum)
+                if opp_path in level.opponents
+            ]
+
+        self.logger.info(f"\nPost-curriculum validation: {len(all_opponents)} unique opponents, "
+                         f"{validation_matches} matches each (stochastic + deterministic)")
+
+        results = []
+        for opp_path in all_opponents:
+            opp_stem = Path(opp_path).stem
+            for mode, det in [("stochastic", False), ("deterministic", True)]:
+                wins, damage_list = 0, []
+                for i in range(validation_matches):
+                    try:
+                        r = self._run_holdout_match(opp_path, env_id=i, deterministic=det)
+                        if r["won"]:
+                            wins += 1
+                        damage_list.append(r["damage_dealt"])
+                    except Exception as exc:
+                        self.logger.warning(f"Validation match failed ({opp_stem} {mode} #{i}): {exc}")
+                        damage_list.append(0.0)
+
+                wr = wins / max(1, len(damage_list))
+                mean_dmg = sum(damage_list) / max(1, len(damage_list))
+                nz_rate = sum(1 for d in damage_list if d > 0) / max(1, len(damage_list))
+
+                result = {
+                    "opponent": opp_stem,
+                    "opponent_path": opp_path,
+                    "source_levels": _find_source_levels(opp_path),
+                    "mode": mode,
+                    "win_rate": round(wr, 3),
+                    "mean_damage": round(mean_dmg, 2),
+                    "nonzero_damage_rate": round(nz_rate, 3),
+                    "matches": len(damage_list),
+                    "wins": wins,
+                }
+                results.append(result)
+
+                status = "PASS" if wr >= validation_min_win_rate else "FAIL"
+                self.logger.info(f"  {status} {opp_stem} ({mode}): {wr:.0%} WR, "
+                                 f"{mean_dmg:.1f} avg dmg, {nz_rate:.0%} nonzero")
+
+        # Write structured results
+        append_jsonl(self.analysis_dir / "post_curriculum_validation.jsonl", {
+            "timestamp": datetime.now().isoformat(),
+            "total_opponents": len(all_opponents),
+            "validation_matches_per_opponent": validation_matches,
+            "results": results,
+        })
+
+        # Soft gate: warn on failures but proceed
+        failed = [r for r in results
+                  if r["mode"] == "stochastic"
+                  and r["win_rate"] < validation_min_win_rate]
+        if failed:
+            self.logger.warning(f"Post-curriculum validation: {len(failed)} opponents below "
+                                f"{validation_min_win_rate:.0%} stochastic threshold:")
+            for r in failed:
+                self.logger.warning(f"  {r['opponent']}: {r['win_rate']:.0%} WR, {r['mean_damage']:.1f} dmg")
+        else:
+            self.logger.info(f"Post-curriculum validation PASSED: all opponents above {validation_min_win_rate:.0%}")
+
+        return True  # Soft gate v1: always proceed
+
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""
         # Drain any holdout evaluations still in the queue
@@ -1153,6 +1430,9 @@ class CurriculumTrainer:
         self.logger.info(f"Overall Win Rate: {self.progress.total_wins / max(1, self.progress.total_episodes):.2%}")
         self.logger.info(f"Training Time: {elapsed/3600:.1f} hours")
         self.logger.info(f"Graduated Levels: {', '.join(self.progress.graduated_levels)}")
+
+        # Run post-curriculum validation against all unique opponents
+        self._validate_curriculum_graduate()
 
         # Save final model
         final_model_path = self.models_dir / "curriculum_graduate.zip"
@@ -1228,6 +1508,9 @@ class CurriculumTrainer:
     def _capture_training_state(self, callback: CurriculumCallback) -> dict:
         """Capture curriculum + callback state for checkpoint resume."""
         progress_state = asdict(self.progress)
+        # Convert sets to lists for JSON serialization
+        progress_state["mastered_opponents"] = list(progress_state.get("mastered_opponents", set()))
+        progress_state["pending_mastery"] = list(progress_state.get("pending_mastery", set()))
         progress_state["recent_rewards"] = list(getattr(self.progress, "recent_rewards", []))
         progress_state["recent_reward_breakdowns"] = list(
             getattr(self.progress, "recent_reward_breakdowns", [])
@@ -1291,6 +1574,18 @@ class CurriculumTrainer:
         self.progress.recent_reward_breakdowns = list(
             progress_state.get("recent_reward_breakdowns", [])
         )
+        # Restore per-opponent mastery state
+        self.progress.per_opponent_episodes = dict(progress_state.get("per_opponent_episodes", {}))
+        self.progress.per_opponent_wins = dict(progress_state.get("per_opponent_wins", {}))
+        self.progress.per_opponent_recent = {k: list(v) for k, v in progress_state.get("per_opponent_recent", {}).items()}
+        self.progress.per_opponent_recent_damage = {k: list(v) for k, v in progress_state.get("per_opponent_recent_damage", {}).items()}
+        self.progress.mastered_opponents = set(progress_state.get("mastered_opponents", []))
+        self.progress.pending_mastery = set(progress_state.get("pending_mastery", []))
+        # Recompute active opponent pool from mastery state (single source of truth)
+        self._active_level_opponents = [
+            n for n in self._get_level_opponent_names()
+            if n not in self.progress.mastered_opponents
+        ]
 
         callback_state = state.get("callback", {})
         callback.episode_rewards = list(callback_state.get("episode_rewards", []))
@@ -1306,6 +1601,15 @@ class CurriculumTrainer:
                 f"{previous_level} -> {self.progress.current_level}"
             )
             self._sync_environment_to_level()
+
+        # Same-level resume with mastered opponents: queue pool refresh so
+        # the first rollout start rebuilds envs with only unmastered opponents.
+        if self.progress.mastered_opponents and self._active_level_opponents != self._get_level_opponent_names():
+            self.logger.info(
+                f"Checkpoint restored with {len(self.progress.mastered_opponents)} mastered opponents — "
+                "queuing pool refresh for next rollout start"
+            )
+            self._pending_opponent_pool_refresh = True
 
     def train(self, total_timesteps: int = 1_000_000, resume_from_latest: bool = False):
         """

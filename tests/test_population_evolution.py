@@ -29,7 +29,7 @@ class _DummyFighter:
 
 class _DummyEloTracker:
     def __init__(self, ranking_names: List[str]):
-        self._rankings = [SimpleNamespace(name=name) for name in ranking_names]
+        self._rankings = [SimpleNamespace(name=name, elo=1500.0) for name in ranking_names]
         self.remove_fighter = Mock()
         self.add_fighter = Mock()
 

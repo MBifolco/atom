@@ -110,11 +110,21 @@ class VmapEnvWrapper(gym.Env):
         elif opponent_paths is not None and len(opponent_paths) > 0:
             # Curriculum training: Use JAX test dummies
             from .opponents_jax import create_multi_opponent_func
-            self.opponent_decide = create_multi_opponent_func(opponent_paths, self.config)
+            self.opponent_decide, self._resolved_opponent_names = create_multi_opponent_func(
+                opponent_paths, self.config, n_envs=n_envs,
+            )
             self.opponent_paths = opponent_paths
             self.opponent_models = None
             self.use_multi_opponent = True
             self.use_opponent_models = False
+
+            # Compute env→opponent name mapping (matches JAX dispatch logic)
+            n_opponents = len(opponent_paths)
+            envs_per_opponent = max(1, n_envs // n_opponents)
+            self.env_to_opponent_name = [
+                self._resolved_opponent_names[min(i // envs_per_opponent, n_opponents - 1)]
+                for i in range(n_envs)
+            ]
         else:
             # Legacy: single opponent
             self.opponent_decide = opponent_decision_func
@@ -360,12 +370,14 @@ class VmapEnvWrapper(gym.Env):
                 won = fighter_hp > opponent_hp
 
                 # Episode ended - include cumulative episode stats
+                opp_name = self.env_to_opponent_name[i] if hasattr(self, 'env_to_opponent_name') else None
                 infos.append({
                     "episode": {
                         "r": float(self.episode_rewards[i]),
                         "l": int(self.tick_counts[i])
                     },
                     "won": won,  # Add win/loss flag for curriculum trainer
+                    "opponent_name": opp_name,
                     "fighter_hp": fighter_hp,
                     "opponent_hp": opponent_hp,
                     "episode_damage_dealt": float(self.episode_damage_dealt[i]),

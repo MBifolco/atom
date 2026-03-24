@@ -595,9 +595,10 @@ class TestCreateMultiOpponentFunc:
         config = make_config()
         opponent_paths = ["stationary_neutral.py", "stationary_extended.py"]
 
-        func = create_multi_opponent_func(opponent_paths, config)
+        func, resolved_names = create_multi_opponent_func(opponent_paths, config)
 
         assert callable(func)
+        assert resolved_names == ["stationary_neutral", "stationary_extended"]
 
     def test_raises_on_unknown_opponent(self):
         """Test unknown opponent raises ValueError (no silent fallback)."""
