@@ -186,12 +186,12 @@ class TestValidateFighter:
 
         assert validate_fighter(decide) is True
 
-    def test_validate_fighter_retracted_stance(self):
-        """Test validating fighter with retracted stance."""
+    def test_validate_fighter_retracted_stance_rejected(self):
+        """Test that retracted stance is rejected (removed from 3-stance system)."""
         def decide(state):
             return {"stance": "retracted", "acceleration": 0.0}
 
-        assert validate_fighter(decide) is True
+        assert validate_fighter(decide) is False
 
     def test_validate_fighter_integer_acceleration(self):
         """Test validating fighter with integer acceleration."""

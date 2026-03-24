@@ -30,11 +30,10 @@ class AsciiRenderer:
         self.display_width = display_width
         self.scale = arena_width / display_width
 
-        # Stance visual characters
+        # Stance visual characters (3-stance system: neutral, extended, defending)
         self.stance_chars = {
             'neutral': '●',
             'extended': '▶',
-            'retracted': '◀',
             'defending': '■'
         }
 

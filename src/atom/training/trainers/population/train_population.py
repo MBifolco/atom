@@ -357,7 +357,7 @@ def main():
                         opponent_func = opponent.decide
                         logger.debug(f"    Against {opponent.name} (self-play)")
                     else:
-                        opponent_func = lambda _: {"acceleration": random.uniform(-4, 4), "stance": random.choice(["neutral", "extended", "retracted"])}
+                        opponent_func = lambda _: {"acceleration": random.uniform(-4, 4), "stance": random.choice(["neutral", "extended", "defending"])}
                         logger.debug(f"    Against random (fallback)")
 
             # Create environment

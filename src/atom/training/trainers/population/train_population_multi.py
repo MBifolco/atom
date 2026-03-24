@@ -183,7 +183,7 @@ def select_training_opponents(
             else:
                 # No other fighters yet, use random
                 opponents.append((
-                    lambda _: {"acceleration": random.uniform(-3, 3), "stance": random.choice(["neutral", "extended", "retracted"])},
+                    lambda _: {"acceleration": random.uniform(-3, 3), "stance": random.choice(["neutral", "extended", "defending"])},
                     "random"
                 ))
 

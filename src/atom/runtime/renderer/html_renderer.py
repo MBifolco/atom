@@ -263,11 +263,10 @@ class HtmlRenderer:
             textDim: '#aaaaaa'
         };
 
-        // Stance visual styles
+        // Stance visual styles (3-stance system: neutral, extended, defending)
         const STANCE_STYLES = {
             neutral: { shape: 'circle', size: 1.0 },
             extended: { shape: 'triangle-right', size: 1.2 },
-            retracted: { shape: 'square', size: 0.8 },
             defending: { shape: 'hexagon', size: 1.1 }
         };
 
