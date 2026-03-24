@@ -32,6 +32,15 @@ from src.atom.runtime.arena import WorldConfig
 PROJECT_ROOT = Path(__file__).parent.parent
 
 FIGHTERS_DIR = PROJECT_ROOT / "fighters" / "test_dummies" / "atomic"
+EXAMPLES_DIR = PROJECT_ROOT / "fighters" / "examples"
+
+EXAMPLE_FIGHTER_NAMES = [
+    "boxer",
+    "counter_puncher",
+    "out_fighter",
+    "slugger",
+    "swarmer",
+]
 
 NEW_FIGHTER_NAMES = [
     "approach_extended",
@@ -67,8 +76,17 @@ def _build_curriculum():
 
 
 def _load_python_fighter(name: str):
-    """Load a Python fighter module by stem name."""
+    """Load a Python fighter module by stem name from atomic test dummies."""
     path = FIGHTERS_DIR / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_example_fighter(name: str):
+    """Load a Python fighter module by stem name from examples directory."""
+    path = EXAMPLES_DIR / f"{name}.py"
     spec = importlib.util.spec_from_file_location(name, str(path))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -416,6 +434,42 @@ class TestPythonJAXParity:
     @pytest.mark.parametrize("fighter_name", ALL_ATOMIC_OPPONENTS)
     def test_parity(self, fighter_name):
         py_mod = _load_python_fighter(fighter_name)
+        jax_id, jax_fn = JAX_OPPONENT_REGISTRY[fighter_name]
+        config = WorldConfig()
+
+        for i, cfg in enumerate(self.STATE_CONFIGS):
+            py_state, jax_state, _ = _paired_states(**cfg)
+            py_result = py_mod.decide(py_state)
+            jax_result = jax_fn(jax_state, config)
+
+            jax_accel = float(jax_result[0])
+            jax_stance_int = int(jax_result[1])
+            py_stance_int = _STANCE_STR_TO_INT[py_result["stance"]]
+            py_accel = float(py_result["acceleration"])
+
+            # Stance must match exactly
+            assert py_stance_int == jax_stance_int, (
+                f"{fighter_name} state#{i}: Python stance={py_result['stance']} "
+                f"({py_stance_int}) != JAX stance={jax_stance_int}"
+            )
+
+            # Acceleration sign must match (unless one is near-zero)
+            if abs(py_accel) > 0.1 and abs(jax_accel) > 0.1:
+                assert (py_accel > 0) == (jax_accel > 0), (
+                    f"{fighter_name} state#{i}: accel sign mismatch: "
+                    f"Python={py_accel:.3f}, JAX={jax_accel:.3f}"
+                )
+
+            # Acceleration magnitude must be close
+            assert abs(py_accel - jax_accel) < self.ACCEL_TOLERANCE, (
+                f"{fighter_name} state#{i}: accel magnitude mismatch: "
+                f"Python={py_accel:.3f}, JAX={jax_accel:.3f} "
+                f"(diff={abs(py_accel - jax_accel):.3f}, tolerance={self.ACCEL_TOLERANCE})"
+            )
+
+    @pytest.mark.parametrize("fighter_name", EXAMPLE_FIGHTER_NAMES)
+    def test_example_fighter_parity(self, fighter_name):
+        py_mod = _load_example_fighter(fighter_name)
         jax_id, jax_fn = JAX_OPPONENT_REGISTRY[fighter_name]
         config = WorldConfig()
 

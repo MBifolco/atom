@@ -1061,21 +1061,9 @@ class EnvFactory:
         self.reward_weights_fn = reward_weights_fn
 
     def create_envs_for_level(self, level):
-        if self.use_vmap and self._all_opponents_have_jax(level):
+        if self.use_vmap:
             return self._create_vmap_envs(level)
-        if self.use_vmap and not self._all_opponents_have_jax(level):
-            if self.verbose:
-                print(f"⚠️  Some opponents lack JAX implementations — falling back to CPU envs for {level.name}")
         return self._create_dummy_envs(level, max_envs=8)
-
-    def _all_opponents_have_jax(self, level) -> bool:
-        """Check if all opponents in a level have JAX implementations."""
-        from ..opponents_jax import JAX_OPPONENT_REGISTRY
-        for path in level.opponents:
-            name = Path(path).stem
-            if name not in JAX_OPPONENT_REGISTRY:
-                return False
-        return True
 
     def _create_vmap_envs(self, level):
         from ..vmap_env_wrapper import VmapEnvWrapper

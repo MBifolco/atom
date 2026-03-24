@@ -555,6 +555,268 @@ def comeback_fighter_jax(state, config):
     return jnp.array([accel, stance])
 
 
+# ---------------------------------------------------------------------------
+# Example fighters — advanced boxing styles
+# ---------------------------------------------------------------------------
+
+def boxer_jax(state, config):
+    """Classic boxer: quick jabs, good footwork, disciplined stamina management."""
+    my_pos = state.fighter_b.position
+    opp_pos = state.fighter_a.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    my_stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+    opp_hp_pct = state.fighter_a.hp / state.fighter_a.max_hp
+
+    JAB_RANGE = 1.2
+    SAFE_DISTANCE = 2.5
+
+    # Low stamina: defend and back off
+    low_stam_accel = jnp.where(distance < SAFE_DISTANCE, -0.5 * direction, 0.0)
+    low_stam_stance = 2  # defending
+
+    # High stamina: approach and jab
+    high_stam_accel = jnp.where(distance > JAB_RANGE + 0.3, 0.7 * direction,
+                      jnp.where(distance < JAB_RANGE, 0.3 * direction, 0.0))
+    high_stam_stance = jnp.where(distance > JAB_RANGE + 0.3, 0,  # neutral if far
+                       jnp.where(distance < JAB_RANGE, 1, 1))  # extended if close or perfect
+
+    # Medium stamina: conservative
+    med_accel = jnp.where(distance < JAB_RANGE, 0.0,
+                jnp.where(distance < SAFE_DISTANCE, -0.3 * direction, 0.0))
+    med_stance = jnp.where(distance < JAB_RANGE, 1,
+                 jnp.where(distance < SAFE_DISTANCE, 0, 2))
+
+    # Select by stamina level
+    accel = jnp.where(my_stamina_pct < 0.3, low_stam_accel,
+            jnp.where(my_stamina_pct > 0.7, high_stam_accel, med_accel))
+    stance = jnp.where(my_stamina_pct < 0.3, low_stam_stance,
+             jnp.where(my_stamina_pct > 0.7, high_stam_stance, med_stance))
+
+    # Pursuit override: chase low HP opponent
+    pursue = (opp_hp_pct < 0.3) & (my_stamina_pct > 0.5)
+    pursue_accel = jnp.where(distance > JAB_RANGE, 1.0 * direction, 0.5 * direction)
+    pursue_stance = jnp.where(distance > JAB_RANGE, 0, 1)
+
+    accel = jnp.where(pursue, pursue_accel, accel)
+    stance = jnp.where(pursue, pursue_stance, stance)
+
+    return jnp.array([accel, stance])
+
+
+def counter_puncher_jax(state, config):
+    """Counter puncher: defensive, waits for openings, counters vulnerable opponents."""
+    my_pos = state.fighter_b.position
+    opp_pos = state.fighter_a.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    opp_velocity = state.fighter_a.velocity
+    my_stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+    opp_stamina_pct = state.fighter_a.stamina / state.fighter_a.max_stamina
+
+    COUNTER_RANGE = 0.9
+    COMFORT_ZONE = 2.0
+
+    # Detect opponent charging (good counter opportunity)
+    opponent_charging = (jnp.abs(opp_velocity) > 1.5) & (distance < 2.5)
+
+    # Counter opportunity: low opp stamina, charging, or close and moving
+    opponent_vulnerable = (
+        (opp_stamina_pct < 0.4) |
+        opponent_charging |
+        ((distance < 1.5) & (jnp.abs(opp_velocity) > 0.5))
+    )
+
+    # Counter execution (when vulnerable and we have stamina)
+    can_counter = opponent_vulnerable & (my_stamina_pct > 0.4)
+    counter_accel = jnp.where(distance < COUNTER_RANGE, 0.4 * direction,
+                    jnp.where(distance < COUNTER_RANGE + 0.5, 0.6 * direction,
+                              -0.2 * direction))
+    counter_stance = jnp.where(distance < COUNTER_RANGE, 1,
+                     jnp.where(distance < COUNTER_RANGE + 0.5, 1, 2))
+
+    # Distance management (default)
+    dist_accel = jnp.where(distance < COMFORT_ZONE - 0.5, -0.5 * direction,
+                 jnp.where(distance > COMFORT_ZONE + 1.0, 0.3 * direction, 0.0))
+    dist_stance = jnp.where(distance < COMFORT_ZONE - 0.5, 2,
+                  jnp.where(distance > COMFORT_ZONE + 1.0, 0, 2))
+
+    # Select counter vs distance management
+    accel = jnp.where(can_counter, counter_accel, dist_accel)
+    stance = jnp.where(can_counter, counter_stance, dist_stance)
+
+    # Stamina advantage press override
+    stam_press = (my_stamina_pct > 0.8) & (opp_stamina_pct < 0.3)
+    press_accel = jnp.where(distance > COUNTER_RANGE, 0.7 * direction, 0.3 * direction)
+    press_stance = jnp.where(distance > COUNTER_RANGE, 0, 1)
+
+    accel = jnp.where(stam_press, press_accel, accel)
+    stance = jnp.where(stam_press, press_stance, stance)
+
+    return jnp.array([accel, stance])
+
+
+def out_fighter_jax(state, config):
+    """Out-fighter: maintains distance, hit and move, excellent footwork."""
+    my_pos = state.fighter_b.position
+    opp_pos = state.fighter_a.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    my_velocity = state.fighter_b.velocity
+    my_stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+    my_hp = state.fighter_b.hp
+    opp_hp = state.fighter_a.hp
+    arena_width = config.arena_width
+
+    STRIKE_RANGE = 1.3
+    SAFE_DISTANCE = 2.8
+    DANGER_ZONE = 0.8
+
+    # Emergency escape if too close
+    emergency_accel = -1.0 * direction
+    emergency_stance = 0  # neutral
+
+    # Hit and run (high stamina)
+    moving_toward = (my_velocity * direction) > 0.5
+    strike_accel = jnp.where(moving_toward, -0.7 * direction, 0.3 * direction)
+
+    hi_stam_accel = jnp.where(
+        (distance > STRIKE_RANGE + 0.2) & (distance < SAFE_DISTANCE), 0.8 * direction,
+        jnp.where(
+            (distance <= STRIKE_RANGE) & (distance > DANGER_ZONE), strike_accel,
+            jnp.where(distance > SAFE_DISTANCE, 0.4 * direction,
+                       -0.3 * direction)))
+    hi_stam_stance = jnp.where(
+        (distance <= STRIKE_RANGE) & (distance > DANGER_ZONE), 1,  # extended
+        0)  # neutral
+
+    # Low stamina: distance and recovery
+    lo_stam_accel = jnp.where(distance < SAFE_DISTANCE, -0.6 * direction, 0.0)
+    lo_stam_stance = jnp.where(
+        distance < SAFE_DISTANCE,
+        jnp.where(my_stamina_pct < 0.3, 2, 0),
+        2)
+
+    # Select by stamina
+    accel = jnp.where(distance < DANGER_ZONE, emergency_accel,
+            jnp.where(my_stamina_pct > 0.5, hi_stam_accel, lo_stam_accel))
+    stance = jnp.where(distance < DANGER_ZONE, emergency_stance,
+             jnp.where(my_stamina_pct > 0.5, hi_stam_stance, lo_stam_stance))
+
+    # Arena edge awareness: if near wall and moving away from opponent, reverse
+    arena_edge_close = (my_pos < 2.0) | (my_pos > arena_width - 2.0)
+    moving_away = (accel * direction) < 0
+    edge_override = arena_edge_close & moving_away
+    edge_accel = 0.5 * direction
+    edge_stance = jnp.where(distance < STRIKE_RANGE, 1, 0)
+
+    accel = jnp.where(edge_override, edge_accel, accel)
+    stance = jnp.where(edge_override, edge_stance, stance)
+
+    # Endgame: winning on HP -> stay safe
+    winning = my_hp > opp_hp * 1.2
+    safe_accel = jnp.where(distance < SAFE_DISTANCE, -0.5 * direction, accel)
+    safe_stance = jnp.where(my_stamina_pct < 0.6, 2, 0)
+
+    accel = jnp.where(winning, safe_accel, accel)
+    stance = jnp.where(winning, safe_stance, stance)
+
+    return jnp.array([accel, stance])
+
+
+def slugger_jax(state, config):
+    """Slugger: heavy hits, aggressive forward pressure, trades hits for damage."""
+    my_pos = state.fighter_b.position
+    opp_pos = state.fighter_a.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    my_stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+    my_hp_pct = state.fighter_b.hp / state.fighter_b.max_hp
+    opp_hp_pct = state.fighter_a.hp / state.fighter_a.max_hp
+
+    POWER_RANGE = 1.0
+    CHARGE_DISTANCE = 3.0
+
+    # Critical stamina: must defend
+    crit_accel = 0.0
+    crit_stance = 2  # defending
+
+    # Build momentum: far away
+    charge_accel = 1.0 * direction
+    charge_stance = 0  # neutral
+
+    # Approach: mid distance
+    approach_accel = 0.9 * direction
+    approach_stance = jnp.where(my_stamina_pct < 0.5, 0, 1)
+
+    # Power hit zone: close
+    power_accel = jnp.where(my_stamina_pct > 0.3, 0.5 * direction, 0.2 * direction)
+    power_stance = 1  # extended
+
+    # Default aggressive
+    default_accel = 0.8 * direction
+    default_stance = 1  # extended
+
+    # Select by distance (and stamina)
+    accel = jnp.where(my_stamina_pct < 0.15, crit_accel,
+            jnp.where(distance > CHARGE_DISTANCE, charge_accel,
+            jnp.where(distance > POWER_RANGE + 0.5, approach_accel,
+            jnp.where(distance <= POWER_RANGE, power_accel,
+                       default_accel))))
+    stance = jnp.where(my_stamina_pct < 0.15, crit_stance,
+             jnp.where(distance > CHARGE_DISTANCE, charge_stance,
+             jnp.where(distance > POWER_RANGE + 0.5, approach_stance,
+             jnp.where(distance <= POWER_RANGE, power_stance,
+                        default_stance))))
+
+    # Berserk mode: go all out when either fighter is low
+    berserk = ((opp_hp_pct < 0.25) | (my_hp_pct < 0.25)) & (my_stamina_pct > 0.2)
+    accel = jnp.where(berserk, 1.0 * direction, accel)
+    stance = jnp.where(berserk, 1, stance)
+
+    return jnp.array([accel, stance])
+
+
+def swarmer_jax(state, config):
+    """Swarmer: constant forward pressure, high work rate, overwhelms with volume."""
+    my_pos = state.fighter_b.position
+    opp_pos = state.fighter_a.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    my_stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+    my_hp_pct = state.fighter_b.hp / state.fighter_b.max_hp
+    opp_hp_pct = state.fighter_a.hp / state.fighter_a.max_hp
+
+    SWARM_RANGE = 0.8
+    PRESSURE_RANGE = 1.5
+
+    # Distance-based tactics
+    dist_accel = jnp.where(distance < SWARM_RANGE, 0.2 * direction,
+                 jnp.where(distance < PRESSURE_RANGE, 0.6 * direction,
+                            1.0 * direction))
+    dist_stance = jnp.where(distance < SWARM_RANGE, 1,
+                  jnp.where(distance < PRESSURE_RANGE, 1, 0))
+
+    # Stamina management overrides
+    accel = jnp.where(my_stamina_pct < 0.1, 0.0,
+            jnp.where(my_stamina_pct < 0.25, 0.5 * direction,
+                       dist_accel))
+    stance = jnp.where(my_stamina_pct < 0.1, 2,
+             jnp.where(my_stamina_pct < 0.25, 0,
+                        dist_stance))
+
+    # Chase override: far away and have stamina
+    chase = (distance > SWARM_RANGE) & (my_stamina_pct > 0.2)
+    accel = jnp.where(chase, 1.0 * direction, accel)
+
+    # Berserk mode: either fighter hurt
+    berserk = ((my_hp_pct < 0.4) | (opp_hp_pct < 0.4)) & (my_stamina_pct > 0.15)
+    accel = jnp.where(berserk, 1.0 * direction, accel)
+    stance = jnp.where(berserk, 1, stance)
+
+    return jnp.array([accel, stance])
+
+
 # Opponent registry with integer IDs
 JAX_OPPONENT_REGISTRY = {
     # Level 1: Fundamentals (stationary, 3-stance system)
@@ -600,6 +862,13 @@ JAX_OPPONENT_REGISTRY = {
     "stamina_punisher": (31, stamina_punisher_jax),
     "range_switcher": (32, range_switcher_jax),
     "comeback_fighter": (33, comeback_fighter_jax),
+
+    # Example fighters (advanced styles)
+    "boxer": (34, boxer_jax),
+    "counter_puncher": (35, counter_puncher_jax),
+    "out_fighter": (36, out_fighter_jax),
+    "slugger": (37, slugger_jax),
+    "swarmer": (38, swarmer_jax),
 }
 
 
