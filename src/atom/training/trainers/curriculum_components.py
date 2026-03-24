@@ -1063,7 +1063,7 @@ class EnvFactory:
     def create_envs_for_level(self, level):
         if self.use_vmap:
             return self._create_vmap_envs(level)
-        return self._create_dummy_envs(level, max_envs=8)
+        return self._create_dummy_envs(level)
 
     def _create_vmap_envs(self, level):
         from ..vmap_env_wrapper import VmapEnvWrapper
