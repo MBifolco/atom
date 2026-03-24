@@ -118,23 +118,18 @@ class PopulationPersistenceService:
                 raise ValueError(f"Expected 1D observation space, got shape={obs_shape}")
             dummy_input = torch.zeros((1, obs_shape[0]), dtype=torch.float32)
 
-            # Force legacy (non-dynamo) ONNX export path. Torch 2.10+ defaults
-            # to dynamo-based export which fails on SB3's ActorCriticPolicy.
-            export_kwargs = {
-                "input_names": ["observation"],
-                "output_names": ["action"],
-                "dynamic_axes": {"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
-                "opset_version": 17,
-            }
-            # dynamo_export=False disables the new torch.export path
-            if hasattr(torch.onnx, "dynamo_export"):
-                export_kwargs["dynamo_export"] = False
-
+            # Force legacy (non-dynamo) ONNX export. The dynamo path in
+            # torch 2.10+ fails on SB3's ActorCriticPolicy. The parameter
+            # is called "dynamo" (not "dynamo_export").
             torch.onnx.export(
                 policy,
                 dummy_input,
                 str(output_path),
-                **export_kwargs,
+                input_names=["observation"],
+                output_names=["action"],
+                dynamic_axes={"observation": {0: "batch_size"}, "action": {0: "batch_size"}},
+                opset_version=17,
+                dynamo=False,
             )
         finally:
             # Restore policy to original device so training can continue

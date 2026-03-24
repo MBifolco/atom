@@ -1312,6 +1312,12 @@ class CurriculumTrainer:
             total_timesteps: Total training timesteps across all levels
             resume_from_latest: Load latest checkpoint bundle before training.
         """
+        # Suppress noisy third-party warnings during training
+        import warnings
+        warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+        warnings.filterwarnings("ignore", message=".*intended to run on the CPU.*")
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch.onnx")
+
         self.logger.info("Starting curriculum training...")
 
         # Start with first level

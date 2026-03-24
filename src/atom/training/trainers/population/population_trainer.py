@@ -543,6 +543,16 @@ def _train_single_fighter_parallel(
     # Configure threading for subprocess
     _configure_process_threading()
 
+    # Suppress noisy warnings from subprocesses (CUDA factory registration,
+    # Gym deprecation, SB3 PPO-on-GPU, TF/absl log-before-init).
+    import warnings
+    import os
+    warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+    warnings.filterwarnings("ignore", message=".*intended to run on the CPU.*")
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch.onnx")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # suppress TF INFO/WARNING
+    os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+
     # Configure GPU memory/runtime for subprocess (if using GPU/vmap)
     if use_vmap:
         configure_runtime_gpu_env(enable_gpu=True, memory_fraction=0.75)
