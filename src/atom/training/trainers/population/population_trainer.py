@@ -976,11 +976,16 @@ class PopulationTrainer:
                 adjectives = [
                     "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
                     "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
+                    "Dark", "Bright", "Steel", "Shadow", "Storm", "Frost",
+                    "Blaze", "Grim", "Keen", "Wild", "Deft", "True",
                 ]
                 animals = [
                     "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
                     "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
+                    "Bear", "Fox", "Otter", "Crane", "Mantis", "Stag",
+                    "Hornet", "Asp", "Drake", "Condor", "Badger", "Heron",
                 ]
+                # 24 × 24 = 576 combinations — virtually eliminates collisions
                 base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
             else:
                 previous_state = random.getstate()
