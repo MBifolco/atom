@@ -333,3 +333,39 @@ Phase 1 is zero-risk refactoring. Phase 2 is the algorithm change.
 3. **VecNormalize is framework-agnostic.** Running stats are numpy. Works with both SB3 and SBX.
 
 4. **Export is backend-aware but interface-identical.** Both backends produce fighters with `decide(snapshot) -> action_dict`. Internal prediction differs (PyTorch vs JAX) but the external contract is the same.
+
+---
+
+## Revision Notes (final review feedback)
+
+### 1. Keep PPO rollout-boundary callbacks, don't flatten to step-count flushes
+
+The `flush_interval` approach was too aggressive. PPO's `_on_rollout_start()` provides safe env-replacement boundaries that we fought hard to get right (the stale-env bug). For PPO, keep rollout hooks as-is. For SAC, the backend provides a periodic step-based flush mechanism. The callback adapter handles the difference — not by replacing rollout hooks with a generic interval, but by the backend declaring its `flush_mode`:
+- PPO: `flush_mode = "rollout_boundary"` → callback uses `_on_rollout_start()`
+- SAC: `flush_mode = "step_interval"` → callback uses step-count check in `_on_step()`
+
+### 2. Backend state vs trainer state — clear ownership
+
+Backend owns (via `checkpoint_training_state` / `restore_training_state`):
+- Model params + optimizer state
+- Replay buffer + entropy coef (SAC only)
+
+Trainer/recovery manager owns (NOT in backend):
+- Curriculum progress (level, episodes, mastery)
+- Callback state (episode rewards, wins)
+- VecNormalize running stats (framework-agnostic numpy)
+
+VecNormalize stays at the trainer layer. It's already handled there and is framework-agnostic.
+
+### 3. Device lives in backend constructor
+
+```python
+backend = SB3PPOBackend(device="auto")  # resolves to "cpu" for PPO
+backend = SBXSACBackend()                # JAX handles device automatically
+```
+
+`create_model()` and `load_model()` don't take device — the backend owns that decision at construction time. CLI `--device` flag maps to backend construction.
+
+### 4. Phase 1B must cover population base-model loading
+
+Population init loads a base model from curriculum graduate in `population_trainer.py` (~line 1021). This is a `PPO.load()` call that must go through `backend.load_model()`. Explicitly included in Phase 1B scope alongside mutation/cloning.
