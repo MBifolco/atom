@@ -143,7 +143,7 @@ def validate_fighter(decide_func: Callable, verbose: bool = False) -> bool:
 
         # Validate stance is string
         stance = decision["stance"]
-        valid_stances = ["neutral", "extended", "retracted", "defending"]
+        valid_stances = ["neutral", "extended", "defending"]
         if stance not in valid_stances:
             if verbose:
                 print(f"  ✗ Invalid stance: {stance}")

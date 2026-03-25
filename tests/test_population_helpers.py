@@ -82,7 +82,7 @@ class TestCreateOpponentDecideFunc:
             def predict(self, obs, deterministic=False):
                 import numpy as np
                 # Return simple action
-                return np.array([0.5, 1.0]), None
+                return np.array([0.5, -1.0, 1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)
@@ -94,7 +94,7 @@ class TestCreateOpponentDecideFunc:
         class MockModel:
             def predict(self, obs, deterministic=False):
                 import numpy as np
-                return np.array([0.3, 0.5]), None
+                return np.array([0.3, 1.0, -1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)
@@ -139,7 +139,7 @@ class TestCreateOpponentDecideFunc:
             def predict(self, obs, deterministic=False):
                 self.last_obs = obs
                 import numpy as np
-                return np.array([0.0, 1.0]), None
+                return np.array([0.0, -1.0, 1.0, -1.0]), None
 
         model = MockModel()
         decide_func = _create_opponent_decide_func(model)
@@ -171,14 +171,13 @@ class TestCreateOpponentDecideFunc:
 
         # Check that model received correct observation
         assert model.last_obs is not None
-        assert model.last_obs.shape == (13,)
+        assert model.last_obs.shape == (14,)
         # First element should be position
         assert model.last_obs[0] == 2.0
         # Third element should be normalized HP
         assert model.last_obs[2] == 0.5  # 50/100
-        # Opponent stance defaults to neutral and recent damage defaults to 0
+        # Opponent stance defaults to neutral
         assert model.last_obs[11] == 0.0
-        assert model.last_obs[12] == 0.0
 
 
 class TestCreateVmapEnvironment:

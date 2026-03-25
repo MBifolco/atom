@@ -32,7 +32,7 @@ class TestDifficultyLevel:
     def test_all_levels_accessible(self):
         """Test can access all difficulty level members."""
         levels = list(DifficultyLevel)
-        assert len(levels) == 6
+        assert len(levels) == 8
 
 
 class TestCurriculumLevel:

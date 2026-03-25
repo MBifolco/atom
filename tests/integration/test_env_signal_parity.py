@@ -34,7 +34,7 @@ def test_initial_observation_parity_single_vs_vmap():
     )
     obs_vmap, _ = env_vmap.reset(seed=42)
 
-    assert obs_vmap.shape == (1, 13)
+    assert obs_vmap.shape == (1, 14)
     assert np.allclose(obs_single, obs_vmap[0], atol=1e-5)
 
 
@@ -54,10 +54,10 @@ def test_first_step_reward_and_observation_parity_single_vs_vmap():
     )
     env_vmap.reset(seed=123)
 
-    action = np.array([0.0, 0.0], dtype=np.float32)
+    action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)
 
     obs_single, reward_single, done_single, trunc_single, _ = env_single.step(action)
-    obs_vmap, rewards_vmap, dones_vmap, trunc_vmap, _ = env_vmap.step(action.reshape(1, 2))
+    obs_vmap, rewards_vmap, dones_vmap, trunc_vmap, _ = env_vmap.step(action.reshape(1, 4))
 
     assert np.allclose(obs_single, obs_vmap[0], atol=1e-5)
     assert np.isclose(float(reward_single), float(rewards_vmap[0]), atol=1e-5)
@@ -84,11 +84,11 @@ def test_multistep_parity_with_legacy_opponent_decision_func():
     rng = np.random.default_rng(2026)
     for _ in range(20):
         action = np.array(
-            [rng.uniform(-1.0, 1.0), rng.uniform(0.0, 2.99)],
+            [rng.uniform(-1.0, 1.0), rng.uniform(-5.0, 5.0), rng.uniform(-5.0, 5.0), rng.uniform(-5.0, 5.0)],
             dtype=np.float32,
         )
         obs_single, reward_single, done_single, trunc_single, _ = env_single.step(action)
-        obs_vmap, rewards_vmap, dones_vmap, trunc_vmap, _ = env_vmap.step(action.reshape(1, 2))
+        obs_vmap, rewards_vmap, dones_vmap, trunc_vmap, _ = env_vmap.step(action.reshape(1, 4))
 
         assert np.allclose(obs_single, obs_vmap[0], atol=1e-4)
         assert np.isclose(float(reward_single), float(rewards_vmap[0]), atol=1e-4)
@@ -115,9 +115,9 @@ def test_episode_end_reward_breakdown_parity():
     )
     env_vmap.reset(seed=77)
 
-    action = np.array([0.0, 0.0], dtype=np.float32)
+    action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)
     _, _, done_single, trunc_single, info_single = env_single.step(action)
-    _, _, dones_vmap, trunc_vmap, infos_vmap = env_vmap.step(action.reshape(1, 2))
+    _, _, dones_vmap, trunc_vmap, infos_vmap = env_vmap.step(action.reshape(1, 4))
 
     assert done_single or trunc_single
     assert bool(dones_vmap[0]) or bool(trunc_vmap[0])

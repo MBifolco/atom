@@ -45,11 +45,58 @@ class EvolutionSelection:
     to_replace: List[PopulationFighterProtocol]
 
 
+@dataclass(frozen=True)
+class LineageEvent:
+    """Structured record for one parent-child replacement during evolution."""
+
+    generation: int
+    child_name: str
+    child_generation: int
+    parent_name: str
+    replaced_fighter_name: str
+    parent_elo_at_mutation: float | None
+    child_mass: float
+    replaced_generation: int
+
+
 class PopulationEvolver:
     """Selection + mutation lifecycle for population-based training."""
 
     def __init__(self, context: EvolutionContext):
         self.context = context
+
+    @staticmethod
+    def rank_weights(n: int) -> list[int]:
+        """Compute rank-based weights: [n, n-1, ..., 1].
+
+        Top-ranked survivor gets weight n, bottom gets weight 1.
+        """
+        return list(range(n, 0, -1))
+
+    @staticmethod
+    def select_parent(
+        survivors: list,
+        anchor_scores: dict[str, float] | None = None,
+    ) -> Any:
+        """Select a parent using rank-weighted probability.
+
+        Survivors are assumed to be sorted best-first (index 0 = top rank).
+        Top-ranked fighters get proportionally more offspring, but every
+        survivor has a nonzero chance — balancing exploitation and exploration.
+
+        When anchor_scores is provided, weights are blended with anchor
+        retention so fighters that forget curriculum skills breed less.
+        """
+        if anchor_scores is not None:
+            n = len(survivors)
+            weights = []
+            for i, fighter in enumerate(survivors):
+                rank_pct = (n - i) / n  # 1.0 for top, ~0 for bottom
+                a_score = anchor_scores.get(fighter.name, 0.0)
+                weights.append(0.8 * rank_pct + 0.2 * a_score)
+        else:
+            weights = PopulationEvolver.rank_weights(len(survivors))
+        return random.choices(survivors, weights=weights, k=1)[0]
 
     def evolve(
         self,
@@ -59,26 +106,38 @@ class PopulationEvolver:
         mutation_rate: float,
         create_fighter_name: Callable[[int, int], str],
         fighter_factory: Callable[..., PopulationFighterProtocol],
-    ) -> None:
+        anchor_scores: dict[str, float] | None = None,
+    ) -> List[LineageEvent]:
         """
         Evolve the population by replacing lower-ranked fighters with mutated children.
+
+        Args:
+            anchor_scores: Optional {fighter_name: anchor_score (0-1)} from
+                curriculum anchor evaluation. When provided, fighters are ranked
+                by a composite of ELO percentile (80%) and anchor score (20%)
+                instead of raw ELO alone.
         """
         if self.context.verbose:
             print("\n" + "=" * 60)
             print("POPULATION EVOLUTION")
             print("=" * 60)
 
-        selection = self._select_survivors(population, elo_tracker, keep_top=keep_top)
+        selection = self._select_survivors(
+            population, elo_tracker, keep_top=keep_top, anchor_scores=anchor_scores,
+        )
 
         if self.context.verbose:
             print(f"  Keeping top {len(selection.survivors)} fighters")
             print(f"  Replacing {len(selection.to_replace)} fighters")
 
+        rankings = elo_tracker.get_rankings()
+        lineage_events: list[LineageEvent] = []
         for old_fighter in selection.to_replace:
-            parent = random.choice(selection.survivors)
+            parent = self.select_parent(selection.survivors, anchor_scores=anchor_scores)
             population_index = population.index(old_fighter)
             new_name = create_fighter_name(population_index, self.context.generation)
             new_mass = self._sample_child_mass(parent.mass)
+            parent_stats = next((stats for stats in rankings if stats.name == parent.name), None)
             new_model = self._clone_and_mutate_model(
                 parent=parent,
                 new_mass=new_mass,
@@ -96,19 +155,36 @@ class PopulationEvolver:
             population[population_index] = new_fighter
             elo_tracker.remove_fighter(old_fighter.name)
             elo_tracker.add_fighter(new_name)
+            lineage_events.append(
+                LineageEvent(
+                    generation=self.context.generation,
+                    child_name=new_name,
+                    child_generation=self.context.generation,
+                    parent_name=parent.name,
+                    replaced_fighter_name=old_fighter.name,
+                    parent_elo_at_mutation=float(parent_stats.elo) if parent_stats is not None else None,
+                    child_mass=float(new_mass),
+                    replaced_generation=int(getattr(old_fighter, "generation", 0)),
+                )
+            )
 
             if self.context.verbose:
                 print(f"    Replaced {old_fighter.name} with {new_name} (child of {parent.name})")
 
         self.context.logger.info(f"Evolved to generation {self.context.generation}")
+        return lineage_events
 
     def _select_survivors(
         self,
         population: List[PopulationFighterProtocol],
         elo_tracker: EloTrackerPopulationProtocol,
         keep_top: float,
+        anchor_scores: dict[str, float] | None = None,
     ) -> EvolutionSelection:
-        """Select survivors based on global ELO ranking restricted to current population."""
+        """Select survivors based on composite score (ELO percentile + anchor retention).
+
+        When anchor_scores is None, falls back to pure ELO ranking.
+        """
         rankings = elo_tracker.get_rankings()
         keep_count = max(2, int(len(population) * keep_top))
 
@@ -119,16 +195,30 @@ class PopulationEvolver:
             if stats.name in population_names
         ]
 
-        population_by_rank = sorted(
-            population,
-            key=lambda fighter: next(
-                (i for i, stats in population_rankings if stats.name == fighter.name),
-                999,
-            ),
-        )
+        if anchor_scores is not None:
+            # Composite ranking: 80% ELO percentile + 20% anchor score
+            n = len(population_rankings)
+            elo_percentile = {}
+            for rank_idx, (_, stats) in enumerate(population_rankings):
+                elo_percentile[stats.name] = (n - rank_idx) / max(1, n)
 
-        survivors = population_by_rank[:keep_count]
-        to_replace = population_by_rank[keep_count:]
+            def composite_key(fighter):
+                elo_pct = elo_percentile.get(fighter.name, 0.0)
+                a_score = anchor_scores.get(fighter.name, 0.0)
+                return -(0.8 * elo_pct + 0.2 * a_score)  # negative for ascending sort
+
+            population_sorted = sorted(population, key=composite_key)
+        else:
+            population_sorted = sorted(
+                population,
+                key=lambda fighter: next(
+                    (i for i, stats in population_rankings if stats.name == fighter.name),
+                    999,
+                ),
+            )
+
+        survivors = population_sorted[:keep_count]
+        to_replace = population_sorted[keep_count:]
         return EvolutionSelection(survivors=survivors, to_replace=to_replace)
 
     def _sample_child_mass(self, parent_mass: float) -> float:

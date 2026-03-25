@@ -10,7 +10,7 @@ class TestOpponentsJax:
 
     def test_import_opponents_jax(self):
         """Test opponents_jax module imports."""
-        from src.training import opponents_jax
+        from src.atom.training import opponents_jax
 
         # Module should load
         assert opponents_jax is not None

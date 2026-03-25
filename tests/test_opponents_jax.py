@@ -277,8 +277,8 @@ class TestDistanceKeeperOpponents:
 
         result = distance_keeper_3m_jax(state, config)
 
-        assert float(result[0]) == 0.0  # Stop (at optimal)
-        assert int(result[1]) == 1      # Extended stance
+        assert float(result[0]) == 0.0  # Stop (at optimal distance)
+        assert int(result[1]) == 0      # Neutral stance (3m keeper is always neutral)
 
     def test_distance_keeper_5m_maintains_distance(self):
         """Test 5m distance keeper maintains distance."""
@@ -595,21 +595,20 @@ class TestCreateMultiOpponentFunc:
         config = make_config()
         opponent_paths = ["stationary_neutral.py", "stationary_extended.py"]
 
-        func = create_multi_opponent_func(opponent_paths, config)
+        func, resolved_names = create_multi_opponent_func(opponent_paths, config)
 
         assert callable(func)
+        assert resolved_names == ["stationary_neutral", "stationary_extended"]
 
-    def test_fallback_to_neutral_for_unknown(self):
-        """Test unknown opponent falls back to neutral."""
+    def test_raises_on_unknown_opponent(self):
+        """Test unknown opponent raises ValueError (no silent fallback)."""
         from src.atom.training.opponents_jax import create_multi_opponent_func
 
         config = make_config()
         opponent_paths = ["unknown_opponent.py"]
 
-        # Should not raise - falls back to stationary_neutral
-        func = create_multi_opponent_func(opponent_paths, config)
-
-        assert callable(func)
+        with pytest.raises(ValueError, match="No JAX implementation"):
+            create_multi_opponent_func(opponent_paths, config)
 
 
 @pytest.mark.skip(reason="Nested lax.cond tracing issue with mock state")

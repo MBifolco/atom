@@ -1,31 +1,20 @@
 """
-Smooth side-to-side movement pattern.
+Sideways Mover (Smooth) — position-based sine oscillation.
+Acceleration is a smooth function of the fighter's own position,
+creating natural back-and-forth movement.
 Used for Level 3: Intermediate training.
 """
 
+import math
+
+
 def decide(state):
-    """Smooth oscillating movement side to side."""
-    # Use tick to create smooth oscillation
-    # Ticks run at 60 Hz, so 240 ticks = 4 second cycle
-    if "tick" in state:
-        t = (state["tick"] / 60.0) % 4.0  # 4 second cycle
-    elif "you" in state and "position" in state["you"]:
-        # Use own position as proxy for oscillation
-        t = (abs(state["you"]["position"]) * 2.0) % 4.0
-    else:
-        # Fallback: simple alternation
-        t = 0.0
+    """Smooth oscillating movement driven by own position."""
+    position = state["you"]["position"]
+    distance = state["opponent"]["distance"]
 
-    # Smooth acceleration based on cycle
-    if t < 2.0:
-        # Moving right
-        accel = 1.5 * (1.0 - abs(t - 1.0))  # Peak at t=1
-    else:
-        # Moving left
-        accel = -1.5 * (1.0 - abs(t - 3.0))  # Peak at t=3
+    accel = 2.0 * math.sin(position * 1.5)
 
-    # Vary stance based on distance
-    distance = abs(state["opponent"]["distance"])
     if distance < 1.0:
         stance = "defending"
     elif distance < 2.0:
@@ -35,5 +24,5 @@ def decide(state):
 
     return {
         "acceleration": accel,
-        "stance": stance
+        "stance": stance,
     }

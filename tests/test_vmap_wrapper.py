@@ -10,7 +10,7 @@ class TestVmapWrapper:
 
     def test_import_vmap_wrapper(self):
         """Test vmap wrapper module imports."""
-        from src.training import vmap_env_wrapper
+        from src.atom.training import vmap_env_wrapper
 
         # Module should load
         assert vmap_env_wrapper is not None

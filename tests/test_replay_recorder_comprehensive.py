@@ -176,7 +176,7 @@ class TestReplayRecorderSnapshotConversion:
 
             assert isinstance(obs, np.ndarray)
             assert obs.dtype == np.float32
-            assert len(obs) == 13  # Enhanced observation space
+            assert len(obs) == 14  # Enhanced observation space
 
             # Check specific values
             assert obs[0] == 3.0  # position
@@ -276,7 +276,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([0.5, 0])  # acceleration 0.5, stance 0 (neutral)
+            action = np.array([0.5, 1.0, -1.0, -1.0])  # acceleration 0.5, neutral (logit_neutral highest)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 0.5
@@ -290,7 +290,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([1.0, 1])  # acceleration 1.0, stance 1 (extended)
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # acceleration 1.0, extended (logit_extended highest)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 1.0
@@ -304,7 +304,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([-0.5, 2])  # acceleration -0.5, stance 2 (defending)
+            action = np.array([-0.5, -1.0, -1.0, 1.0])  # acceleration -0.5, defending (logit_defending highest)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == -0.5
@@ -319,12 +319,12 @@ class TestReplayRecorderActionConversion:
             )
 
             # Test over max
-            action = np.array([2.0, 1])
+            action = np.array([2.0, -1.0, 1.0, -1.0])
             result = recorder._action_to_dict(action)
             assert result["acceleration"] == 1.0
 
             # Test under min
-            action = np.array([-2.0, 1])
+            action = np.array([-2.0, -1.0, 1.0, -1.0])
             result = recorder._action_to_dict(action)
             assert result["acceleration"] == -1.0
 
@@ -336,15 +336,15 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            # Test over max
-            action = np.array([0.0, 10])
+            # Test all logits equal (argmax returns 0 = neutral)
+            action = np.array([0.0, 0.0, 0.0, 0.0])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "defending"  # Index 2 (max)
+            assert result["stance"] == "neutral"  # argmax ties go to first index
 
-            # Test under min
-            action = np.array([0.0, -5])
+            # Test defending logit highest
+            action = np.array([0.0, -5.0, -5.0, 5.0])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "neutral"  # Index 0 (min)
+            assert result["stance"] == "defending"
 
 
 class TestReplayRecorderIndex:
@@ -540,10 +540,10 @@ class TestReplayRecorderEdgeCases:
                 verbose=False
             )
 
-            # Float stance should be converted to int
-            action = np.array([0.0, 1.7])
+            # Logit values determine stance via argmax
+            action = np.array([0.0, -0.5, 1.7, -0.3])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "extended"  # int(1.7) = 1 (extended)
+            assert result["stance"] == "extended"  # logit_extended (1.7) is highest
 
 
 class TestSaveSampledReplays:
@@ -916,7 +916,7 @@ def decide(state):
 
             # Mock model predict
             mock_model = Mock()
-            mock_model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+            mock_model.predict = Mock(return_value=(np.array([0.0, -1.0, 1.0, -1.0]), None))
 
             result = recorder._run_curriculum_eval_matches(
                 model=mock_model,
@@ -986,7 +986,7 @@ class TestRunPopulationEvalMatches:
                 fighter.name = f"Fighter{i}"
                 fighter.mass = 70.0
                 fighter.model = Mock()
-                fighter.model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+                fighter.model.predict = Mock(return_value=(np.array([0.0, -1.0, 1.0, -1.0]), None))
                 fighters.append(fighter)
 
             result = recorder._run_population_eval_matches(
@@ -1019,7 +1019,7 @@ class TestRunPopulationEvalMatches:
                 fighter.name = f"Fighter{i}"
                 fighter.mass = 70.0
                 fighter.model = Mock()
-                fighter.model.predict = Mock(return_value=(np.array([0.0, 1.0]), None))
+                fighter.model.predict = Mock(return_value=(np.array([0.0, -1.0, 1.0, -1.0]), None))
                 fighters.append(fighter)
 
             result = recorder._run_population_eval_matches(

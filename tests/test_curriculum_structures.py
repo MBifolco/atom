@@ -32,7 +32,7 @@ class TestDifficultyLevel:
     def test_difficulty_level_iteration(self):
         """Test iterating over difficulty levels."""
         levels = list(DifficultyLevel)
-        assert len(levels) == 6
+        assert len(levels) == 8
 
 
 class TestCurriculumLevel:
@@ -126,7 +126,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
 
@@ -141,7 +141,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
         mock_vmap.reset.return_value = (np.zeros((2, 9)), {})
 
         adapter = VmapEnvAdapter(mock_vmap)
@@ -157,7 +157,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         # Mock step return
         obs = np.zeros((2, 9))
@@ -170,7 +170,7 @@ class TestVmapEnvAdapter:
         adapter = VmapEnvAdapter(mock_vmap)
 
         # Test step_async
-        actions = np.array([[0.5, 1], [0.3, 2]])
+        actions = np.array([[0.5, -1.0, 1.0, -1.0], [0.3, -1.0, -1.0, 1.0]])
         adapter.step_async(actions)
         assert np.array_equal(adapter.actions, actions)
 
@@ -190,7 +190,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
         adapter.close()  # Should not raise
@@ -202,7 +202,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
         assert adapter.env_is_wrapped(Mock) is False
@@ -214,7 +214,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
         mock_vmap.some_attr = "test_value"
 
         adapter = VmapEnvAdapter(mock_vmap)
@@ -230,7 +230,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
         adapter.set_attr("test", "value")  # Should not raise
@@ -242,7 +242,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
 
@@ -264,7 +264,7 @@ class TestVmapEnvAdapter:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap)
         result = adapter.env_method("some_method")
@@ -359,7 +359,7 @@ class TestVmapEnvAdapterDonesCombination:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         mock_vmap.step.return_value = (
             np.zeros((1, 9)),
@@ -370,7 +370,7 @@ class TestVmapEnvAdapterDonesCombination:
         )
 
         adapter = VmapEnvAdapter(mock_vmap)
-        adapter.step_async(np.array([[0.0, 1]]))
+        adapter.step_async(np.array([[0.0, -1.0, 1.0, -1.0]]))
         _, _, dones, _ = adapter.step_wait()
 
         assert dones[0] == False
@@ -382,7 +382,7 @@ class TestVmapEnvAdapterDonesCombination:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         mock_vmap.step.return_value = (
             np.zeros((1, 9)),
@@ -393,7 +393,7 @@ class TestVmapEnvAdapterDonesCombination:
         )
 
         adapter = VmapEnvAdapter(mock_vmap)
-        adapter.step_async(np.array([[0.0, 1]]))
+        adapter.step_async(np.array([[0.0, -1.0, 1.0, -1.0]]))
         _, _, dones, _ = adapter.step_wait()
 
         assert dones[0] == True  # False OR True = True
@@ -405,7 +405,7 @@ class TestVmapEnvAdapterDonesCombination:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         mock_vmap.step.return_value = (
             np.zeros((1, 9)),
@@ -416,7 +416,7 @@ class TestVmapEnvAdapterDonesCombination:
         )
 
         adapter = VmapEnvAdapter(mock_vmap)
-        adapter.step_async(np.array([[0.0, 1]]))
+        adapter.step_async(np.array([[0.0, -1.0, 1.0, -1.0]]))
         _, _, dones, _ = adapter.step_wait()
 
         assert dones[0] == True  # True OR False = True
@@ -428,7 +428,7 @@ class TestVmapEnvAdapterDonesCombination:
         mock_vmap.observation_space = Mock()
         mock_vmap.observation_space.shape = (9,)
         mock_vmap.action_space = Mock()
-        mock_vmap.action_space.shape = (2,)
+        mock_vmap.action_space.shape = (4,)
 
         mock_vmap.step.return_value = (
             np.zeros((1, 9)),
@@ -439,7 +439,7 @@ class TestVmapEnvAdapterDonesCombination:
         )
 
         adapter = VmapEnvAdapter(mock_vmap)
-        adapter.step_async(np.array([[0.0, 1]]))
+        adapter.step_async(np.array([[0.0, -1.0, 1.0, -1.0]]))
         _, _, dones, _ = adapter.step_wait()
 
         assert dones[0] == True  # True OR True = True

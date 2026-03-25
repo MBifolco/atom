@@ -56,14 +56,14 @@ class TestAtomCombatEnvInit:
         opponent_func = lambda state: {"stance": "neutral", "movement": 0}
         env = AtomCombatEnv(opponent_func)
 
-        assert env.observation_space.shape == (13,)  # Enhanced observation space
+        assert env.observation_space.shape == (14,)  # Enhanced observation space
 
     def test_action_space_shape(self):
         """Test action space has correct shape."""
         opponent_func = lambda state: {"stance": "neutral", "movement": 0}
         env = AtomCombatEnv(opponent_func)
 
-        assert env.action_space.shape == (2,)
+        assert env.action_space.shape == (4,)
 
     def test_action_space_bounds(self):
         """Test action space has correct bounds."""
@@ -72,7 +72,8 @@ class TestAtomCombatEnvInit:
 
         assert env.action_space.low[0] == -1.0  # acceleration min
         assert env.action_space.high[0] == 1.0  # acceleration max
-        assert env.action_space.low[1] == 0.0   # stance selector min
+        assert env.action_space.low[1] == -5.0   # logit min
+        assert env.action_space.high[1] == 5.0   # logit max
 
     def test_stance_names_length(self):
         """Test stance names has 3 stances."""
@@ -107,7 +108,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset()
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
         assert isinstance(info, dict)
 
     def test_reset_with_seed(self):
@@ -117,7 +118,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset(seed=42)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_reset_with_options(self):
         """Test reset with options dict."""
@@ -126,7 +127,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset(options={"test": True})
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_reset_creates_arena(self):
         """Test that reset creates arena and fighters."""
@@ -171,7 +172,7 @@ class TestAtomCombatEnvStep:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert isinstance(obs, np.ndarray)
@@ -186,7 +187,7 @@ class TestAtomCombatEnvStep:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         env.step(action)
 
         assert env.tick == 1
@@ -197,10 +198,10 @@ class TestAtomCombatEnvStep:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, _, _, _, _ = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_with_neutral_action(self):
         """Test step with neutral stance action."""
@@ -209,10 +210,10 @@ class TestAtomCombatEnvStep:
         env.reset()
 
         # Action: no acceleration, neutral stance
-        action = np.array([0.0, 0.0], dtype=np.float32)
+        action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_with_forward_movement(self):
         """Test step with forward acceleration."""
@@ -221,10 +222,10 @@ class TestAtomCombatEnvStep:
         env.reset()
 
         # Action: full forward acceleration
-        action = np.array([1.0, 1.0], dtype=np.float32)
+        action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_with_backward_movement(self):
         """Test step with backward acceleration."""
@@ -233,10 +234,10 @@ class TestAtomCombatEnvStep:
         env.reset()
 
         # Action: full backward acceleration
-        action = np.array([-1.0, 1.0], dtype=np.float32)
+        action = np.array([-1.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_with_extended_stance(self):
         """Test step with extended stance."""
@@ -245,10 +246,10 @@ class TestAtomCombatEnvStep:
         env.reset()
 
         # Action: neutral acceleration, extended stance (1)
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_with_defending_stance(self):
         """Test step with defending stance."""
@@ -257,10 +258,10 @@ class TestAtomCombatEnvStep:
         env.reset()
 
         # Action: neutral acceleration, defending stance (2)
-        action = np.array([0.0, 2.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
 
     def test_step_timeout_truncation(self):
         """Test that step truncates on timeout."""
@@ -268,7 +269,7 @@ class TestAtomCombatEnvStep:
         env = AtomCombatEnv(opponent_func, max_ticks=5)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
 
         # Run until truncation
         for i in range(10):
@@ -331,7 +332,7 @@ class TestAtomCombatEnvIntegration:
             if terminated or truncated:
                 break
 
-            assert obs.shape == (13,)  # Enhanced observation space
+            assert obs.shape == (14,)  # Enhanced observation space
 
     def test_multiple_episodes(self):
         """Test running multiple episodes."""
@@ -382,7 +383,7 @@ class TestTerminationRewards:
         env.stamina_used = 20.0
 
         # Take a step to trigger termination
-        action = np.array([0.0, 1])  # neutral stance, no movement
+        action = np.array([0.0, -1.0, 1.0, -1.0])  # neutral stance, no movement
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
@@ -398,7 +399,7 @@ class TestTerminationRewards:
         env.fighter.hp = 0.0
         env.opponent.hp = 80.0
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
@@ -414,7 +415,7 @@ class TestTerminationRewards:
         env.fighter.hp = 0.0
         env.opponent.hp = 0.0
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
@@ -435,7 +436,7 @@ class TestTruncationRewards:
         env.fighter.hp = 90.0  # 90%
         env.opponent.hp = 50.0  # 50%
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
@@ -451,7 +452,7 @@ class TestTruncationRewards:
         env.fighter.hp = 85.0  # 85%
         env.opponent.hp = 80.0  # 80% (5% diff, < 10%)
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
@@ -467,7 +468,7 @@ class TestTruncationRewards:
         env.fighter.hp = 40.0  # 40%
         env.opponent.hp = 90.0  # 90%
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
@@ -483,7 +484,7 @@ class TestTruncationRewards:
         env.fighter.hp = 75.0  # 75%
         env.opponent.hp = 80.0  # 80% (5% diff, < 10%)
 
-        action = np.array([0.0, 1])
+        action = np.array([0.0, -1.0, 1.0, -1.0])
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
@@ -508,7 +509,7 @@ class TestHitTracking:
         total_damage_dealt = 0
         for _ in range(50):
             # Attack forward with extended stance
-            action = np.array([1.0, 2])  # Extended, strong forward
+            action = np.array([1.0, -1.0, -1.0, 1.0])  # Extended, strong forward
             obs, reward, terminated, truncated, info = env.step(action)
 
             total_damage_dealt = env.episode_damage_dealt
@@ -533,7 +534,7 @@ class TestHitTracking:
 
         # Run many steps - opponent will attack us
         for _ in range(50):
-            action = np.array([0.0, 0])  # Neutral, backward (trying to escape)
+            action = np.array([0.0, 1.0, -1.0, -1.0])  # Neutral, backward (trying to escape)
             obs, reward, terminated, truncated, info = env.step(action)
 
             if terminated or truncated:
@@ -563,7 +564,7 @@ class TestMidEpisodeRewards:
         # Take many steps to potentially land hits
         hits_before = env.hits_landed
         for _ in range(20):
-            action = np.array([1.0, 0])  # Extended, forward
+            action = np.array([1.0, 1.0, -1.0, -1.0])  # Extended, forward
             env.step(action)
             if env.hits_landed > hits_before:
                 break
@@ -594,7 +595,7 @@ class TestMidEpisodeRewards:
         env.opponent.position = 6.5
         env.last_distance = 1.0  # Set last distance for delta
 
-        action = np.array([1.0, 0])  # Extended
+        action = np.array([1.0, 1.0, -1.0, -1.0])  # Extended
         env.step(action)
 
         # Close range bonus is added to damage reward
@@ -610,7 +611,7 @@ class TestMidEpisodeRewards:
         env.fighter.stamina = env.fighter.max_stamina  # 100%
         env.opponent.stamina = env.opponent.max_stamina * 0.5  # 50%
 
-        action = np.array([0.0, 1])  # Neutral
+        action = np.array([0.0, -1.0, 1.0, -1.0])  # Neutral
         env.step(action)
 
         assert hasattr(env, 'episode_stamina_reward')
@@ -624,7 +625,7 @@ class TestMidEpisodeRewards:
         # Set up low stamina scenario
         env.fighter.stamina = env.fighter.max_stamina * 0.1  # 10%
 
-        action = np.array([1.0, 0])  # Extended (not defending)
+        action = np.array([1.0, 1.0, -1.0, -1.0])  # Extended (not defending)
         env.step(action)
 
         assert hasattr(env, 'episode_stamina_reward')
@@ -641,7 +642,7 @@ class TestMidEpisodeRewards:
         env.fighter.position = 4.0
         env.opponent.position = 7.0  # Distance = 3.0, closing from 5.0
 
-        action = np.array([0.0, 2])  # Forward movement
+        action = np.array([0.0, -1.0, -1.0, 1.0])  # Forward movement
         env.step(action)
 
         assert hasattr(env, 'episode_proximity_reward')
@@ -658,7 +659,7 @@ class TestMidEpisodeRewards:
         env.fighter.position = 3.0
         env.opponent.position = 8.0  # Distance = 5.0, opening from 3.0
 
-        action = np.array([0.0, 0])  # Backward movement
+        action = np.array([0.0, 1.0, -1.0, -1.0])  # Backward movement
         env.step(action)
 
         assert hasattr(env, 'episode_proximity_reward')
@@ -674,7 +675,7 @@ class TestMidEpisodeRewards:
 
         # Action [1.0, 1] should request extended stance with some movement
         # The actual stance mapping depends on implementation
-        action = np.array([1.0, 1])
+        action = np.array([1.0, -1.0, 1.0, -1.0])
         obs, reward, _, _, _ = env.step(action)
 
         # Verify step ran successfully with hurt opponent
@@ -690,7 +691,7 @@ class TestMidEpisodeRewards:
         env.fighter.stamina = env.fighter.max_stamina * 0.2
 
         # Action [-1.0, 1] should request defending stance
-        action = np.array([-1.0, 1])
+        action = np.array([-1.0, -1.0, 1.0, -1.0])
         obs, reward, _, _, _ = env.step(action)
 
         # Verify step ran successfully with low stamina

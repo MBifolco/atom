@@ -60,7 +60,7 @@ class PopulationFighter:
                 "stance": random.choice(["neutral", "extended", "defending"])
             }
 
-        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+        obs = build_observation_from_snapshot(snapshot)
 
         # Get action from model
         action, _ = self.model.predict(obs, deterministic=False)
@@ -69,7 +69,8 @@ class PopulationFighter:
         acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
         acceleration = acceleration_normalized * 4.5  # max_acceleration
 
-        stance_idx = int(np.clip(action[1], 0, 2))
+        from src.atom.training.action_codec import extract_stance
+        stance_idx = extract_stance(action)
         stances = ["neutral", "extended", "defending"]
         stance = stances[stance_idx]
 
@@ -356,7 +357,7 @@ def main():
                         opponent_func = opponent.decide
                         logger.debug(f"    Against {opponent.name} (self-play)")
                     else:
-                        opponent_func = lambda _: {"acceleration": random.uniform(-4, 4), "stance": random.choice(["neutral", "extended", "retracted"])}
+                        opponent_func = lambda _: {"acceleration": random.uniform(-4, 4), "stance": random.choice(["neutral", "extended", "defending"])}
                         logger.debug(f"    Against random (fallback)")
 
             # Create environment

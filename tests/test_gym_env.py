@@ -42,9 +42,9 @@ class TestAtomCombatEnv:
             opponent_decision_func=simple_opponent,
         )
 
-        assert env.observation_space.shape == (13,)  # Enhanced observation space
-        assert len(env.observation_space.low) == 13
-        assert len(env.observation_space.high) == 13
+        assert env.observation_space.shape == (14,)  # Enhanced observation space
+        assert len(env.observation_space.low) == 14
+        assert len(env.observation_space.high) == 14
 
     def test_action_space(self):
         """Test action space is correct for 3 stances."""
@@ -52,12 +52,12 @@ class TestAtomCombatEnv:
             opponent_decision_func=simple_opponent,
         )
 
-        # Should be Box([-1.0, 0.0], [1.0, 2.99]) for 3 stances
-        assert env.action_space.shape == (2,)
+        # Should be Box([-1, -5, -5, -5], [1, 5, 5, 5]) for 4D logit action space
+        assert env.action_space.shape == (4,)
         assert env.action_space.low[0] == -1.0
         assert env.action_space.high[0] == 1.0
-        assert env.action_space.low[1] == 0.0
-        assert env.action_space.high[1] == 2.99
+        assert env.action_space.low[1] == -5.0
+        assert env.action_space.high[1] == 5.0
 
     def test_reset_returns_valid_observation(self):
         """Test reset returns valid observation."""
@@ -67,7 +67,7 @@ class TestAtomCombatEnv:
 
         obs, info = env.reset()
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
         assert not np.any(np.isnan(obs))
         assert not np.any(np.isinf(obs))
         assert isinstance(info, dict)
@@ -80,13 +80,13 @@ class TestAtomCombatEnv:
 
         obs, info = env.reset()
 
-        action = np.array([0.5, 1.0])  # Move forward, extended stance
+        action = np.array([0.5, -1.0, 1.0, -1.0])  # Move forward, extended stance
         result = env.step(action)
 
         assert len(result) == 5, "Step should return 5-tuple (Gymnasium API)"
         obs, reward, done, truncated, info = result
 
-        assert obs.shape == (13,)  # Enhanced observation space
+        assert obs.shape == (14,)  # Enhanced observation space
         assert isinstance(reward, (int, float))
         assert isinstance(done, bool)
         assert isinstance(truncated, bool)
@@ -111,7 +111,9 @@ class TestAtomCombatEnv:
             # Random action
             action = np.array([
                 np.random.uniform(-0.5, 1.0),
-                np.random.uniform(0, 2.99)
+                np.random.uniform(-5, 5),
+                np.random.uniform(-5, 5),
+                np.random.uniform(-5, 5)
             ])
 
             obs, reward, done, truncated, info = env.step(action)
@@ -133,15 +135,15 @@ class TestAtomCombatEnv:
         env.reset()
 
         # Test stance 0 (neutral)
-        obs, reward, done, truncated, info = env.step(np.array([0.0, 0.5]))
+        obs, reward, done, truncated, info = env.step(np.array([0.0, 1.0, -1.0, -1.0]))
         # Should execute without error
 
         # Test stance 1 (extended)
-        obs, reward, done, truncated, info = env.step(np.array([0.0, 1.5]))
+        obs, reward, done, truncated, info = env.step(np.array([0.0, -1.0, 1.0, -1.0]))
         # Should execute without error
 
         # Test stance 2 (defending)
-        obs, reward, done, truncated, info = env.step(np.array([0.0, 2.5]))
+        obs, reward, done, truncated, info = env.step(np.array([0.0, -1.0, -1.0, 1.0]))
         # Should execute without error
 
         # No errors means stance conversion working
@@ -178,7 +180,7 @@ class TestAtomCombatEnv:
         steps = 0
 
         while not (done or truncated) and steps < 20:
-            action = np.array([0.0, 0.0])  # Neutral, no movement
+            action = np.array([0.0, 1.0, -1.0, -1.0])  # Neutral, no movement
             obs, reward, done, truncated, info = env.step(action)
             steps += 1
 
@@ -209,7 +211,7 @@ class TestGymEnvRewards:
 
         for _ in range(200):
             # Aggressive attack
-            action = np.array([1.0, 1.0])  # Max acceleration, extended
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Max acceleration, extended
             obs, reward, done, truncated, info = env.step(action)
             total_reward += reward
 
@@ -241,7 +243,7 @@ class TestGymEnvRewards:
 
         for _ in range(200):
             # Try to defend
-            action = np.array([0.0, 2.0])  # No movement, defending
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # No movement, defending
             obs, reward, done, truncated, info = env.step(action)
             final_reward = reward
 
@@ -278,7 +280,7 @@ class TestGymEnvRewards:
         final_reward = 0
 
         for _ in range(60):
-            action = np.array([0.0, 2.0])  # No movement, defensive stance
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # No movement, defensive stance
             obs, reward, done, truncated, info = env.step(action)
             final_reward = reward
 
@@ -306,7 +308,7 @@ class TestGymEnvRewards:
 
         # Attack for several ticks
         for _ in range(50):
-            action = np.array([1.0, 1.0])  # Approach and attack
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Approach and attack
             obs, reward, done, truncated, info = env.step(action)
 
             if done or truncated:
@@ -327,7 +329,7 @@ class TestGymEnvRewards:
 
         # Use stamina by accelerating aggressively
         for _ in range(20):
-            action = np.array([1.0, 0.0])  # Max acceleration, neutral
+            action = np.array([1.0, 1.0, -1.0, -1.0])  # Max acceleration, neutral
             env.step(action)
 
         # Stamina tracking exists
@@ -350,7 +352,7 @@ class TestGymEnvRewards:
         env.reset()
 
         for _ in range(100):
-            action = np.array([1.0, 1.0])  # Attack
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Attack
             obs, reward, done, truncated, info = env.step(action)
 
             if done or truncated:
@@ -381,7 +383,7 @@ class TestGymEnvRewardComponents:
 
         # Force close range fighting
         for _ in range(40):
-            action = np.array([1.0, 1.0])  # Aggressive attack
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Aggressive attack
             obs, reward, done, truncated, info = env.step(action)
 
             if done or truncated:
@@ -407,7 +409,7 @@ class TestGymEnvRewardComponents:
 
         # Player conserves stamina while opponent wastes it
         for _ in range(20):
-            action = np.array([0.0, 2.0])  # Defending (regens stamina)
+            action = np.array([0.0, -1.0, -1.0, 1.0])  # Defending (regens stamina)
             env.step(action)
 
         # Should have some stamina reward
@@ -430,7 +432,7 @@ class TestGymEnvRewardComponents:
 
         # Exhaust stamina then keep fighting
         for _ in range(30):
-            action = np.array([1.0, 1.0])  # Max effort
+            action = np.array([1.0, -1.0, 1.0, -1.0])  # Max effort
             env.step(action)
 
         # Penalty tracking exists
@@ -453,9 +455,9 @@ class TestGymEnvRewardComponents:
         # Move around to trigger proximity tracking
         for i in range(20):
             if i < 10:
-                action = np.array([0.8, 0.0])  # Approach
+                action = np.array([0.8, 1.0, -1.0, -1.0])  # Approach
             else:
-                action = np.array([-0.5, 2.0])  # Retreat and defend
+                action = np.array([-0.5, -1.0, -1.0, 1.0])  # Retreat and defend
             env.step(action)
 
         # Proximity reward exists
@@ -478,7 +480,7 @@ class TestGymEnvRewardComponents:
 
         # Both attack aggressively (might result in double KO)
         for _ in range(200):
-            action = np.array([1.0, 1.0])
+            action = np.array([1.0, -1.0, 1.0, -1.0])
             obs, reward, done, truncated, info = env.step(action)
 
             if done:
@@ -508,7 +510,7 @@ class TestGymEnvRewardComponents:
 
         # Attack until opponent is low HP
         for _ in range(50):
-            action = np.array([0.8, 1.0])  # Attack with extended
+            action = np.array([0.8, -1.0, 1.0, -1.0])  # Attack with extended
             obs, reward, done, truncated, info = env.step(action)
 
             if done or truncated:
@@ -535,9 +537,9 @@ class TestGymEnvRewardComponents:
         # Exhaust stamina then defend
         for i in range(40):
             if i < 20:
-                action = np.array([1.0, 1.0])  # Exhaust stamina
+                action = np.array([1.0, -1.0, 1.0, -1.0])  # Exhaust stamina
             else:
-                action = np.array([0.0, 2.0])  # Defend with low stamina
+                action = np.array([0.0, -1.0, -1.0, 1.0])  # Defend with low stamina
             env.step(action)
 
         # Stance reward tracked

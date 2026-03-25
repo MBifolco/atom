@@ -11,7 +11,12 @@ from gymnasium import spaces
 # Use relative imports within the src package
 from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
 from src.atom.runtime.protocol import generate_snapshot
-from .signal_engine import build_observation, compute_step_reward_scalar
+from .signal_engine import build_observation, compute_step_reward_scalar, hp_pct
+from .action_codec import (
+    ACTION_SPACE_LOW, ACTION_SPACE_HIGH,
+    extract_stance, scale_and_validate_action,
+    STANCE_NAMES, stance_idx_to_str, stance_str_to_idx,
+)
 
 
 class AtomCombatEnv(gym.Env):
@@ -43,7 +48,9 @@ class AtomCombatEnv(gym.Env):
         max_ticks: int = 250,
         fighter_mass: float = 70.0,
         opponent_mass: float = 70.0,
-        seed: int = None
+        seed: int = None,
+        reward_weights: dict = None,
+        opponent_name: str = None,
     ):
         """
         Initialize the environment.
@@ -64,38 +71,43 @@ class AtomCombatEnv(gym.Env):
         self.fighter_mass = fighter_mass
         self.opponent_mass = opponent_mass
         self._seed = seed
+        self.reward_weights = reward_weights
+        self.opponent_name = opponent_name
 
-        # Define observation space (13 values for enhanced training)
+        # Define observation space (14 values for enhanced training)
         # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
         #  opp_hp_norm, opp_stamina_norm, arena_width,
-        #  wall_dist_left, wall_dist_right, opp_stance_int, recent_damage_dealt]
+        #  wall_dist_left, wall_dist_right, opp_stance_int, you_stance_int, tick_fraction]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1], dtype=np.float32),
             dtype=np.float32
         )
 
-        # Define action space: Box (continuous) for finer control
-        # [acceleration_normalized (-1 to 1), stance_selector (0 to 3.99)]
-        # PPO works well with continuous action spaces
+        # Action space: [acceleration, logit_neutral, logit_extended, logit_defending]
+        # Stance selected via argmax over logits — works with both stochastic
+        # and deterministic PPO policies (no int-truncation collapse).
         self.action_space = spaces.Box(
-            low=np.array([-1.0, 0.0], dtype=np.float32),
-            high=np.array([1.0, 2.99], dtype=np.float32),  # Changed from 3.99 to 2.99 for 3 stances
+            low=ACTION_SPACE_LOW,
+            high=ACTION_SPACE_HIGH,
             dtype=np.float32
         )
 
-        # Stance mapping (3-stance system)
-        self.stance_names = ["neutral", "extended", "defending"]  # Removed retracted
+        # Stance mapping (3-stance system) — uses STANCE_NAMES from action_codec
+        self.stance_names = STANCE_NAMES
 
         # State
         self.arena = None
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
-        self.last_distance = None
+        self.last_distance = None  # initialized to real distance in reset()
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
+
+        # Stance usage tracking (per-episode tick counts)
+        self.stance_ticks = [0, 0, 0]  # neutral, extended, defending
 
         # Reward component tracking
         self.episode_proximity_reward = 0
@@ -137,10 +149,11 @@ class AtomCombatEnv(gym.Env):
         self.tick = 0
         self.episode_damage_dealt = 0
         self.episode_damage_taken = 0
-        self.last_distance = None
+        self.last_distance = float(abs(self.fighter.position - self.opponent.position))
         self.stamina_used = 0
         self.hits_landed = 0
         self.hits_taken = 0
+        self.stance_ticks = [0, 0, 0]
 
         # Reset reward component tracking
         self.episode_proximity_reward = 0
@@ -161,18 +174,16 @@ class AtomCombatEnv(gym.Env):
         Execute one step in the environment.
 
         Args:
-            action: numpy array [acceleration_normalized, stance_selector] from Box space
+            action: numpy array [accel, logit_neutral, logit_extended, logit_defending]
 
         Returns:
             observation, reward, terminated, truncated, info
         """
-        # Convert action to arena format
-        # action[0] is acceleration normalized (-1 to 1)
-        # action[1] is stance selector (0.0-3.99, int cast to 0-3)
-        acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
-        acceleration = acceleration_normalized * self.config.max_acceleration
-
-        stance_idx = int(np.clip(action[1], 0, 2))  # Clip to 2 for 3 stances (0,1,2)
+        # Convert action to arena format via canonical codec
+        acceleration, stance_idx = scale_and_validate_action(
+            action, self.config.max_acceleration
+        )
+        self.stance_ticks[stance_idx] += 1
 
         # Use integer stance for JAX arena, string stance for Python arena
         from src.atom.runtime.arena.arena_1d_jax_jit import Arena1DJAXJit
@@ -180,7 +191,7 @@ class AtomCombatEnv(gym.Env):
         if isinstance(self.arena, Arena1DJAXJit):
             fighter_action = {"acceleration": acceleration, "stance": stance_idx}
         else:
-            stance = self.stance_names[stance_idx]
+            stance = stance_idx_to_str(stance_idx)
             fighter_action = {"acceleration": acceleration, "stance": stance}
 
         # Get opponent action
@@ -190,7 +201,7 @@ class AtomCombatEnv(gym.Env):
         # Convert opponent stance to int if using JAX arena
         if isinstance(self.arena, Arena1DJAXJit) and isinstance(opponent_action_dict.get("stance"), str):
             opponent_action_dict = opponent_action_dict.copy()
-            opponent_action_dict["stance"] = self.stance_names.index(opponent_action_dict["stance"])
+            opponent_action_dict["stance"] = stance_str_to_idx(opponent_action_dict["stance"])
 
         # Execute tick in arena
         prev_fighter_hp = self.fighter.hp
@@ -224,8 +235,8 @@ class AtomCombatEnv(gym.Env):
         truncated = bool(self.tick >= self.max_ticks)
 
         # Calculate normalized state needed by canonical reward engine.
-        fighter_hp_pct = float(self.fighter.hp) / float(self.fighter.max_hp)
-        opponent_hp_pct = float(self.opponent.hp) / float(self.opponent.max_hp)
+        fighter_hp_pct = hp_pct(self.fighter.hp, self.fighter.max_hp)
+        opponent_hp_pct = hp_pct(self.opponent.hp, self.opponent.max_hp)
         stamina_pct = float(self.fighter.stamina) / float(self.fighter.max_stamina)
         opp_stamina_pct = float(self.opponent.stamina) / float(self.opponent.max_stamina)
         distance = float(abs(self.fighter.position - self.opponent.position))
@@ -247,6 +258,7 @@ class AtomCombatEnv(gym.Env):
             arena_width=self.config.arena_width,
             episode_damage_dealt=self.episode_damage_dealt,
             episode_stamina_used=self.stamina_used,
+            reward_weights=self.reward_weights,
         )
 
         reward = reward_result.reward
@@ -261,6 +273,7 @@ class AtomCombatEnv(gym.Env):
         # Info dict
         info = {
             "tick": self.tick,
+            "opponent_name": self.opponent_name,
             "damage_dealt": damage_dealt,
             "damage_taken": damage_taken,
             "episode_damage_dealt": self.episode_damage_dealt,
@@ -273,6 +286,12 @@ class AtomCombatEnv(gym.Env):
             "hits_taken": self.hits_taken,
             "stamina_used": self.stamina_used,
             "won": fighter_hp_pct > opponent_hp_pct if (terminated or truncated) else None,
+            # Stance usage for this episode
+            "stance_distribution": {
+                "neutral": self.stance_ticks[0],
+                "extended": self.stance_ticks[1],
+                "defending": self.stance_ticks[2],
+            } if (terminated or truncated) else None,
             # Reward breakdown (only available at episode end)
             "reward_breakdown": {
                 "proximity": self.episode_proximity_reward,
@@ -293,8 +312,8 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (13 dimensions)."""
-        return build_observation(
+        """Get current observation as numpy array (14 dimensions)."""
+        obs = build_observation(
             you_position=float(self.fighter.position),
             you_velocity=float(self.fighter.velocity),
             you_hp=float(self.fighter.hp),
@@ -309,8 +328,13 @@ class AtomCombatEnv(gym.Env):
             opponent_max_stamina=float(self.opponent.max_stamina),
             opponent_stance=self.opponent.stance,
             arena_width=float(self.config.arena_width),
-            recent_damage=float(self.episode_damage_dealt),
+            you_stance=self.fighter.stance,
+            tick_fraction=self.tick / self.max_ticks,
         )
+        # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
+        if np.isnan(obs).any() or np.isinf(obs).any():
+            obs = np.nan_to_num(obs, nan=0.0, posinf=1000.0, neginf=-1000.0)
+        return obs
 
     def render(self):
         """Rendering not implemented for training."""

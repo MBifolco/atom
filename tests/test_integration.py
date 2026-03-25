@@ -83,7 +83,7 @@ class TestIntegration:
         )
 
         obs, info = env.reset()
-        assert obs.shape == (13,)  # Check enhanced observation shape
+        assert obs.shape == (14,)  # Check enhanced observation shape
 
         done = False
         truncated = False
@@ -91,10 +91,12 @@ class TestIntegration:
         steps = 0
 
         while not (done or truncated) and steps < 100:
-            # Random action in correct range
+            # Random action in correct range (4D logit action space)
             action = np.array([
-                np.random.uniform(-1, 1),  # acceleration
-                np.random.uniform(0, 2.99)  # stance (3 stances)
+                np.random.uniform(-1, 1),   # acceleration
+                np.random.uniform(-5, 5),   # logit_neutral
+                np.random.uniform(-5, 5),   # logit_extended
+                np.random.uniform(-5, 5)    # logit_defending
             ])
 
             obs, reward, done, truncated, info = env.step(action)

@@ -32,6 +32,7 @@ TrainingTask = Tuple[
     int,  # n_envs_per_fighter
     int,  # episodes
     int,  # max_ticks
+    int,  # seed (per-fighter)
     str,  # algorithm
     Optional[dict],  # config_dict
     str,  # logs_dir
@@ -54,6 +55,7 @@ class ParallelTrainingContext:
     use_vmap: bool
     n_vmap_envs: int
     generation: int
+    seed: int
     verbose: bool
     logger: logging.Logger
 
@@ -212,13 +214,16 @@ class ParallelTrainingOrchestrator:
     ) -> List[TrainingTask]:
         """Build serializable training tasks for process pool workers."""
         training_tasks: List[TrainingTask] = []
-        for fighter, opponents in fighter_opponent_pairs:
+        for task_idx, (fighter, opponents) in enumerate(fighter_opponent_pairs):
             temp_model_path = artifacts.save_fighter_model(fighter)
 
             opponent_data: List[Tuple[str, float, str]] = []
-            for opp in opponents[:self.context.n_envs_per_fighter]:
+            for opp in opponents:
                 opp_path = artifacts.ensure_opponent_model(opp)
                 opponent_data.append((opp.name, opp.mass, str(opp_path)))
+
+            # Per-fighter seed to break identical training dynamics
+            fighter_seed = self.context.seed + task_idx * 1000 + self.context.generation
 
             config_dict = None  # Use WorldConfig defaults in subprocess for stability
             task: TrainingTask = (
@@ -229,6 +234,7 @@ class ParallelTrainingOrchestrator:
                 self.context.n_envs_per_fighter,
                 episodes_per_fighter,
                 self.context.max_ticks,
+                fighter_seed,
                 self.context.algorithm,
                 config_dict,
                 str(self.context.logs_dir),

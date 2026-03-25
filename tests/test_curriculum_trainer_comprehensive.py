@@ -167,9 +167,9 @@ class TestCurriculumTrainerInit:
                 verbose=False
             )
 
-            assert len(trainer.curriculum) == 5  # 5 levels
+            assert len(trainer.curriculum) == 8  # 8 levels
             assert trainer.curriculum[0].name == "Fundamentals"
-            assert trainer.curriculum[-1].name == "Expert"
+            assert trainer.curriculum[-1].name == "Gauntlet"
 
     def test_init_with_replay_recording(self):
         """Test initialization with replay recording enabled."""
@@ -200,12 +200,15 @@ class TestCurriculumTrainerCurriculum:
 
             curriculum = trainer.curriculum
 
-            # Check all 5 levels
+            # Check all 7 levels
             assert curriculum[0].difficulty == DifficultyLevel.FUNDAMENTALS
             assert curriculum[1].difficulty == DifficultyLevel.BASIC_SKILLS
             assert curriculum[2].difficulty == DifficultyLevel.INTERMEDIATE
             assert curriculum[3].difficulty == DifficultyLevel.ADVANCED
-            assert curriculum[4].difficulty == DifficultyLevel.EXPERT
+            assert curriculum[4].difficulty == DifficultyLevel.ADAPTIVE
+            assert curriculum[5].difficulty == DifficultyLevel.EXPERT  # Pre-Expert
+            assert curriculum[6].difficulty == DifficultyLevel.EXPERT  # Expert
+            assert curriculum[7].difficulty == DifficultyLevel.GAUNTLET
 
     def test_curriculum_opponents_exist(self):
         """Test that curriculum references opponent files."""
@@ -362,7 +365,7 @@ class TestCurriculumTrainerGraduation:
             # Set to beyond curriculum length
             trainer.progress.current_level = 100
             level = trainer.get_current_level()
-            assert level.name == "Expert"  # Should return last level
+            assert level.name == "Gauntlet"  # Should return last level
 
     def test_should_graduate_not_enough_episodes(self):
         """Test graduation fails when not enough episodes."""
@@ -505,7 +508,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap_env)
 
@@ -519,7 +522,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
         mock_vmap_env.reset.return_value = (np.zeros((4, 9)), {})
 
         adapter = VmapEnvAdapter(mock_vmap_env)
@@ -535,7 +538,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
         mock_vmap_env.step.return_value = (
             np.zeros((4, 9)),  # obs
             np.zeros(4),       # rewards
@@ -546,7 +549,7 @@ class TestVmapEnvAdapter:
 
         adapter = VmapEnvAdapter(mock_vmap_env)
 
-        actions = np.zeros((4, 2))
+        actions = np.zeros((4, 4))
         adapter.step_async(actions)
         obs, rewards, dones, infos = adapter.step_wait()
 
@@ -560,7 +563,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap_env)
         adapter.env_method("set_opponent", lambda x: x)
@@ -575,7 +578,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
         mock_vmap_env.some_attr = "test_value"
 
         adapter = VmapEnvAdapter(mock_vmap_env)
@@ -590,7 +593,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap_env)
         assert adapter.env_is_wrapped(None) == False
@@ -602,7 +605,7 @@ class TestVmapEnvAdapter:
         mock_vmap_env.observation_space = Mock()
         mock_vmap_env.observation_space.shape = (9,)
         mock_vmap_env.action_space = Mock()
-        mock_vmap_env.action_space.shape = (2,)
+        mock_vmap_env.action_space.shape = (4,)
 
         adapter = VmapEnvAdapter(mock_vmap_env)
         adapter.close()  # Should not crash
@@ -821,6 +824,8 @@ class TestCurriculumTrainerStateRestore:
 
             old_env = Mock()
             new_env = Mock()
+            new_env.num_envs = 4
+            new_env.reset = Mock(return_value=np.zeros((4, 18)))
             trainer.envs = old_env
             trainer.model = Mock()
             trainer.create_envs_for_level = Mock(return_value=new_env)

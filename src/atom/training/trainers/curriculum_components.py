@@ -38,6 +38,11 @@ class GraduationDecision:
     recent_passed: bool
     overall_passed: bool
     episodes_at_level: int
+    # Combat quality metrics (populated when win rate checks pass)
+    mean_damage_dealt: float = 0.0
+    nonzero_damage_rate: float = 0.0
+    combat_quality_passed: bool = True  # default True for backward compat
+    deterministic_sanity_passed: bool = True
 
 
 @dataclass(frozen=True)
@@ -125,9 +130,17 @@ class PeriodicCheckpointCallback(BaseCallback):
 class GraduationPolicy:
     """Encapsulates level graduation rules."""
 
-    def __init__(self, override_episodes_per_level: Optional[int], min_overall_win_rate: float = 0.5):
+    def __init__(
+        self,
+        override_episodes_per_level: Optional[int],
+        min_overall_win_rate: float = 0.5,
+        min_mean_damage_dealt: float = 5.0,
+        min_nonzero_damage_rate: float = 0.3,
+    ):
         self.override_episodes_per_level = override_episodes_per_level
         self.min_overall_win_rate = min_overall_win_rate
+        self.min_mean_damage_dealt = min_mean_damage_dealt
+        self.min_nonzero_damage_rate = min_nonzero_damage_rate
 
     def evaluate(self, *, progress, level, curriculum_size: int) -> GraduationDecision:
         """Evaluate whether the current level should graduate."""
@@ -199,15 +212,34 @@ class GraduationPolicy:
         overall_win_rate = progress.wins_at_level / max(1, episodes)
 
         recent_passed = recent_win_rate >= level.graduation_win_rate
-        overall_passed = overall_win_rate >= self.min_overall_win_rate
-        should_graduate = recent_passed and overall_passed
+        # Overall WR is tracked for observability but no longer gates graduation.
+        # Per-opponent mastery (checked in should_graduate) supersedes the aggregate
+        # overall check — if every opponent is individually mastered at 50%+ WR,
+        # the aggregate is necessarily well above 50%.
+        overall_passed = True
+
+        # Combat quality gate: check damage metrics from recent episodes
+        recent_damage = getattr(progress, "recent_damage_dealt", [])
+        if recent_damage:
+            mean_damage = sum(recent_damage) / len(recent_damage)
+            nonzero_rate = sum(1 for d in recent_damage if d > 0) / len(recent_damage)
+        else:
+            mean_damage = 0.0
+            nonzero_rate = 0.0
+
+        combat_quality_passed = (
+            mean_damage >= self.min_mean_damage_dealt
+            and nonzero_rate >= self.min_nonzero_damage_rate
+        )
+
+        should_graduate = recent_passed and combat_quality_passed
 
         if should_graduate:
             reason = "passed"
-        elif recent_passed and not overall_passed:
-            reason = "overall_too_low"
         elif not recent_passed:
             reason = "recent_too_low"
+        elif not combat_quality_passed:
+            reason = "combat_quality_too_low"
         else:
             reason = "failed"
 
@@ -223,14 +255,18 @@ class GraduationPolicy:
             recent_passed=recent_passed,
             overall_passed=overall_passed,
             episodes_at_level=episodes,
+            mean_damage_dealt=mean_damage,
+            nonzero_damage_rate=nonzero_rate,
+            combat_quality_passed=combat_quality_passed,
         )
 
 
 class ProgressReporter:
     """Updates progress state and emits periodic progress logs."""
 
-    def __init__(self, logger):
+    def __init__(self, logger, mastery_window: int = 20):
         self.logger = logger
+        self.mastery_window = mastery_window
 
     def update_progress(self, *, progress, level, won: bool, reward: float = 0, info: Optional[dict] = None):
         progress.episodes_at_level += 1
@@ -243,6 +279,23 @@ class ProgressReporter:
         progress.recent_episodes.append(won)
         if len(progress.recent_episodes) > level.graduation_episodes:
             progress.recent_episodes.pop(0)
+
+        # Track combat quality metrics
+        if not hasattr(progress, "recent_damage_dealt"):
+            progress.recent_damage_dealt = []
+        episode_damage = float(info.get("episode_damage_dealt", 0.0)) if info else 0.0
+        progress.recent_damage_dealt.append(episode_damage)
+        if len(progress.recent_damage_dealt) > level.graduation_episodes:
+            progress.recent_damage_dealt.pop(0)
+
+        # Track stance distribution
+        if not hasattr(progress, "recent_stance_counts"):
+            progress.recent_stance_counts = []
+        stance_dist = info.get("stance_distribution") if info else None
+        if stance_dist:
+            progress.recent_stance_counts.append(stance_dist)
+            if len(progress.recent_stance_counts) > level.graduation_episodes:
+                progress.recent_stance_counts.pop(0)
 
         if not hasattr(progress, "recent_rewards"):
             progress.recent_rewards = []
@@ -257,22 +310,52 @@ class ProgressReporter:
             if len(progress.recent_reward_breakdowns) > 20:
                 progress.recent_reward_breakdowns.pop(0)
 
+        # Per-opponent tracking (keyed by opponent_name from info dict)
+        opp_name = info.get("opponent_name") if info else None
+        # Diagnostic: log when first per-opponent episode arrives, warn if missing
+        if opp_name and opp_name not in progress.per_opponent_episodes:
+            self.logger.info(f"  [mastery] First episode for opponent '{opp_name}' at level ep {progress.episodes_at_level}")
+        elif not opp_name and progress.episodes_at_level in (1, 100, 500):
+            self.logger.warning(
+                f"  [mastery] Episode {progress.episodes_at_level} has no opponent_name in info! "
+                f"info keys: {sorted(info.keys()) if info else 'None'}"
+            )
+        if opp_name:
+            progress.per_opponent_episodes[opp_name] = progress.per_opponent_episodes.get(opp_name, 0) + 1
+            if won:
+                progress.per_opponent_wins[opp_name] = progress.per_opponent_wins.get(opp_name, 0) + 1
+
+            if opp_name not in progress.per_opponent_recent:
+                progress.per_opponent_recent[opp_name] = []
+            progress.per_opponent_recent[opp_name].append(won)
+            if len(progress.per_opponent_recent[opp_name]) > self.mastery_window:
+                progress.per_opponent_recent[opp_name].pop(0)
+
+            if opp_name not in progress.per_opponent_recent_damage:
+                progress.per_opponent_recent_damage[opp_name] = []
+            progress.per_opponent_recent_damage[opp_name].append(episode_damage)
+            if len(progress.per_opponent_recent_damage[opp_name]) > self.mastery_window:
+                progress.per_opponent_recent_damage[opp_name].pop(0)
+
         if progress.episodes_at_level % 100 == 0:
             self._log_progress_snapshot(progress=progress, level=level)
 
     def log_graduation_decision(self, decision: GraduationDecision):
-        status = "✅ PASSED" if decision.should_graduate else "❌ FAILED (overall too low)"
-        self.logger.info(f"🎓 GRADUATION CHECK {status}")
+        status = "PASSED" if decision.should_graduate else f"FAILED ({decision.reason})"
+        self.logger.info(f"GRADUATION CHECK {status}")
         self.logger.info(f"   Recent wins: {decision.recent_wins}/{decision.recent_total}")
         self.logger.info(
             f"   Recent WR: {decision.recent_win_rate:.2%} "
             f"(need {decision.required_recent_win_rate:.1%}) "
-            f"{'✓' if decision.recent_passed else '✗'}"
+            f"{'pass' if decision.recent_passed else 'fail'}"
         )
         self.logger.info(
-            f"   Overall WR: {decision.overall_win_rate:.2%} "
-            f"(need {decision.required_overall_win_rate:.1%}) "
-            f"{'✓' if decision.overall_passed else '✗'}"
+            f"   Overall WR: {decision.overall_win_rate:.2%} (informational, not gating)"
+        )
+        self.logger.info(
+            f"   Combat quality: mean_dmg={decision.mean_damage_dealt:.1f} "
+            f"nonzero_rate={decision.nonzero_damage_rate:.1%} "
+            f"{'pass' if decision.combat_quality_passed else 'fail'}"
         )
         self.logger.info(f"   Episodes at level: {decision.episodes_at_level}")
 
@@ -531,6 +614,7 @@ class LevelRunner:
         model_update_fn: Optional[Callable[[Any], None]] = None,
         env_getter: Optional[Callable[[], Any]] = None,
         sleep_fn: Optional[Callable[[float], None]] = None,
+        event_recorder: Optional[Callable[[dict[str, Any]], None]] = None,
     ):
         if sleep_fn is None:
             sleep_fn = time.sleep
@@ -619,6 +703,20 @@ class LevelRunner:
                 self.logger.error(f"Error: {exc}")
                 self.logger.error(f"Current level: {current_level}")
                 self.logger.error(f"Total steps: {completed_steps}")
+                if event_recorder is not None:
+                    event_recorder(
+                        {
+                            "event_type": "nan_detected",
+                            "error_type": exc.__class__.__name__,
+                            "message": str(exc),
+                            "current_level": current_level,
+                            "global_timestep": completed_steps,
+                            "nan_retries": nan_retries,
+                            "recovery_action": "checkpoint_recovery" if last_checkpoint else "debug_dump",
+                            "recovery_succeeded": None if last_checkpoint else False,
+                            "checkpoint_path": str(last_checkpoint.model_path) if last_checkpoint else None,
+                        }
+                    )
 
                 if nan_retries < self.recovery_manager.max_retries and last_checkpoint:
                     self.logger.info(f"Attempting recovery from checkpoint: {last_checkpoint.model_path}")
@@ -652,6 +750,22 @@ class LevelRunner:
                     if new_lr is not None:
                         self.logger.info(f"Reduced learning rate to: {new_lr}")
 
+                    if event_recorder is not None:
+                        event_recorder(
+                            {
+                                "event_type": "nan_recovery_succeeded",
+                                "error_type": exc.__class__.__name__,
+                                "message": str(exc),
+                                "current_level": current_level,
+                                "global_timestep": completed_steps,
+                                "nan_retries": nan_retries,
+                                "recovery_action": "restore_checkpoint_and_reduce_lr",
+                                "recovery_succeeded": True,
+                                "checkpoint_path": str(last_checkpoint.model_path),
+                                "new_learning_rate": new_lr,
+                            }
+                        )
+
                     disable_sb3_progress_bar = True
                     if progress_bar_disable_reason is None:
                         progress_bar_disable_reason = (
@@ -676,6 +790,20 @@ class LevelRunner:
                     nan_retries=nan_retries,
                 )
                 self.logger.error(f"Debug info saved to: {debug_path}")
+                if event_recorder is not None:
+                    event_recorder(
+                        {
+                            "event_type": "nan_recovery_failed",
+                            "error_type": exc.__class__.__name__,
+                            "message": str(exc),
+                            "current_level": current_level,
+                            "global_timestep": completed_steps,
+                            "nan_retries": nan_retries,
+                            "recovery_action": "write_debug_dump_and_abort",
+                            "recovery_succeeded": False,
+                            "debug_path": str(debug_path),
+                        }
+                    )
                 details = TrainingErrorDetails(
                     level=current_level,
                     completed_steps=completed_steps,
@@ -732,6 +860,13 @@ class LevelTransitionStateMachine:
         progress.episodes_at_level = 0
         progress.wins_at_level = 0
         progress.recent_episodes = []
+        # Reset per-opponent mastery tracking for new level
+        progress.per_opponent_episodes = {}
+        progress.per_opponent_wins = {}
+        progress.per_opponent_recent = {}
+        progress.per_opponent_recent_damage = {}
+        progress.mastered_opponents = set()
+        progress.pending_mastery = set()
 
         completed = progress.current_level >= len(curriculum)
         return LevelTransitionResult(
@@ -773,7 +908,7 @@ class ReplayEvaluationService:
 
         else:
             def ai_decide(snapshot):
-                obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+                obs = build_observation_from_snapshot(snapshot)
                 try:
                     action, _ = model.predict(
                         np.array([obs]),
@@ -782,9 +917,10 @@ class ReplayEvaluationService:
                     if action.ndim > 1:
                         action = action[0]
 
+                    from src.atom.training.action_codec import extract_stance
                     acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
                     acceleration = acceleration_normalized * config.max_acceleration
-                    stance_idx = int(np.clip(action[1], 0, 2))
+                    stance_idx = extract_stance(action)
                     stance = ["neutral", "extended", "defending"][stance_idx]
                     return {"acceleration": acceleration, "stance": stance}
                 except Exception as exc:
@@ -864,6 +1000,14 @@ class CallbackStepProcessor:
         self.record_evaluation_replay_fn = record_evaluation_replay_fn
 
     def process_infos(self, infos, episode_rewards, episode_wins, recent_reward_components) -> bool:
+        # After a level transition, SB3's collect_rollouts continues using the
+        # OLD env (captured as a local variable) for the remainder of the rollout.
+        # Episodes from the old env have wrong opponent names and should not be
+        # counted toward the new level's stats. Skip until the next rollout starts.
+        callback = getattr(self, '_callback_ref', None)
+        if callback is not None and getattr(callback, '_skip_until_rollout_start', False):
+            return True
+
         for info in infos:
             if "episode" not in info:
                 continue
@@ -873,6 +1017,14 @@ class CallbackStepProcessor:
 
             won = info.get("won", False)
             episode_wins.append(won)
+
+            # Diagnostic: log info dict keys on first few episodes to catch missing opponent_name
+            n_eps = len(episode_rewards)
+            if n_eps <= 3 or (n_eps == 100 and "opponent_name" not in info):
+                self.curriculum_trainer.logger.info(
+                    f"  [mastery-debug] ep={n_eps} info keys={sorted(info.keys())} "
+                    f"opponent_name={info.get('opponent_name', '<MISSING>')}"
+                )
 
             if "reward_breakdown" in info:
                 recent_reward_components.append(info["reward_breakdown"])
@@ -885,6 +1037,10 @@ class CallbackStepProcessor:
             )
 
             self.curriculum_trainer.update_progress(won, reward, info)
+
+            # Check per-opponent mastery continuously (may queue pool refresh)
+            if hasattr(self.curriculum_trainer, '_check_and_refresh_mastery'):
+                self.curriculum_trainer._check_and_refresh_mastery()
 
             sanity_abort_reason = None
             if hasattr(self.curriculum_trainer, "check_training_sanity_gate"):
@@ -900,6 +1056,17 @@ class CallbackStepProcessor:
                 if self.curriculum_trainer.progress.current_level >= len(self.curriculum_trainer.curriculum):
                     self.curriculum_trainer.logger.info("Curriculum complete - stopping training early")
                     return False
+                # After a level transition, SB3's collect_rollouts still holds
+                # a local reference to the OLD env. Skip remaining episodes in
+                # this rollout — they'd have wrong opponent names and pollute
+                # the new level's per-opponent tracking.
+                callback = getattr(self, '_callback_ref', None)
+                if callback is not None:
+                    callback._skip_until_rollout_start = True
+                    self.curriculum_trainer.logger.info(
+                        "Skipping remaining episodes in this rollout (stale env after level transition)"
+                    )
+                return True
 
         return True
 
@@ -946,6 +1113,7 @@ class EnvFactory:
         create_env_fn,
         vmap_adapter_cls,
         seed_base: int,
+        reward_weights_fn=None,
     ):
         self.n_envs = n_envs
         self.max_ticks = max_ticks
@@ -956,6 +1124,7 @@ class EnvFactory:
         self.create_env_fn = create_env_fn
         self.vmap_adapter_cls = vmap_adapter_cls
         self.seed_base = seed_base
+        self.reward_weights_fn = reward_weights_fn
 
     def create_envs_for_level(self, level):
         if self.use_vmap:
@@ -977,6 +1146,7 @@ class EnvFactory:
                     print(f"     {i+1}. {Path(path).stem}")
             print("\n⏳ Initializing JAX vmap environment (this may take 30-60 seconds for JIT compilation)...", flush=True)
 
+        reward_weights = self.reward_weights_fn(level) if self.reward_weights_fn else None
         vmap_env = VmapEnvWrapper(
             n_envs=self.n_envs,
             opponent_paths=opponent_paths,
@@ -986,6 +1156,7 @@ class EnvFactory:
             opponent_mass=70.0,
             seed=self.seed_base,
             debug=self.debug,
+            reward_weights=reward_weights,
         )
 
         if self.verbose:
@@ -1006,9 +1177,10 @@ class EnvFactory:
         )
         return VecCheckNan(normalized_env, raise_exception=True, warn_once=True)
 
-    def _create_dummy_envs(self, level):
+    def _create_dummy_envs(self, level, max_envs: int = 0):
+        n = min(self.n_envs, max_envs) if max_envs > 0 else self.n_envs
         env_fns = []
-        for i in range(self.n_envs):
+        for i in range(n):
             opponent_idx = i % len(level.opponents)
             opponent_path = level.opponents[opponent_idx]
 

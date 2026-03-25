@@ -61,7 +61,7 @@ def run_detailed_match(fighter1_path: str, fighter2_path: str = None, max_ticks:
         # Convert to action
         acceleration = decision["acceleration"]
         stance = decision["stance"]
-        stance_map = {"neutral": 0, "extended": 1, "retracted": 2, "defending": 3}
+        stance_map = {"neutral": 0, "extended": 1, "defending": 2}
         stance_idx = stance_map.get(stance, 0)
         norm_accel = np.clip(acceleration / 4.5, -1, 1)
         action = np.array([norm_accel, stance_idx], dtype=np.float32)

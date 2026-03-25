@@ -23,7 +23,7 @@ class TestTrainerModules:
 
     def test_import_elo_tracker(self):
         """Test ELO tracker module imports."""
-        from src.training.trainers.population import elo_tracker
+        from src.atom.training.trainers.population import elo_tracker
 
         assert hasattr(elo_tracker, 'EloTracker')
 

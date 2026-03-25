@@ -38,6 +38,7 @@ from .curriculum_components import (
     RecoveryManager,
 )
 from ..utils.nan_detector import NaNDetector
+from ..utils.observability import append_jsonl, ensure_analysis_dir
 
 
 class VmapEnvAdapter(VecEnv):
@@ -105,11 +106,13 @@ class VmapEnvAdapter(VecEnv):
 class DifficultyLevel(Enum):
     """Training difficulty levels."""
     FUNDAMENTALS = "fundamentals"      # Level 1: Stationary targets
-    BASIC_SKILLS = "basic_skills"      # Level 2: Simple movements
-    INTERMEDIATE = "intermediate"       # Level 3: Distance/stamina management
-    ADVANCED = "advanced"               # Level 4: Behavioral fighters
-    EXPERT = "expert"                   # Level 5: Hardcoded fighters
-    POPULATION = "population"           # Level 6: Population training
+    BASIC_SKILLS = "basic_skills"      # Level 2: Movement basics
+    INTERMEDIATE = "intermediate"       # Level 3: Stance & stamina awareness
+    ADVANCED = "advanced"               # Level 4: Complex patterns
+    ADAPTIVE = "adaptive"              # Level 5: Adaptive behavior
+    EXPERT = "expert"                   # Level 6: Expert fighters
+    GAUNTLET = "gauntlet"              # Level 7: Mixed generalization test
+    POPULATION = "population"           # Population training (post-curriculum)
 
 
 @dataclass
@@ -131,10 +134,77 @@ class TrainingProgress:
     episodes_at_level: int = 0
     wins_at_level: int = 0
     recent_episodes: List[bool] = field(default_factory=list)  # Win/loss history
+    recent_damage_dealt: List[float] = field(default_factory=list)  # Per-episode damage
+    recent_stance_counts: List[dict] = field(default_factory=list)  # Per-episode stance usage
     graduated_levels: List[str] = field(default_factory=list)
     total_episodes: int = 0
     total_wins: int = 0
     start_time: float = field(default_factory=time.time)
+    # Per-opponent mastery tracking (keyed by Path(opponent_path).stem)
+    per_opponent_episodes: dict = field(default_factory=dict)
+    per_opponent_wins: dict = field(default_factory=dict)
+    per_opponent_recent: dict = field(default_factory=dict)       # name → List[bool]
+    per_opponent_recent_damage: dict = field(default_factory=dict) # name → List[float]
+    mastered_opponents: set = field(default_factory=set)
+    pending_mastery: set = field(default_factory=set)
+
+
+class OpponentMasteryTracker:
+    """Tracks per-opponent mastery for curriculum levels.
+
+    Mastery requires sustained performance (wins + damage) over a rolling
+    window, confirmed by 2 consecutive checks. Mastered opponents are retired
+    from the active training pool.
+    """
+
+    def __init__(
+        self,
+        mastery_win_rate: float = 0.50,
+        min_per_opponent_damage: float = 10.0,
+        min_per_opponent_nonzero: float = 0.5,
+        min_mastery_episodes: int = 10,
+        mastery_window: int = 20,
+    ):
+        self.mastery_win_rate = mastery_win_rate
+        self.min_damage = min_per_opponent_damage
+        self.min_nonzero = min_per_opponent_nonzero
+        self.min_episodes = min_mastery_episodes
+        self.mastery_window = mastery_window
+
+    def check_mastery(self, progress, level_opponent_names):
+        """Check per-opponent mastery. Returns (all_mastered, pool_changed)."""
+        pool_changed = False
+        for opp in level_opponent_names:
+            if opp in progress.mastered_opponents:
+                continue
+            recent = progress.per_opponent_recent.get(opp, [])
+            damage = progress.per_opponent_recent_damage.get(opp, [])
+            if len(recent) < self.min_episodes:
+                continue
+
+            window = recent[-self.mastery_window:]
+            dmg_window = damage[-self.mastery_window:]
+            if not window or not dmg_window:
+                continue
+
+            wr = sum(window) / len(window)
+            mean_dmg = sum(dmg_window) / len(dmg_window)
+            nz_rate = sum(1 for d in dmg_window if d > 0) / len(dmg_window)
+
+            if (wr >= self.mastery_win_rate
+                    and mean_dmg >= self.min_damage
+                    and nz_rate >= self.min_nonzero):
+                if opp in progress.pending_mastery:
+                    progress.mastered_opponents.add(opp)
+                    progress.pending_mastery.discard(opp)
+                    pool_changed = True
+                else:
+                    progress.pending_mastery.add(opp)
+            else:
+                progress.pending_mastery.discard(opp)
+
+        all_mastered = all(o in progress.mastered_opponents for o in level_opponent_names)
+        return all_mastered, pool_changed
 
 
 class CurriculumCallback(BaseCallback):
@@ -149,6 +219,7 @@ class CurriculumCallback(BaseCallback):
         self.last_rollout_time = None
         self.last_train_time = None
         self.replay_evaluation_service = ReplayEvaluationService(self.curriculum_trainer)
+        self._skip_until_rollout_start = False
         self.step_processor = CallbackStepProcessor(
             curriculum_trainer=self.curriculum_trainer,
             replay_evaluation_service=self.replay_evaluation_service,
@@ -157,9 +228,22 @@ class CurriculumCallback(BaseCallback):
                 total_episodes,
             ),
         )
+        self.step_processor._callback_ref = self
 
     def _on_rollout_start(self) -> None:
         """Called before collecting rollouts."""
+        # Clear the level-transition skip flag. After a level transition,
+        # process_infos skips episodes because SB3's collect_rollouts holds
+        # a stale local reference to the OLD env. The new env only takes
+        # effect at the start of the next rollout (here).
+        self._skip_until_rollout_start = False
+
+        # Flush any holdout evaluations queued during the previous rollout.
+        self.curriculum_trainer._flush_pending_holdouts()
+
+        # Apply deferred opponent pool refresh if mastery changed
+        self.curriculum_trainer._apply_opponent_pool_refresh()
+
         import time
         self.last_rollout_time = time.time()
 
@@ -282,7 +366,9 @@ class CurriculumTrainer:
                  enable_level1_sanity_gate: bool = True,
                  level1_sanity_gate_episode_threshold: int = 4000,
                  level1_sanity_gate_min_recent_win_rate: float = 0.15,
-                 level1_sanity_gate_min_overall_win_rate: float = 0.12):
+                 level1_sanity_gate_min_overall_win_rate: float = 0.12,
+                 min_mean_damage_dealt: float = 5.0,
+                 min_nonzero_damage_rate: float = 0.3):
         """
         Initialize the curriculum trainer.
 
@@ -339,6 +425,7 @@ class CurriculumTrainer:
         self.models_dir.mkdir(exist_ok=True)
         self.logs_dir = self.output_dir / "logs"
         self.logs_dir.mkdir(exist_ok=True)
+        self.analysis_dir = ensure_analysis_dir(self.output_dir)
 
         # Initialize curriculum
         self.curriculum = self._build_curriculum()
@@ -368,6 +455,11 @@ class CurriculumTrainer:
                 verbose=verbose
             )
 
+        # Per-opponent mastery tracker
+        self.mastery_tracker = OpponentMasteryTracker()
+        self._active_level_opponents: List[str] = []
+        self._pending_opponent_pool_refresh = False
+
         # Initialize NaN detector for debugging
         self.nan_detector = NaNDetector(
             log_dir=str(self.logs_dir / "nan_debug"),
@@ -381,6 +473,8 @@ class CurriculumTrainer:
         self.graduation_policy = GraduationPolicy(
             override_episodes_per_level=self.override_episodes_per_level,
             min_overall_win_rate=0.5,
+            min_mean_damage_dealt=min_mean_damage_dealt,
+            min_nonzero_damage_rate=min_nonzero_damage_rate,
         )
         self.progress_reporter = ProgressReporter(self.logger)
         self.recovery_manager = RecoveryManager(
@@ -394,6 +488,10 @@ class CurriculumTrainer:
             logger=self.logger,
             recovery_manager=self.recovery_manager,
         )
+        def _reward_weights_for_level(level):
+            from ..signal_engine import LEVEL_REWARD_WEIGHTS, DEFAULT_REWARD_WEIGHTS
+            return LEVEL_REWARD_WEIGHTS.get(level.difficulty.value, DEFAULT_REWARD_WEIGHTS)
+
         self.env_factory = EnvFactory(
             n_envs=self.n_envs,
             max_ticks=self.max_ticks,
@@ -404,6 +502,7 @@ class CurriculumTrainer:
             create_env_fn=self.create_env,
             vmap_adapter_cls=VmapEnvAdapter,
             seed_base=self.seed,
+            reward_weights_fn=_reward_weights_for_level,
         )
         self.model_factory = ModelFactory(
             logs_dir=self.logs_dir,
@@ -411,106 +510,159 @@ class CurriculumTrainer:
             seed=self.seed,
         )
         self.level_transition_state_machine = LevelTransitionStateMachine()
+        self._current_level_started_at = time.time()
+        self._current_level_start_total_episodes = 0
+        self._current_level_start_total_wins = 0
+        self._current_level_start_timesteps = 0
+        self._current_level_summary_written = False
+        self.holdout_matches_per_opponent = 1
+        self._pending_holdout_labels: list[str] = []
 
         # Log override setting
         if self.override_episodes_per_level is not None and self.verbose:
             self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
-        """Build the training curriculum."""
-        test_dummy_dir = Path("fighters/test_dummies")
-        example_dir = Path("fighters/examples")
+        """Build the 8-level training curriculum."""
+        td = Path("fighters/test_dummies/atomic")
+        ex = Path("fighters/examples")
 
-        curriculum = []
-
-        # Level 1: Fundamentals (stationary dummies)
-        curriculum.append(CurriculumLevel(
-            name="Fundamentals",
-            difficulty=DifficultyLevel.FUNDAMENTALS,
-            opponents=[
-                str(test_dummy_dir / "atomic/stationary_neutral.py"),
-                str(test_dummy_dir / "atomic/stationary_extended.py"),
-                str(test_dummy_dir / "atomic/stationary_defending.py"),
-            ],
-            min_episodes=200,
-            graduation_win_rate=0.9,  # Should easily beat stationary targets
-            graduation_episodes=50,  # Increased from 10 to prevent lucky streaks
-            description="Learn basic attacking and stance usage against stationary targets"
-        ))
-
-        # Level 2: Basic Skills (simple movements)
-        curriculum.append(CurriculumLevel(
-            name="Basic Skills",
-            difficulty=DifficultyLevel.BASIC_SKILLS,
-            opponents=[
-                str(test_dummy_dir / "atomic/approach_slow.py"),
-                str(test_dummy_dir / "atomic/flee_always.py"),
-                str(test_dummy_dir / "atomic/shuttle_slow.py"),
-                str(test_dummy_dir / "atomic/shuttle_medium.py"),
-                str(test_dummy_dir / "atomic/circle_left.py"),
-                str(test_dummy_dir / "atomic/circle_right.py"),
-            ],
-            min_episodes=300,
-            graduation_win_rate=0.88,  # High standards maintained
-            graduation_episodes=50,
-            description="Learn pursuit, evasion, and predictive movement"
-        ))
-
-        # Level 3: Intermediate (distance/stamina management)
-        curriculum.append(CurriculumLevel(
-            name="Intermediate",
-            difficulty=DifficultyLevel.INTERMEDIATE,
-            opponents=[
-                str(test_dummy_dir / "atomic/distance_keeper_1m.py"),
-                str(test_dummy_dir / "atomic/stamina_efficient.py"),
-                str(test_dummy_dir / "atomic/charge_on_approach.py"),
-                # Using some Level 2 opponents as substitutes for missing files
-                str(test_dummy_dir / "atomic/forward_mover.py"),
-                str(test_dummy_dir / "atomic/backward_mover.py"),
-                str(test_dummy_dir / "atomic/sideways_mover_smooth.py"),
-            ],
-            min_episodes=400,
-            graduation_win_rate=0.85,  # Maintained high standards
-            graduation_episodes=50,
-            description="Learn spacing control, resource management, and wall combat"
-        ))
-
-        # Level 4: Advanced (stance switchers and complex movement)
-        curriculum.append(CurriculumLevel(
-            name="Advanced",
-            difficulty=DifficultyLevel.ADVANCED,
-            opponents=[
-                str(test_dummy_dir / "atomic/aggressive_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/balanced_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/defensive_stance_switcher.py"),
-                str(test_dummy_dir / "atomic/forward_charger.py"),
-                str(test_dummy_dir / "atomic/oscillator.py"),
-                str(test_dummy_dir / "atomic/retreater.py"),
-            ],
-            min_episodes=500,
-            graduation_win_rate=0.83,  # Staying near 85% standards
-            graduation_episodes=50,
-            description="Learn complex strategies and counter-strategies"
-        ))
-
-        # Level 5: Expert (example fighters)
-        curriculum.append(CurriculumLevel(
-            name="Expert",
-            difficulty=DifficultyLevel.EXPERT,
-            opponents=[
-                str(example_dir / "boxer.py"),
-                str(example_dir / "counter_puncher.py"),
-                str(example_dir / "out_fighter.py"),
-                str(example_dir / "slugger.py"),
-                str(example_dir / "swarmer.py"),
-            ],
-            min_episodes=600,
-            graduation_win_rate=0.80,  # Excellence required even at final level
-            graduation_episodes=50,
-            description="Master combat against diverse expert strategies"
-        ))
-
-        return curriculum
+        return [
+            # Level 1: Fundamentals — stationary + simple movement
+            CurriculumLevel(
+                name="Fundamentals",
+                difficulty=DifficultyLevel.FUNDAMENTALS,
+                opponents=[
+                    str(td / "stationary_neutral.py"),
+                    str(td / "stationary_extended.py"),
+                    str(td / "stationary_defending.py"),
+                    str(td / "approach_slow.py"),
+                    str(td / "flee_always.py"),
+                    str(td / "shuttle_medium.py"),
+                ],
+                min_episodes=300,
+                graduation_win_rate=0.88,
+                graduation_episodes=50,
+                description="Learn basic attacking against stationary and simple moving targets",
+            ),
+            # Level 2: Movement + Stances — opponents that move AND use stances
+            CurriculumLevel(
+                name="Basic Skills",
+                difficulty=DifficultyLevel.BASIC_SKILLS,
+                opponents=[
+                    str(td / "approach_extended.py"),
+                    str(td / "flee_defending.py"),
+                    str(td / "circle_left.py"),
+                    str(td / "circle_right.py"),
+                    str(td / "forward_mover.py"),
+                    str(td / "backward_mover.py"),
+                ],
+                min_episodes=300,
+                graduation_win_rate=0.85,
+                graduation_episodes=50,
+                description="Learn pursuit, evasion, and stance-aware combat against moving targets",
+            ),
+            # Level 3: Spacing & Stamina — distance management and resource awareness
+            CurriculumLevel(
+                name="Intermediate",
+                difficulty=DifficultyLevel.INTERMEDIATE,
+                opponents=[
+                    str(td / "distance_keeper_1m.py"),
+                    str(td / "distance_keeper_3m.py"),
+                    str(td / "reactive_defender.py"),
+                    str(td / "stamina_burner.py"),
+                    str(td / "stamina_efficient.py"),
+                ],
+                min_episodes=400,
+                graduation_win_rate=0.82,
+                graduation_episodes=50,
+                description="Learn spacing control, overcoming defense, and stamina management",
+            ),
+            # Level 4: Complex Patterns — multi-state behavioral patterns + counter-punching
+            CurriculumLevel(
+                name="Advanced",
+                difficulty=DifficultyLevel.ADVANCED,
+                opponents=[
+                    str(td / "aggressive_stance_switcher.py"),
+                    str(td / "defensive_stance_switcher.py"),
+                    str(td / "forward_charger.py"),
+                    str(td / "charge_on_approach.py"),
+                    str(td / "oscillator.py"),
+                    str(td / "sideways_mover_smooth.py"),
+                    str(td / "strategic_retreater.py"),
+                ],
+                min_episodes=500,
+                graduation_win_rate=0.80,
+                graduation_episodes=50,
+                description="Read and counter complex behavioral patterns including counter-punchers",
+            ),
+            # Level 5: Adaptive Behavior — opponents react to match state
+            CurriculumLevel(
+                name="Adaptive",
+                difficulty=DifficultyLevel.ADAPTIVE,
+                opponents=[
+                    str(td / "hp_adaptive.py"),
+                    str(td / "stamina_punisher.py"),
+                    str(td / "range_switcher.py"),
+                    str(td / "comeback_fighter.py"),
+                ],
+                min_episodes=400,
+                graduation_win_rate=0.80,
+                graduation_episodes=75,
+                description="Fight opponents that adapt to HP, stamina, and match phase",
+            ),
+            # Level 6: Pre-Expert — simplified expert styles bridging adaptive→expert
+            CurriculumLevel(
+                name="Pre-Expert",
+                difficulty=DifficultyLevel.EXPERT,
+                opponents=[
+                    str(td / "jab_and_move.py"),
+                    str(td / "wait_and_counter.py"),
+                    str(td / "hit_and_run.py"),
+                    str(td / "pressure_fighter.py"),
+                    str(td / "close_range_brawler.py"),
+                ],
+                min_episodes=500,
+                graduation_win_rate=0.78,
+                graduation_episodes=75,
+                description="Learn to handle simplified expert fighting styles before facing full experts",
+            ),
+            # Level 7: Expert Fighters — diverse expert-level strategies
+            CurriculumLevel(
+                name="Expert",
+                difficulty=DifficultyLevel.EXPERT,
+                opponents=[
+                    str(ex / "boxer.py"),
+                    str(ex / "counter_puncher.py"),
+                    str(ex / "out_fighter.py"),
+                    str(ex / "slugger.py"),
+                    str(ex / "swarmer.py"),
+                ],
+                min_episodes=600,
+                graduation_win_rate=0.70,
+                graduation_episodes=75,
+                description="Master combat against diverse expert strategies",
+            ),
+            # Level 8: Gauntlet — prove generalization across all difficulty levels
+            CurriculumLevel(
+                name="Gauntlet",
+                difficulty=DifficultyLevel.GAUNTLET,
+                opponents=[
+                    str(td / "stationary_defending.py"),       # L1
+                    str(td / "flee_defending.py"),              # L2
+                    str(td / "reactive_defender.py"),           # L3
+                    str(td / "charge_on_approach.py"),          # L4
+                    str(td / "hp_adaptive.py"),                 # L5
+                    str(td / "jab_and_move.py"),                # L6
+                    str(ex / "boxer.py"),                       # L7
+                    str(ex / "swarmer.py"),                     # L7
+                ],
+                min_episodes=600,
+                graduation_win_rate=0.75,
+                graduation_episodes=100,
+                description="Prove generalization against a mixed field spanning all difficulty levels",
+            ),
+        ]
 
     def _setup_logging(self):
         """Setup logging for curriculum training."""
@@ -563,6 +715,12 @@ class CurriculumTrainer:
             # Return a dummy opponent that does nothing
             return lambda s: {"acceleration": 0, "stance": "neutral"}
 
+    def _current_reward_weights(self) -> dict:
+        """Get reward weights for the current curriculum level."""
+        from ..signal_engine import LEVEL_REWARD_WEIGHTS, DEFAULT_REWARD_WEIGHTS
+        level = self.get_current_level()
+        return LEVEL_REWARD_WEIGHTS.get(level.difficulty.value, DEFAULT_REWARD_WEIGHTS)
+
     def create_env(self, opponent_path: str, env_id: int = 0) -> Any:
         """Create a single environment with the specified opponent."""
         from ..gym_env import AtomCombatEnv
@@ -574,7 +732,8 @@ class CurriculumTrainer:
             max_ticks=self.max_ticks,
             fighter_mass=70.0,
             opponent_mass=70.0,
-            seed=self.seed + env_id
+            seed=self.seed + env_id,
+            reward_weights=self._current_reward_weights(),
         )
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
@@ -606,6 +765,309 @@ class CurriculumTrainer:
             return self.curriculum[-1]  # Stay at highest level
         return self.curriculum[self.progress.current_level]
 
+    def _get_holdout_suite(self) -> List[Dict[str, str]]:
+        """Return the fixed lightweight curriculum holdout suite."""
+        test_dummy_dir = Path("fighters/test_dummies/atomic")
+        example_dir = Path("fighters/examples")
+        return [
+            {"category": "stationary", "label": "stationary_neutral", "opponent_path": str(test_dummy_dir / "stationary_neutral.py")},
+            {"category": "stationary", "label": "stationary_defending", "opponent_path": str(test_dummy_dir / "stationary_defending.py")},
+            {"category": "movement", "label": "approach_slow", "opponent_path": str(test_dummy_dir / "approach_slow.py")},
+            {"category": "movement", "label": "circle_right", "opponent_path": str(test_dummy_dir / "circle_right.py")},
+            {"category": "spacing", "label": "distance_keeper_1m", "opponent_path": str(test_dummy_dir / "distance_keeper_1m.py")},
+            {"category": "spacing", "label": "reactive_defender", "opponent_path": str(test_dummy_dir / "reactive_defender.py")},
+            {"category": "advanced", "label": "aggressive_stance_switcher", "opponent_path": str(test_dummy_dir / "aggressive_stance_switcher.py")},
+            {"category": "advanced", "label": "retreater", "opponent_path": str(test_dummy_dir / "retreater.py")},
+            {"category": "adaptive", "label": "hp_adaptive", "opponent_path": str(test_dummy_dir / "hp_adaptive.py")},
+            {"category": "adaptive", "label": "stamina_punisher", "opponent_path": str(test_dummy_dir / "stamina_punisher.py")},
+            {"category": "expert", "label": "boxer", "opponent_path": str(example_dir / "boxer.py")},
+            {"category": "expert", "label": "slugger", "opponent_path": str(example_dir / "slugger.py")},
+        ]
+
+    def _run_holdout_match(self, opponent_path: str, env_id: int = 0, model=None, deterministic: bool = False) -> dict[str, Any]:
+        """Run a single holdout match.
+
+        Args:
+            opponent_path: Path to opponent fighter file.
+            env_id: Seed offset for environment.
+            model: Model to evaluate. If None, uses self.model.
+            deterministic: If True, use deterministic policy (mean action).
+                Defaults to False (stochastic) so holdout reflects actual
+                learned behavior, not the flattened deterministic mean.
+        """
+        eval_model = model if model is not None else self.model
+        env = self.create_env(opponent_path, env_id=env_id)
+        try:
+            obs, _ = env.reset()
+            done = False
+            info: dict[str, Any] = {}
+            total_reward = 0.0
+            fight_length = 0
+
+            while not done:
+                action, _ = eval_model.predict(obs, deterministic=deterministic)
+                obs, reward, terminated, truncated, info = env.step(action)
+                total_reward += float(reward)
+                fight_length += 1
+                done = bool(terminated or truncated)
+
+            fighter_hp = float(info.get("fighter_hp", 0.0))
+            opponent_hp = float(info.get("opponent_hp", 0.0))
+            won = info.get("won")
+            if won is None:
+                won = fighter_hp > opponent_hp
+
+            return {
+                "won": bool(won),
+                "damage_dealt": float(info.get("episode_damage_dealt", 0.0)),
+                "damage_taken": float(info.get("episode_damage_taken", 0.0)),
+                "fight_length": int(fight_length),
+                "reward": float(total_reward),
+            }
+        finally:
+            env.close()
+
+    def _evaluate_holdout_suite(
+        self,
+        checkpoint_label: str,
+        matches_per_opponent: int | None = None,
+        model=None,
+        snapshot_metadata: dict | None = None,
+    ) -> None:
+        """Evaluate a model on the fixed holdout suite.
+
+        Args:
+            checkpoint_label: Label for this evaluation snapshot.
+            matches_per_opponent: Matches per holdout opponent.
+            model: Model to evaluate. If None, uses self.model.
+            snapshot_metadata: Level/timestep metadata captured at graduation.
+                If None, uses current trainer state.
+        """
+        eval_model = model if model is not None else self.model
+        if eval_model is None:
+            return
+
+        if matches_per_opponent is None:
+            matches_per_opponent = self.holdout_matches_per_opponent
+
+        suite_results: list[dict[str, Any]] = []
+        for suite_entry in self._get_holdout_suite():
+            match_results = [
+                self._run_holdout_match(suite_entry["opponent_path"], env_id=match_idx, model=eval_model)
+                for match_idx in range(matches_per_opponent)
+            ]
+            wins = sum(1 for result in match_results if result["won"])
+            suite_results.append(
+                {
+                    "category": suite_entry["category"],
+                    "opponent": suite_entry["label"],
+                    "opponent_path": suite_entry["opponent_path"],
+                    "matches": len(match_results),
+                    "wins": wins,
+                    "win_rate": wins / max(1, len(match_results)),
+                    "mean_damage_dealt": float(np.mean([result["damage_dealt"] for result in match_results])),
+                    "mean_damage_taken": float(np.mean([result["damage_taken"] for result in match_results])),
+                    "mean_fight_length": float(np.mean([result["fight_length"] for result in match_results])),
+                    "mean_reward": float(np.mean([result["reward"] for result in match_results])),
+                }
+            )
+
+        overall_matches = sum(result["matches"] for result in suite_results)
+        overall_wins = sum(result["wins"] for result in suite_results)
+        # Use snapshot metadata (captured at graduation) when available,
+        # otherwise fall back to current trainer state.
+        meta = snapshot_metadata or {}
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "checkpoint_label": checkpoint_label,
+            "level_index": meta.get("level_index", int(self.progress.current_level)),
+            "level_name": meta.get("level_name", self.get_current_level().name),
+            "global_timestep": meta.get("global_timestep", self._current_model_timesteps()),
+            "global_total_episodes": meta.get("global_total_episodes", int(self.progress.total_episodes)),
+            "overall_matches": overall_matches,
+            "overall_wins": overall_wins,
+            "overall_win_rate": overall_wins / max(1, overall_matches),
+            "suite_results": suite_results,
+        }
+        append_jsonl(self.analysis_dir / "holdout_eval.jsonl", record)
+
+    def _record_holdout_evaluation(self, checkpoint_label: str, model=None, snapshot_metadata: dict | None = None) -> None:
+        """Run and record holdout evaluation without derailing training on failure."""
+        try:
+            self._evaluate_holdout_suite(checkpoint_label, model=model, snapshot_metadata=snapshot_metadata)
+        except Exception as exc:
+            self.logger.warning(f"Holdout evaluation failed for {checkpoint_label}: {exc}")
+            self._record_failure_event(
+                event_type="holdout_evaluation_failed",
+                error_type=exc.__class__.__name__,
+                message=str(exc),
+                recovery_action="skip_holdout_and_continue",
+                recovery_succeeded=False,
+            )
+
+    def _flush_pending_holdouts(self) -> None:
+        """Run all queued holdout evaluations using saved model snapshots.
+
+        Each entry is a (label, snapshot_path, metadata) tuple. The snapshot
+        was saved at graduation time so the holdout evaluation uses the exact
+        weights and metadata from that level.
+        """
+        model_cls = PPO if self.algorithm == "ppo" else SAC
+        while self._pending_holdout_labels:
+            entry = self._pending_holdout_labels.pop(0)
+            if isinstance(entry, tuple):
+                label = entry[0]
+                snapshot_path = entry[1]
+                metadata = entry[2] if len(entry) > 2 else None
+                try:
+                    snapshot_model = model_cls.load(snapshot_path, device="cpu")
+                    self._record_holdout_evaluation(label, model=snapshot_model, snapshot_metadata=metadata)
+                    del snapshot_model
+                except Exception as exc:
+                    self.logger.warning(f"Failed to load holdout snapshot {snapshot_path}: {exc}")
+                    self._record_holdout_evaluation(label, snapshot_metadata=metadata)
+            else:
+                # Backward compat: bare label string
+                self._record_holdout_evaluation(entry)
+
+    def _current_model_timesteps(self) -> int:
+        """Return the current model timestep counter when available."""
+        value = getattr(self.model, "num_timesteps", 0)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _begin_level_observation_window(self) -> None:
+        """Reset per-level observability anchors for the active curriculum level."""
+        self._current_level_started_at = time.time()
+        self._current_level_start_total_episodes = int(self.progress.total_episodes)
+        self._current_level_start_total_wins = int(self.progress.total_wins)
+        self._current_level_start_timesteps = self._current_model_timesteps()
+        self._current_level_summary_written = False
+        # Initialize active opponent pool for the new level
+        self._active_level_opponents = self._get_level_opponent_names()
+        self._pending_opponent_pool_refresh = False
+
+    def _build_reward_component_means(self) -> dict[str, float]:
+        """Aggregate recent reward component breakdowns into mean values."""
+        breakdowns = list(getattr(self.progress, "recent_reward_breakdowns", []))
+        if not breakdowns:
+            return {}
+
+        aggregates: dict[str, list[float]] = {}
+        for breakdown in breakdowns:
+            for key, value in breakdown.items():
+                if key == "total":
+                    continue
+                aggregates.setdefault(key, []).append(float(value))
+
+        return {
+            key: float(np.mean(values))
+            for key, values in aggregates.items()
+            if values and abs(float(np.mean(values))) > 0.1
+        }
+
+    def _write_level_summary(self, end_reason: str) -> None:
+        """Append a structured summary for the current curriculum level."""
+        if self._current_level_summary_written:
+            return
+
+        level = self.get_current_level()
+        recent_episodes = list(self.progress.recent_episodes)
+        recent_win_rate = (
+            sum(recent_episodes) / len(recent_episodes)
+            if recent_episodes
+            else None
+        )
+        overall_win_rate = self.progress.wins_at_level / max(1, self.progress.episodes_at_level)
+        recent_rewards = list(getattr(self.progress, "recent_rewards", []))
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "level_index": int(self.progress.current_level),
+            "level_name": level.name,
+            "difficulty": level.difficulty.value,
+            "end_reason": end_reason,
+            "episodes_attempted": int(self.progress.episodes_at_level),
+            "wins": int(self.progress.wins_at_level),
+            "overall_win_rate": float(overall_win_rate),
+            "recent_window_size": len(recent_episodes),
+            "recent_win_rate": float(recent_win_rate) if recent_win_rate is not None else None,
+            "level_wall_clock_seconds": float(time.time() - self._current_level_started_at),
+            "timesteps_consumed": self._current_model_timesteps() - self._current_level_start_timesteps,
+            "global_total_episodes": int(self.progress.total_episodes),
+            "global_total_wins": int(self.progress.total_wins),
+            "global_timesteps": self._current_model_timesteps(),
+            "mean_recent_reward": float(np.mean(recent_rewards)) if recent_rewards else None,
+            "reward_component_means": self._build_reward_component_means(),
+            "graduation_recent_win_rate_required": float(level.graduation_win_rate),
+            "graduation_window_episodes": int(level.graduation_episodes),
+            "min_episodes": int(level.min_episodes),
+            # Combat quality metrics
+            "mean_damage_dealt": float(np.mean(self.progress.recent_damage_dealt))
+                if self.progress.recent_damage_dealt else None,
+            "nonzero_damage_rate": float(
+                sum(1 for d in self.progress.recent_damage_dealt if d > 0)
+                / max(1, len(self.progress.recent_damage_dealt))
+            ) if self.progress.recent_damage_dealt else None,
+            # Stance observability
+            **self._build_stance_summary(),
+        }
+        append_jsonl(self.analysis_dir / "level_summaries.jsonl", record)
+        self._current_level_summary_written = True
+
+    def _build_stance_summary(self) -> dict:
+        """Compute stance usage rates from recent episodes."""
+        counts = getattr(self.progress, "recent_stance_counts", [])
+        if not counts:
+            return {"extended_stance_rate": None, "defending_stance_rate": None}
+        total_neutral = sum(c.get("neutral", 0) for c in counts)
+        total_extended = sum(c.get("extended", 0) for c in counts)
+        total_defending = sum(c.get("defending", 0) for c in counts)
+        total_ticks = total_neutral + total_extended + total_defending
+        if total_ticks == 0:
+            return {"extended_stance_rate": 0.0, "defending_stance_rate": 0.0}
+        return {
+            "extended_stance_rate": float(total_extended / total_ticks),
+            "defending_stance_rate": float(total_defending / total_ticks),
+        }
+
+    def _record_failure_event_payload(self, payload: dict[str, Any]) -> None:
+        """Append a structured failure/recovery event payload."""
+        event = {
+            "timestamp": datetime.now().isoformat(),
+            "current_level": int(self.progress.current_level),
+            "global_timestep": self._current_model_timesteps(),
+            **payload,
+        }
+        append_jsonl(self.analysis_dir / "failure_events.jsonl", event)
+
+    def _record_failure_event(
+        self,
+        *,
+        event_type: str,
+        error_type: str,
+        message: str,
+        recovery_action: str,
+        recovery_succeeded: bool | None,
+        checkpoint_path: Path | None = None,
+        debug_path: Path | None = None,
+        nan_retries: int | None = None,
+    ) -> None:
+        """Convenience wrapper for common structured failure events."""
+        self._record_failure_event_payload(
+            {
+                "event_type": event_type,
+                "error_type": error_type,
+                "message": message,
+                "recovery_action": recovery_action,
+                "recovery_succeeded": recovery_succeeded,
+                "checkpoint_path": str(checkpoint_path) if checkpoint_path else None,
+                "debug_path": str(debug_path) if debug_path else None,
+                "nan_retries": nan_retries,
+            }
+        )
+
     def check_training_sanity_gate(self) -> Optional[str]:
         """Return an abort reason when the Level 1 run is clearly unhealthy."""
         if not self.enable_level1_sanity_gate:
@@ -635,6 +1097,149 @@ class CurriculumTrainer:
             "This run is likely unhealthy; stop early, verify pinned Colab dependencies, and retry with the same seed."
         )
 
+    def _run_deterministic_sanity_check(self) -> bool:
+        """Run a few deterministic matches to verify the policy can actually fight.
+
+        Returns True if the model deals nonzero damage in at least one match.
+        This catches the stochastic-training-wins / deterministic-inference-collapse
+        failure mode where the policy passes stochastic win-rate checks but cannot
+        fight under deterministic=True.
+        """
+        sanity_opponents = [
+            "fighters/test_dummies/atomic/stationary_neutral.py",
+            "fighters/test_dummies/atomic/stationary_defending.py",
+        ]
+        for opp_path in sanity_opponents:
+            try:
+                result = self._run_holdout_match(opp_path, env_id=9999, deterministic=True)
+                if result.get("damage_dealt", 0) > 0:
+                    return True
+            except Exception as e:
+                self.logger.warning(f"Deterministic sanity check failed for {opp_path}: {e}")
+        return False
+
+    def _apply_opponent_pool_refresh(self):
+        """Rebuild vmap envs with only unmastered opponents (deferred from callback)."""
+        if not self._pending_opponent_pool_refresh:
+            return
+        self._pending_opponent_pool_refresh = False
+
+        level = self.get_current_level()
+        all_names = [Path(p).stem for p in level.opponents]
+        unmastered = [p for p, n in zip(level.opponents, all_names)
+                      if n not in self.progress.mastered_opponents]
+
+        # Idempotent: skip if pool hasn't actually changed
+        unmastered_names = [Path(p).stem for p in unmastered]
+        if set(unmastered_names) == set(self._active_level_opponents):
+            return
+
+        if not unmastered:
+            return  # All mastered — graduation will handle this
+
+        self.logger.info(f"Refreshing opponent pool: {len(unmastered)}/{len(level.opponents)} remain")
+        for name in sorted(unmastered_names):
+            self.logger.info(f"  → {name}")
+
+        self._active_level_opponents = unmastered_names
+
+        if self.use_vmap:
+            # Create a temporary CurriculumLevel with reduced opponents
+            reduced_level = CurriculumLevel(
+                name=level.name,
+                difficulty=level.difficulty,
+                opponents=unmastered,
+                min_episodes=level.min_episodes,
+                graduation_win_rate=level.graduation_win_rate,
+                graduation_episodes=level.graduation_episodes,
+                description=level.description,
+            )
+            self.envs = self.create_envs_for_level(reduced_level)
+            self.model.set_env(self.envs)
+            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+            # new env to populate _last_obs so the next collect_rollouts doesn't
+            # crash with "Unrecognized type of observation NoneType".
+            self.model._last_obs = self.envs.reset()
+            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
+        else:
+            # CPU path: retarget existing envs to unmastered opponents only
+            for env_idx in range(self.n_envs):
+                opponent_idx = env_idx % len(unmastered)
+                opponent_path = unmastered[opponent_idx]
+                opponent_func = self.load_opponent(opponent_path)
+                self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
+
+    def _get_level_opponent_names(self) -> List[str]:
+        """Get opponent stem names for the current level."""
+        level = self.get_current_level()
+        return [Path(p).stem for p in level.opponents]
+
+    def _check_and_refresh_mastery(self):
+        """Check per-opponent mastery continuously (every episode).
+
+        If mastery state changes, queues a pool refresh for rollout start.
+        This is called from the callback on every episode, NOT gated behind
+        aggregate graduation checks.
+        """
+        level_names = self._get_level_opponent_names()
+
+        # Periodic diagnostic: log per-opponent buffer sizes to detect tracking issues
+        if self.progress.episodes_at_level > 0 and self.progress.episodes_at_level % 500 == 0:
+            self.logger.info(f"Mastery diagnostic (L{self.progress.current_level} ep {self.progress.episodes_at_level}):")
+            for name in level_names:
+                n_recent = len(self.progress.per_opponent_recent.get(name, []))
+                n_eps = self.progress.per_opponent_episodes.get(name, 0)
+                n_wins = self.progress.per_opponent_wins.get(name, 0)
+                n_dmg = len(self.progress.per_opponent_recent_damage.get(name, []))
+                state = "mastered" if name in self.progress.mastered_opponents else (
+                    "pending" if name in self.progress.pending_mastery else "active"
+                )
+                self.logger.info(f"  {name}: {state} eps={n_eps} wins={n_wins} recent={n_recent} dmg_buf={n_dmg}")
+
+        # Snapshot mastery state before check to detect any transition
+        prev_mastered = frozenset(self.progress.mastered_opponents)
+        prev_pending = frozenset(self.progress.pending_mastery)
+
+        all_mastered, pool_changed = self.mastery_tracker.check_mastery(
+            self.progress, level_names,
+        )
+        if pool_changed and not all_mastered:
+            self._pending_opponent_pool_refresh = True
+            newly = self.progress.mastered_opponents & set(level_names)
+            self.logger.info(f"Opponent mastery update: {len(newly)}/{len(level_names)} mastered")
+            for opp in sorted(self.progress.mastered_opponents & set(level_names)):
+                self.logger.info(f"  ✓ {opp} mastered")
+
+        # Log per-opponent mastery snapshot on ANY state transition:
+        # pending entry, pending revocation, or mastered promotion.
+        state_changed = (
+            frozenset(self.progress.mastered_opponents) != prev_mastered
+            or frozenset(self.progress.pending_mastery) != prev_pending
+        )
+        if state_changed:
+            level = self.get_current_level()
+            for opp_name in level_names:
+                recent = self.progress.per_opponent_recent.get(opp_name, [])
+                damage = self.progress.per_opponent_recent_damage.get(opp_name, [])
+                wr = sum(recent) / len(recent) if recent else 0.0
+                mean_dmg = sum(damage) / len(damage) if damage else 0.0
+                nz_rate = sum(1 for d in damage if d > 0) / len(damage) if damage else 0.0
+                state = "mastered" if opp_name in self.progress.mastered_opponents else (
+                    "pending" if opp_name in self.progress.pending_mastery else "active"
+                )
+                append_jsonl(self.analysis_dir / "per_opponent_mastery.jsonl", {
+                    "timestamp": datetime.now().isoformat(),
+                    "level_index": self.progress.current_level,
+                    "level_name": level.name,
+                    "opponent": opp_name,
+                    "state": state,
+                    "recent_win_rate": round(wr, 3),
+                    "recent_mean_damage": round(mean_dmg, 2),
+                    "recent_nonzero_rate": round(nz_rate, 3),
+                    "episodes": self.progress.per_opponent_episodes.get(opp_name, 0),
+                    "total_episodes_at_level": self.progress.episodes_at_level,
+                })
+
     def should_graduate(self) -> bool:
         """Check if the fighter should graduate to the next level."""
         level = self.get_current_level()
@@ -644,17 +1249,64 @@ class CurriculumTrainer:
             curriculum_size=len(self.curriculum),
         )
 
-        should_log = decision.should_graduate or (
-            decision.recent_passed and self.progress.episodes_at_level % 100 == 0
-        )
-        if should_log and decision.reason != "override":
+        if not decision.should_graduate:
+            # Log failed checks periodically (not every episode)
+            if decision.recent_passed and self.progress.episodes_at_level % 100 == 0:
+                self.progress_reporter.log_graduation_decision(decision)
+            return False
+
+        # Per-opponent mastery gate: all opponents must be individually mastered
+        if decision.reason != "override":
+            level_names = self._get_level_opponent_names()
+            all_mastered = all(o in self.progress.mastered_opponents for o in level_names)
+            if not all_mastered:
+                unmastered = [o for o in level_names if o not in self.progress.mastered_opponents]
+                if self.progress.episodes_at_level % 100 == 0:
+                    per_opp_eps = {n: self.progress.per_opponent_episodes.get(n, 0) for n in unmastered}
+                    self.logger.info(
+                        f"Aggregate checks pass but {len(unmastered)} opponents unmastered: "
+                        f"{unmastered} (per-opp eps: {per_opp_eps})"
+                    )
+                return False
+
+        # Deterministic sanity gate
+        if decision.reason != "override":
+            if not self._run_deterministic_sanity_check():
+                self.logger.warning(
+                    "Deterministic sanity check FAILED — policy deals 0 damage "
+                    "under deterministic=True. Continuing training."
+                )
+                return False
+
+        # All gates passed — log and graduate
+        if decision.reason != "override":
             self.progress_reporter.log_graduation_decision(decision)
 
-        return decision.should_graduate
+        return True
 
     def advance_level(self):
         """Advance to the next curriculum level."""
         current = self.get_current_level()
+        self._write_level_summary(end_reason="graduated")
+        checkpoint_label = (
+            f"level_{self.progress.current_level + 1}_"
+            f"{current.name.lower().replace(' ', '_')}_graduated"
+        )
+        # Save a snapshot of the current model so holdout evaluation uses
+        # the exact weights at graduation, not whatever weights exist later
+        # when the flush runs (which may be after further training).
+        snapshot_path = self.models_dir / "checkpoints" / f"holdout_snapshot_{checkpoint_label}.zip"
+        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.model is not None:
+            self.model.save(snapshot_path)
+        # Queue label, path, and metadata captured at graduation time
+        snapshot_metadata = {
+            "level_index": int(self.progress.current_level),
+            "level_name": current.name,
+            "global_timestep": self._current_model_timesteps(),
+            "global_total_episodes": int(self.progress.total_episodes),
+        }
+        self._pending_holdout_labels.append((checkpoint_label, str(snapshot_path), snapshot_metadata))
 
         self.logger.info("="*60)
         self.logger.info(f"GRADUATED from {current.name}!")
@@ -710,9 +1362,11 @@ class CurriculumTrainer:
 
                 # Update model's environment reference
                 self.model.set_env(self.envs)
-
-                # Note: Old environment will be garbage collected automatically
-                # Don't manually delete attributes as the model may still hold references
+                # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+                # new env to populate _last_obs so the next collect_rollouts doesn't
+                # crash with "Unrecognized type of observation NoneType".
+                self.model._last_obs = self.envs.reset()
+                self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
             else:
                 # For CPU: Switch opponents in existing environments (avoids closing/recreating VecEnv)
                 # This prevents Monitor file handle issues during level transitions
@@ -724,8 +1378,99 @@ class CurriculumTrainer:
                     # Use env_method to call set_opponent() on each environment
                     self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
+            self._begin_level_observation_window()
+
+    def _validate_curriculum_graduate(self) -> bool:
+        """Run comprehensive post-curriculum validation against all unique opponents.
+
+        Tests both stochastic and deterministic modes against every unique opponent
+        across all curriculum levels. Writes structured results to
+        analysis/post_curriculum_validation.jsonl.
+
+        Returns True if validation passes (soft gate: always True for v1).
+        """
+        validation_matches = 5
+        validation_min_win_rate = 0.40
+
+        # Deduplicate opponents across all levels, preserving order
+        all_opponents = list(dict.fromkeys(
+            opp for level in self.curriculum for opp in level.opponents
+        ))
+
+        # Build source_levels mapping: which levels use each opponent
+        def _find_source_levels(opp_path):
+            return [
+                {"level_index": i, "level_name": level.name}
+                for i, level in enumerate(self.curriculum)
+                if opp_path in level.opponents
+            ]
+
+        self.logger.info(f"\nPost-curriculum validation: {len(all_opponents)} unique opponents, "
+                         f"{validation_matches} matches each (stochastic + deterministic)")
+
+        results = []
+        for opp_path in all_opponents:
+            opp_stem = Path(opp_path).stem
+            for mode, det in [("stochastic", False), ("deterministic", True)]:
+                wins, damage_list = 0, []
+                for i in range(validation_matches):
+                    try:
+                        r = self._run_holdout_match(opp_path, env_id=i, deterministic=det)
+                        if r["won"]:
+                            wins += 1
+                        damage_list.append(r["damage_dealt"])
+                    except Exception as exc:
+                        self.logger.warning(f"Validation match failed ({opp_stem} {mode} #{i}): {exc}")
+                        damage_list.append(0.0)
+
+                wr = wins / max(1, len(damage_list))
+                mean_dmg = sum(damage_list) / max(1, len(damage_list))
+                nz_rate = sum(1 for d in damage_list if d > 0) / max(1, len(damage_list))
+
+                result = {
+                    "opponent": opp_stem,
+                    "opponent_path": opp_path,
+                    "source_levels": _find_source_levels(opp_path),
+                    "mode": mode,
+                    "win_rate": round(wr, 3),
+                    "mean_damage": round(mean_dmg, 2),
+                    "nonzero_damage_rate": round(nz_rate, 3),
+                    "matches": len(damage_list),
+                    "wins": wins,
+                }
+                results.append(result)
+
+                status = "PASS" if wr >= validation_min_win_rate else "FAIL"
+                self.logger.info(f"  {status} {opp_stem} ({mode}): {wr:.0%} WR, "
+                                 f"{mean_dmg:.1f} avg dmg, {nz_rate:.0%} nonzero")
+
+        # Write structured results
+        append_jsonl(self.analysis_dir / "post_curriculum_validation.jsonl", {
+            "timestamp": datetime.now().isoformat(),
+            "total_opponents": len(all_opponents),
+            "validation_matches_per_opponent": validation_matches,
+            "results": results,
+        })
+
+        # Soft gate: warn on failures but proceed
+        failed = [r for r in results
+                  if r["mode"] == "stochastic"
+                  and r["win_rate"] < validation_min_win_rate]
+        if failed:
+            self.logger.warning(f"Post-curriculum validation: {len(failed)} opponents below "
+                                f"{validation_min_win_rate:.0%} stochastic threshold:")
+            for r in failed:
+                self.logger.warning(f"  {r['opponent']}: {r['win_rate']:.0%} WR, {r['mean_damage']:.1f} dmg")
+        else:
+            self.logger.info(f"Post-curriculum validation PASSED: all opponents above {validation_min_win_rate:.0%}")
+
+        return True  # Soft gate v1: always proceed
+
     def on_curriculum_complete(self):
         """Called when the entire curriculum is completed."""
+        # Drain any holdout evaluations still in the queue
+        self._flush_pending_holdouts()
+
         elapsed = time.time() - self.progress.start_time
 
         self.logger.info("\n" + "="*80)
@@ -736,6 +1481,9 @@ class CurriculumTrainer:
         self.logger.info(f"Overall Win Rate: {self.progress.total_wins / max(1, self.progress.total_episodes):.2%}")
         self.logger.info(f"Training Time: {elapsed/3600:.1f} hours")
         self.logger.info(f"Graduated Levels: {', '.join(self.progress.graduated_levels)}")
+
+        # Run post-curriculum validation against all unique opponents
+        self._validate_curriculum_graduate()
 
         # Save final model
         final_model_path = self.models_dir / "curriculum_graduate.zip"
@@ -784,6 +1532,16 @@ class CurriculumTrainer:
     def _log_training_loop_error(self, exc: CurriculumTrainingError):
         """Emit a consistent structured error block for training loop failures."""
         details = exc.details
+        self._record_failure_event(
+            event_type="training_loop_error",
+            error_type=exc.__class__.__name__,
+            message=str(exc),
+            recovery_action="checkpoint_recovery" if details.checkpoint_path is not None else "abort_run",
+            recovery_succeeded=False,
+            checkpoint_path=details.checkpoint_path,
+            debug_path=details.debug_path,
+            nan_retries=details.nan_retries,
+        )
         self.logger.error("=" * 80)
         self.logger.error("CURRICULUM TRAINING LOOP FAILED")
         self.logger.error("=" * 80)
@@ -801,6 +1559,9 @@ class CurriculumTrainer:
     def _capture_training_state(self, callback: CurriculumCallback) -> dict:
         """Capture curriculum + callback state for checkpoint resume."""
         progress_state = asdict(self.progress)
+        # Convert sets to lists for JSON serialization
+        progress_state["mastered_opponents"] = list(progress_state.get("mastered_opponents", set()))
+        progress_state["pending_mastery"] = list(progress_state.get("pending_mastery", set()))
         progress_state["recent_rewards"] = list(getattr(self.progress, "recent_rewards", []))
         progress_state["recent_reward_breakdowns"] = list(
             getattr(self.progress, "recent_reward_breakdowns", [])
@@ -832,6 +1593,11 @@ class CurriculumTrainer:
             old_envs = self.envs
             self.envs = self.create_envs_for_level(restored_level)
             self.model.set_env(self.envs)
+            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
+            # new env to populate _last_obs so the next collect_rollouts doesn't
+            # crash with "Unrecognized type of observation NoneType".
+            self.model._last_obs = self.envs.reset()
+            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
             if old_envs is not self.envs and hasattr(old_envs, "close"):
                 old_envs.close()
             return
@@ -864,6 +1630,18 @@ class CurriculumTrainer:
         self.progress.recent_reward_breakdowns = list(
             progress_state.get("recent_reward_breakdowns", [])
         )
+        # Restore per-opponent mastery state
+        self.progress.per_opponent_episodes = dict(progress_state.get("per_opponent_episodes", {}))
+        self.progress.per_opponent_wins = dict(progress_state.get("per_opponent_wins", {}))
+        self.progress.per_opponent_recent = {k: list(v) for k, v in progress_state.get("per_opponent_recent", {}).items()}
+        self.progress.per_opponent_recent_damage = {k: list(v) for k, v in progress_state.get("per_opponent_recent_damage", {}).items()}
+        self.progress.mastered_opponents = set(progress_state.get("mastered_opponents", []))
+        self.progress.pending_mastery = set(progress_state.get("pending_mastery", []))
+        # Recompute active opponent pool from mastery state (single source of truth)
+        self._active_level_opponents = [
+            n for n in self._get_level_opponent_names()
+            if n not in self.progress.mastered_opponents
+        ]
 
         callback_state = state.get("callback", {})
         callback.episode_rewards = list(callback_state.get("episode_rewards", []))
@@ -880,6 +1658,15 @@ class CurriculumTrainer:
             )
             self._sync_environment_to_level()
 
+        # Same-level resume with mastered opponents: queue pool refresh so
+        # the first rollout start rebuilds envs with only unmastered opponents.
+        if self.progress.mastered_opponents and self._active_level_opponents != self._get_level_opponent_names():
+            self.logger.info(
+                f"Checkpoint restored with {len(self.progress.mastered_opponents)} mastered opponents — "
+                "queuing pool refresh for next rollout start"
+            )
+            self._pending_opponent_pool_refresh = True
+
     def train(self, total_timesteps: int = 1_000_000, resume_from_latest: bool = False):
         """
         Train the fighter through the curriculum.
@@ -888,9 +1675,16 @@ class CurriculumTrainer:
             total_timesteps: Total training timesteps across all levels
             resume_from_latest: Load latest checkpoint bundle before training.
         """
+        # Suppress noisy third-party warnings during training
+        import warnings
+        warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+        warnings.filterwarnings("ignore", message=".*intended to run on the CPU.*")
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch.onnx")
+
         self.logger.info("Starting curriculum training...")
 
         # Start with first level
+        self._begin_level_observation_window()
         level = self.get_current_level()
         self.logger.info(f"Level 1: {level.name}")
         self.logger.info(f"Description: {level.description}")
@@ -936,8 +1730,10 @@ class CurriculumTrainer:
                 training_state_restorer=lambda state: self._restore_training_state(callback, state),
                 model_update_fn=lambda recovered_model: setattr(self, "model", recovered_model),
                 env_getter=lambda: self.envs,
+                event_recorder=self._record_failure_event_payload,
             )
         except CurriculumTrainingError as exc:
+            self._write_level_summary(end_reason="training_error")
             self._log_training_loop_error(exc)
             raise
         finally:
@@ -945,6 +1741,14 @@ class CurriculumTrainer:
                 self.envs.close()
 
         if self.abort_reason is not None:
+            self._write_level_summary(end_reason="sanity_gate")
+            self._record_failure_event(
+                event_type="sanity_gate_triggered",
+                error_type="RuntimeError",
+                message=self.abort_reason,
+                recovery_action="abort_run",
+                recovery_succeeded=False,
+            )
             self.logger.error("="*80)
             self.logger.error("CURRICULUM SANITY GATE TRIGGERED")
             self.logger.error("="*80)
@@ -956,6 +1760,7 @@ class CurriculumTrainer:
 
         # Check if we graduated at least the first level
         if len(self.progress.graduated_levels) == 0:
+            self._write_level_summary(end_reason="max_budget")
             # Didn't graduate even Level 1
             level = self.curriculum[0]
 
@@ -976,6 +1781,13 @@ class CurriculumTrainer:
             self.logger.error(f"Recent win rate: {current_win_rate:.1%} (need {level.graduation_win_rate:.1%})")
             self.logger.error(f"Required: {level.graduation_win_rate:.1%} win rate over {level.graduation_episodes} episodes")
             self.logger.error("")
+            self._record_failure_event(
+                event_type="max_budget_exhausted",
+                error_type="RuntimeError",
+                message="Curriculum failed to graduate Level 1 within allotted timesteps",
+                recovery_action="increase_budget_or_adjust_config",
+                recovery_succeeded=False,
+            )
             self.logger.error("Suggestions:")
             self.logger.error(f"  - Increase timesteps (current: {total_timesteps:,})")
             self.logger.error(f"  - Try 3-5x more timesteps for Level 1 graduation")

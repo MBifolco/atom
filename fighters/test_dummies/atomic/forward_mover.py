@@ -1,22 +1,19 @@
 """
-Continuously moves forward toward opponent.
+Forward Mover — continuously moves toward opponent at moderate speed.
+Uses direction for movement, not absolute distance.
 Used for Level 3: Intermediate training.
 """
 
+
 def decide(state):
     """Always moves toward the opponent."""
-    # Determine direction to opponent
-    if state["opponent"]["distance"] > 0:
-        # Opponent is to the right, move right
-        accel = 2.0
-    else:
-        # Opponent is to the left, move left
-        accel = -2.0
+    direction = state["opponent"]["direction"]
+    distance = state["opponent"]["distance"]
 
-    # Aggressive stance when moving forward
-    stance = "extended" if abs(state["opponent"]["distance"]) < 1.5 else "neutral"
+    accel = direction * 2.0
+    stance = "extended" if distance < 1.5 else "neutral"
 
     return {
         "acceleration": accel,
-        "stance": stance
+        "stance": stance,
     }

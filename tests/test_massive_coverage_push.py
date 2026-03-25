@@ -29,7 +29,7 @@ class T1:
     def test_gym_env_different_masses(self):
         env = AtomCombatEnv(f1, fighter_mass=60.0, opponent_mass=80.0)
         env.reset()
-        env.step(np.array([0.5, 1.0]))
+        env.step(np.array([0.5, -1.0, 1.0, -1.0]))
 
     def test_gym_env_max_ticks_custom(self):
         env = AtomCombatEnv(f1, max_ticks=30)
@@ -164,7 +164,7 @@ class T1:
         env.reset()
 
         # Test extreme actions that need clamping
-        extreme_action = np.array([10.0, 99.0])  # Way out of bounds
+        extreme_action = np.array([10.0, 99.0, -99.0, 0.0])  # Way out of bounds
         obs, reward, done, truncated, info = env.step(extreme_action)
         assert not np.any(np.isnan(obs))
 

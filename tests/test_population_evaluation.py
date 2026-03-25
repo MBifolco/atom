@@ -52,16 +52,16 @@ def test_run_returns_zero_when_no_pairs():
         num_matches_per_pair=1,
     )
 
-    assert matches == 0
+    assert matches.matches_run == 0
 
 
 def test_run_single_pair_updates_elo_and_returns_match_count():
     service = PopulationEvaluationService(_context(verbose=False))
 
     model_a = Mock()
-    model_a.predict.return_value = (np.array([0.0, 0.0]), None)
+    model_a.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
     model_b = Mock()
-    model_b.predict.return_value = (np.array([0.0, 0.0]), None)
+    model_b.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
     fighter_a = _DummyFighter(name="a", mass=70.0, model=model_a)
     fighter_b = _DummyFighter(name="b", mass=71.0, model=model_b)
 
@@ -87,6 +87,6 @@ def test_run_single_pair_updates_elo_and_returns_match_count():
         num_matches_per_pair=1,
     )
 
-    assert matches == 1
+    assert matches.matches_run == 1
     assert elo_tracker.update_ratings.call_count == 1
     mock_env.close.assert_called()

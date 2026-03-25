@@ -10,7 +10,7 @@ class TestReplayRecorder:
 
     def test_import_replay_recorder(self):
         """Test replay recorder module imports."""
-        from src.training import replay_recorder
+        from src.atom.training import replay_recorder
 
         # Module should load
         assert replay_recorder is not None

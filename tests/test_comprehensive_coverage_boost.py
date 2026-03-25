@@ -160,7 +160,7 @@ class TestCurriculumComponentsComplete:
         """Test iterating over difficulty levels."""
         levels = list(DifficultyLevel)
 
-        assert len(levels) == 6
+        assert len(levels) == 8
         assert DifficultyLevel.FUNDAMENTALS in levels
         assert DifficultyLevel.POPULATION in levels
 

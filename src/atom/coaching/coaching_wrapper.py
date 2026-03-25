@@ -78,7 +78,7 @@ class CoachingWrapper:
         elif self.last_coach_command == "COUNTER":
             if self.command_cooldown > 0:
                 # Counter mode: defensive stance but ready to strike
-                modified["stance"] = "retracted"
+                modified["stance"] = "defending"
                 if snapshot["distance"] < 2:
                     # Switch to attack when close
                     modified["stance"] = "extended"
@@ -213,7 +213,7 @@ class Physics1DTranslator:
             return {"acceleration": -2.0, "stance": "defending"}
 
         elif intent == SemanticCoachingIntent.COUNTER_FIGHTING:
-            return {"acceleration": 0.0, "stance": "retracted"}
+            return {"acceleration": 0.0, "stance": "defending"}
 
         elif intent == SemanticCoachingIntent.ENERGY_CONSERVATION:
             return {"acceleration": 0.0, "stance": "neutral"}

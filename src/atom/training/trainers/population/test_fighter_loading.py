@@ -43,7 +43,7 @@ def test_fighter_vs_random(decide_func, fighter_name: str, num_matches: int = 5)
                 stance = decision["stance"]
 
                 # Convert to action format expected by env
-                stance_map = {"neutral": 0, "extended": 1, "retracted": 2, "defending": 3}
+                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
                 stance_idx = stance_map.get(stance, 0)
 
                 # Normalize acceleration to [-1, 1]
@@ -112,7 +112,7 @@ def test_fighter_vs_fighter(fighter1_func, fighter1_name: str,
                 stance = decision["stance"]
 
                 # Convert to action format
-                stance_map = {"neutral": 0, "extended": 1, "retracted": 2, "defending": 3}
+                stance_map = {"neutral": 0, "extended": 1, "defending": 2}
                 stance_idx = stance_map.get(stance, 0)
                 norm_accel = np.clip(acceleration / 4.5, -1, 1)
                 action = np.array([norm_accel, stance_idx], dtype=np.float32)

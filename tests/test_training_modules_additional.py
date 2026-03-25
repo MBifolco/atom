@@ -27,7 +27,7 @@ class TestAtomCombatEnvRewardCalculation:
         # Run enough steps to potentially win
         total_reward = 0
         for _ in range(100):
-            action = np.array([1.0, 1.0], dtype=np.float32)  # Aggressive
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)  # Aggressive
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
             if terminated or truncated:
@@ -42,7 +42,7 @@ class TestAtomCombatEnvRewardCalculation:
         env = AtomCombatEnv(opponent_func)
         env.reset()
 
-        action = np.array([0.0, 1.0], dtype=np.float32)
+        action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert isinstance(info, dict)
@@ -57,7 +57,7 @@ class TestAtomCombatEnvRewardCalculation:
 
         # Run some steps - opponent should potentially take damage
         for _ in range(30):
-            action = np.array([1.0, 1.0], dtype=np.float32)  # Attack
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)  # Attack
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated or truncated:
                 break
@@ -89,12 +89,12 @@ class TestAtomCombatEnvReset:
 
         env1 = AtomCombatEnv(opponent_func)
         env1.reset(seed=42)
-        env1.step(np.array([0.5, 1.0], dtype=np.float32))
+        env1.step(np.array([0.5, -1.0, 1.0, -1.0], dtype=np.float32))
         state1 = env1.tick
 
         env2 = AtomCombatEnv(opponent_func)
         env2.reset(seed=999)
-        env2.step(np.array([0.5, 1.0], dtype=np.float32))
+        env2.step(np.array([0.5, -1.0, 1.0, -1.0], dtype=np.float32))
         state2 = env2.tick
 
         # Both should have taken one step
@@ -113,7 +113,7 @@ class TestAtomCombatEnvOpponents:
         env.reset()
 
         for _ in range(15):
-            action = np.array([0.0, 2.0], dtype=np.float32)  # Defend
+            action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)  # Defend
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated or truncated:
                 break
@@ -130,7 +130,7 @@ class TestAtomCombatEnvOpponents:
         env.reset()
 
         for _ in range(15):
-            action = np.array([1.0, 1.0], dtype=np.float32)  # Attack
+            action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)  # Attack
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated or truncated:
                 break

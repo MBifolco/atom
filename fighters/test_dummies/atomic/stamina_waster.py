@@ -1,6 +1,8 @@
 """
 Always uses extended stance to waste stamina.
-Used for Level 3: Intermediate training.
+
+NOTE: Intentionally unused in curriculum. Functionally identical to
+stationary_extended. Replaced by stamina_burner for active pursuit.
 """
 
 def decide(state):

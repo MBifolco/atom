@@ -19,11 +19,35 @@ STANCE_NEUTRAL = 0
 STANCE_EXTENDED = 1
 STANCE_DEFENDING = 2
 
+# Per-level reward weights for curriculum training.  Damage and terminal
+# always stay at 1.0x.  These scale the secondary shaping signals so each
+# level focuses on the skill cluster it's supposed to teach.  Population
+# training (and any path that doesn't provide a level) uses DEFAULT_REWARD_WEIGHTS.
+DEFAULT_REWARD_WEIGHTS = {"proximity": 1.0, "inaction": 1.0, "stance": 1.0, "stamina": 1.0}
+
+LEVEL_REWARD_WEIGHTS = {
+    "fundamentals":  {"proximity": 20.0, "inaction": 3.0, "stance": 5.0, "stamina": 1.0},
+    "basic_skills":  {"proximity": 15.0, "inaction": 2.0, "stance": 5.0, "stamina": 2.0},
+    "intermediate":  {"proximity": 10.0, "inaction": 1.5, "stance": 8.0, "stamina": 5.0},
+    "advanced":      {"proximity": 5.0,  "inaction": 1.0, "stance": 5.0, "stamina": 3.0},
+    "adaptive":      {"proximity": 1.0,  "inaction": 0.5, "stance": 2.0, "stamina": 1.0},
+    # Expert/Gauntlet: proximity and inaction zeroed — these mislead against
+    # counter-punchers (proximity punishes patience) and patient fighters
+    # (inaction punishes waiting). Damage + terminal remain always active.
+    "expert":        {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
+    "gauntlet":      {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
+}
+
 _STANCE_NAME_TO_INT = {
     "neutral": STANCE_NEUTRAL,
     "extended": STANCE_EXTENDED,
     "defending": STANCE_DEFENDING,
 }
+
+
+def hp_pct(hp: float, max_hp: float) -> float:
+    """Return HP as a fraction of max HP (0.0 – 1.0)."""
+    return float(hp) / float(max_hp)
 
 
 def stance_to_int(stance: int | float | str) -> int:
@@ -78,9 +102,10 @@ def build_observation(
     opponent_max_stamina: float,
     opponent_stance: int | float | str,
     arena_width: float,
-    recent_damage: float,
+    you_stance: int | float | str = 0,
+    tick_fraction: float = 0.0,
 ) -> np.ndarray:
-    """Build a single 13-dimensional training observation."""
+    """Build a single 14-dimensional training observation."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -96,15 +121,14 @@ def build_observation(
         opponent_max_stamina=np.array([opponent_max_stamina], dtype=np.float32),
         opponent_stance=np.array([opponent_stance], dtype=object),
         arena_width=arena_width,
-        recent_damage=np.array([recent_damage], dtype=np.float32),
+        you_stance=np.array([you_stance], dtype=object),
+        tick_fraction=np.array([tick_fraction], dtype=np.float32),
     )
     return obs[0]
 
 
 def build_observation_from_snapshot(
     snapshot: Mapping[str, Any],
-    *,
-    recent_damage: float = 0.0,
 ) -> np.ndarray:
     """
     Build canonical observation from protocol snapshot (`generate_snapshot` format).
@@ -139,8 +163,10 @@ def build_observation_from_snapshot(
         else:
             opponent_velocity = you_velocity + rel_velocity
 
-    snapshot_recent_damage = snapshot.get("recent_damage_dealt", recent_damage)
     opponent_stance = opponent.get("stance_hint", opponent.get("stance", "neutral"))
+
+    you_stance = you.get("stance", "neutral")
+    tick_fraction = float(snapshot.get("tick_fraction", 0.0))
 
     return build_observation(
         you_position=you_position,
@@ -157,7 +183,8 @@ def build_observation_from_snapshot(
         opponent_max_stamina=float(opponent["max_stamina"]),
         opponent_stance=opponent_stance,
         arena_width=float(arena["width"]),
-        recent_damage=float(snapshot_recent_damage),
+        you_stance=you_stance,
+        tick_fraction=tick_fraction,
     )
 
 
@@ -177,9 +204,10 @@ def build_observation_batch(
     opponent_max_stamina,
     opponent_stance,
     arena_width: float,
-    recent_damage,
+    you_stance=None,
+    tick_fraction=None,
 ) -> np.ndarray:
-    """Build batched 13-dimensional observations with canonical semantics."""
+    """Build batched 14-dimensional observations with canonical semantics."""
     you_position = _to_float_array(you_position)
     you_velocity = _to_float_array(you_velocity)
     you_hp = _to_float_array(you_hp)
@@ -193,7 +221,16 @@ def build_observation_batch(
     opponent_stamina = _to_float_array(opponent_stamina)
     opponent_max_stamina = _to_float_array(opponent_max_stamina)
     opponent_stance_int = _to_stance_array(opponent_stance).astype(np.float32)
-    recent_damage = _to_float_array(recent_damage)
+
+    if you_stance is not None:
+        you_stance_int = _to_stance_array(you_stance).astype(np.float32)
+    else:
+        you_stance_int = np.zeros_like(you_position)
+
+    if tick_fraction is not None:
+        tick_fraction = _to_float_array(tick_fraction)
+    else:
+        tick_fraction = np.zeros_like(you_position)
 
     hp_norm = you_hp / np.maximum(you_max_hp, 1.0)
     stamina_norm = you_stamina / np.maximum(you_max_stamina, 1.0)
@@ -220,7 +257,8 @@ def build_observation_batch(
             wall_dist_left,
             wall_dist_right,
             opponent_stance_int,
-            recent_damage,
+            you_stance_int,
+            tick_fraction,
         ],
         axis=1,
     ).astype(np.float32)
@@ -271,6 +309,7 @@ def compute_step_rewards_batch(
     arena_width: float,
     episode_damage_dealt,
     episode_stamina_used,
+    reward_weights: dict | None = None,
 ) -> RewardStepBatchResult:
     """
     Canonical batched reward computation shared by single and vmap envs.
@@ -294,6 +333,8 @@ def compute_step_rewards_batch(
     episode_damage_dealt = _to_float_array(episode_damage_dealt)
     episode_stamina_used = _to_float_array(episode_stamina_used)
 
+    w = reward_weights if reward_weights is not None else DEFAULT_REWARD_WEIGHTS
+
     n = distance.shape[0]
     rewards = np.zeros(n, dtype=np.float32)
     damage_component = np.zeros(n, dtype=np.float32)
@@ -313,7 +354,7 @@ def compute_step_rewards_batch(
         tie_mask = terminal_mask & (fighter_hp_pct == opponent_hp_pct)
         loss_mask = terminal_mask & (fighter_hp_pct < opponent_hp_pct)
 
-        time_bonus = np.maximum(0.0, (float(max_ticks) - tick_counts) / 40.0)
+        time_bonus = np.maximum(0.0, (float(max_ticks) - tick_counts) / 15.0)
         hp_diff = fighter_hp_pct - opponent_hp_pct
         hp_bonus = hp_diff * 50.0
         damage_per_stamina = episode_damage_dealt / np.maximum(episode_stamina_used, 1.0)
@@ -341,7 +382,7 @@ def compute_step_rewards_batch(
         rewards = np.where(slight_win_mask, 0.0, rewards)
         rewards = np.where(clear_loss_mask, -100.0 + (hp_pct_diff * 50.0), rewards)
         rewards = np.where(slight_loss_mask, -50.0, rewards)
-        rewards = np.where(exact_tie_mask, -200.0, rewards)
+        rewards = np.where(exact_tie_mask, -50.0, rewards)
         terminal_component = np.where(timeout_mask, rewards, terminal_component)
 
     # Mid-episode shaping rewards.
@@ -406,11 +447,11 @@ def compute_step_rewards_batch(
         inaction_component += np.where(far_inaction_mask, -0.02, 0.0)
 
         mid_total = (
-            damage_component
-            + proximity_component
-            + stamina_component
-            + stance_component
-            + inaction_component
+            damage_component                                     # always 1.0x
+            + proximity_component * w.get("proximity", 1.0)
+            + stamina_component * w.get("stamina", 1.0)
+            + stance_component * w.get("stance", 1.0)
+            + inaction_component * w.get("inaction", 1.0)
         )
         rewards = np.where(mid_mask, mid_total, rewards)
 
@@ -446,6 +487,7 @@ def compute_step_reward_scalar(
     arena_width: float,
     episode_damage_dealt: float,
     episode_stamina_used: float,
+    reward_weights: dict | None = None,
 ) -> RewardStepScalarResult:
     """Scalar convenience wrapper around `compute_step_rewards_batch`."""
     last_distance_array = None if last_distance is None else np.array([last_distance], dtype=np.float32)
@@ -466,6 +508,7 @@ def compute_step_reward_scalar(
         arena_width=arena_width,
         episode_damage_dealt=np.array([episode_damage_dealt], dtype=np.float32),
         episode_stamina_used=np.array([episode_stamina_used], dtype=np.float32),
+        reward_weights=reward_weights,
     )
     return RewardStepScalarResult(
         reward=float(batch_result.rewards[0]),

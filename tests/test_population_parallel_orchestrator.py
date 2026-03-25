@@ -71,6 +71,7 @@ def _context(tmp_path: Path) -> ParallelTrainingContext:
         use_vmap=False,
         n_vmap_envs=8,
         generation=3,
+        seed=1337,
         verbose=False,
         logger=_test_logger(),
     )

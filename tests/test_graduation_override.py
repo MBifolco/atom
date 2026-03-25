@@ -81,14 +81,18 @@ class TestGraduationOverride:
             # Mock curriculum
             trainer.curriculum = [level_mock]
 
-            # Mock progress with good performance
+            # Mock progress with good performance including combat quality
             trainer.progress.current_level = 0
             trainer.progress.episodes_at_level = 25
             trainer.progress.wins_at_level = 20
             trainer.progress.recent_episodes = [True] * 20  # All wins
+            trainer.progress.recent_damage_dealt = [15.0] * 20  # Good damage
+
+            # Mock the deterministic sanity check to pass
+            trainer._run_deterministic_sanity_check = lambda: True
 
             # Should use normal graduation logic
-            # With all wins and enough episodes, should graduate
+            # With all wins, good damage, and enough episodes, should graduate
             assert trainer.should_graduate()
 
             # With poor performance, should not graduate

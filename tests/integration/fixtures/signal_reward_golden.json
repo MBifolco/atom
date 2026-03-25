@@ -51,13 +51,13 @@
       "episode_stamina_used": 20.0
     },
     "expected": {
-      "reward": 149.25,
+      "reward": 156.33334350585938,
       "damage_component": 0.0,
       "proximity_component": 0.0,
       "stamina_component": 0.0,
       "stance_component": 0.0,
       "inaction_component": 0.0,
-      "terminal_component": 149.25,
+      "terminal_component": 156.33334350585938,
       "next_last_distance": 0.800000011920929
     }
   },

@@ -11,6 +11,7 @@ from typing import List, Dict, Optional, Callable, Tuple, Any
 import logging
 from datetime import datetime
 import random
+import time
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
@@ -24,10 +25,11 @@ from stable_baselines3.common.monitor import Monitor
 from src.atom.runtime.arena import WorldConfig
 from src.atom.training.gym_env import AtomCombatEnv
 from src.atom.training.signal_engine import build_observation_from_snapshot
+from src.atom.training.utils.observability import append_jsonl, ensure_analysis_dir
 from src.atom.training.utils.runtime_platform import configure_runtime_gpu_env
 from .elo_tracker import EloTracker
 from .population_evaluation import EvaluationContext, PopulationEvaluationService
-from .population_evolution import EvolutionContext, PopulationEvolver
+from .population_evolution import EvolutionContext, LineageEvent, PopulationEvolver
 from .population_persistence import PopulationPersistenceContext, PopulationPersistenceService
 from .population_training_loop import PopulationTrainingLoopContext, PopulationTrainingLoopHelper
 from .parallel_orchestrator import (
@@ -384,14 +386,15 @@ def _create_opponent_decide_func(model):
         Decide function compatible with AtomCombatEnv
     """
     def decide(snapshot):
-        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+        obs = build_observation_from_snapshot(snapshot)
 
         action, _ = model.predict(obs, deterministic=False)
 
+        from src.atom.training.action_codec import extract_stance
         acceleration = float(action[0]) * 4.5
-        stance_idx = int(np.clip(action[1], 0, 2))
+        stance_idx = extract_stance(action)
         stances = ["neutral", "extended", "defending"]
-        stance = stances[min(stance_idx, 2)]
+        stance = stances[stance_idx]
 
         return {"acceleration": acceleration, "stance": stance}
 
@@ -403,7 +406,8 @@ def _create_vmap_training_environment(
     opponent_models: List[Tuple],
     config: WorldConfig,
     n_vmap_envs: int,
-    max_ticks: int
+    max_ticks: int,
+    seed: int = 42,
 ):
     """
     Create JAX vmap vectorized environment for GPU training.
@@ -437,7 +441,7 @@ def _create_vmap_training_environment(
         max_ticks=max_ticks,
         fighter_mass=fighter_mass,
         opponent_mass=fighter_mass,  # Assume same mass for simplicity
-        seed=42
+        seed=seed
     )
 
     return VmapEnvAdapter(vmap_env)
@@ -506,6 +510,7 @@ def _train_single_fighter_parallel(
     n_envs: int,
     episodes: int,
     max_ticks: int,
+    seed: int,
     algorithm: str,
     config_dict: dict,
     logs_dir: str,
@@ -537,6 +542,16 @@ def _train_single_fighter_parallel(
     """
     # Configure threading for subprocess
     _configure_process_threading()
+
+    # Suppress noisy warnings from subprocesses (CUDA factory registration,
+    # Gym deprecation, SB3 PPO-on-GPU, TF/absl log-before-init).
+    import warnings
+    import os
+    warnings.filterwarnings("ignore", message=".*Gym has been unmaintained.*")
+    warnings.filterwarnings("ignore", message=".*intended to run on the CPU.*")
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch.onnx")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # suppress TF INFO/WARNING
+    os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
 
     # Configure GPU memory/runtime for subprocess (if using GPU/vmap)
     if use_vmap:
@@ -571,7 +586,7 @@ def _train_single_fighter_parallel(
     # Create training environments (vmap for GPU or DummyVecEnv for CPU)
     if use_vmap:
         vec_env = _create_vmap_training_environment(
-            fighter_mass, opponent_models, config, n_vmap_envs, max_ticks
+            fighter_mass, opponent_models, config, n_vmap_envs, max_ticks, seed=seed
         )
     else:
         vec_env = _create_cpu_training_environment(
@@ -593,6 +608,7 @@ def _train_single_fighter_parallel(
     # Track statistics
     episode_count = 0
     recent_rewards = []
+    all_rewards = []  # Full trajectory for convergence analysis
     last_report_timestep = 0
 
     import time
@@ -620,13 +636,14 @@ def _train_single_fighter_parallel(
     # Enhanced callback with progress reporting
     class ProgressCallback(BaseCallback):
         def _on_step(self) -> bool:
-            nonlocal episode_count, recent_rewards, last_report_timestep, last_update_time
+            nonlocal episode_count, recent_rewards, all_rewards, last_report_timestep, last_update_time
 
             for info in self.locals.get("infos", []):
                 if "episode" in info:
                     episode_count += 1
                     reward = info["episode"]["r"]
                     recent_rewards.append(reward)
+                    all_rewards.append(reward)
                     if len(recent_rewards) > 100:
                         recent_rewards.pop(0)
 
@@ -704,12 +721,27 @@ def _train_single_fighter_parallel(
         import gc
         gc.collect()
 
+    # Compute reward trajectory quartiles for convergence analysis
+    n = len(all_rewards)
+    if n >= 4:
+        q = n // 4
+        trajectory = {
+            "q1": float(np.mean(all_rewards[:q])),
+            "q2": float(np.mean(all_rewards[q:2*q])),
+            "q3": float(np.mean(all_rewards[2*q:3*q])),
+            "q4": float(np.mean(all_rewards[3*q:])),
+            "total_episodes": n,
+        }
+    else:
+        trajectory = {"q1": None, "q2": None, "q3": None, "q4": None, "total_episodes": n}
+
     # Return statistics
     return {
         "fighter": fighter_name,
         "episodes": episode_count,
         "mean_reward": float(np.mean(recent_rewards)) if recent_rewards else 0.0,
-        "opponent_names": [name for name, _, _ in opponent_data]
+        "opponent_names": [name for name, _, _ in opponent_data],
+        "reward_trajectory": trajectory,
     }
 
 
@@ -734,6 +766,7 @@ class PopulationCallback(BaseCallback):
         self.elo_tracker = elo_tracker
         self.episode_count = 0
         self.recent_rewards = []
+        self.all_rewards = []  # Full trajectory for convergence analysis
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
@@ -741,12 +774,32 @@ class PopulationCallback(BaseCallback):
                 self.episode_count += 1
                 reward = info["episode"]["r"]
                 self.recent_rewards.append(reward)
+                self.all_rewards.append(reward)
 
-                # Keep only last 100 episodes
+                # Keep only last 100 for running mean
                 if len(self.recent_rewards) > 100:
                     self.recent_rewards.pop(0)
 
         return True
+
+    def reward_trajectory(self) -> dict:
+        """Compute reward at quartile points to measure convergence.
+
+        Returns mean reward over the first 25%, second 25%, third 25%, and
+        final 25% of episodes. If training is still improving at Q4, the
+        budget may be too small.
+        """
+        n = len(self.all_rewards)
+        if n < 4:
+            return {"q1": None, "q2": None, "q3": None, "q4": None, "total_episodes": n}
+        q = n // 4
+        return {
+            "q1": float(np.mean(self.all_rewards[:q])),
+            "q2": float(np.mean(self.all_rewards[q:2*q])),
+            "q3": float(np.mean(self.all_rewards[2*q:3*q])),
+            "q4": float(np.mean(self.all_rewards[3*q:])),
+            "total_episodes": n,
+        }
 
 
 class PopulationTrainer:
@@ -849,14 +902,27 @@ class PopulationTrainer:
         self.models_dir.mkdir(exist_ok=True)
         self.logs_dir = self.output_dir / "logs"
         self.logs_dir.mkdir(exist_ok=True)
+        self.analysis_dir = ensure_analysis_dir(self.output_dir)
 
         # Initialize population
         self.population: List[PopulationFighter] = []
         self.elo_tracker = EloTracker()
 
+        # Style diversity matchmaking
+        from .style_matchmaking import (
+            StyleFingerprinter, DiversityMatchmaker, DiversityMatchmakingContext,
+        )
+        self.fingerprinter = StyleFingerprinter()
+        self.matchmaker = DiversityMatchmaker(DiversityMatchmakingContext())
+        self._cached_fingerprints: dict = {}
+
+        # Curriculum anchor opponents for retention scoring
+        self._anchor_opponents = self._load_anchor_opponents()
+
         # Training state
         self.generation = 0
         self.total_matches = 0
+        self._last_anchor_scores: dict[str, float] = {}
 
         # Replay recorder (if enabled)
         self.replay_recorder = None
@@ -903,40 +969,53 @@ class PopulationTrainer:
         self.logger.info("="*80)
 
     def _create_fighter_name(self, index: int, generation: int = 0) -> str:
-        """Generate a deterministic fighter name with optional funkybob support."""
+        """Generate a unique fighter name, retrying on collision.
+
+        Names are deterministic for a given (index, generation) seed, but
+        with only 144 possible adjective-animal combinations, collisions
+        occur ~4% per generation. A retry loop with incrementing seed
+        ensures uniqueness within the current population.
+        """
         import random
 
-        # Reproducible seed based on index and generation.
-        seed = index + (generation * 1000)
-        rng = random.Random(seed)
+        existing_names = {f.name for f in self.population}
 
-        try:
-            import funkybob
-        except ImportError:
-            # Fallback path for environments where funkybob is unavailable (e.g., some Colab runtimes).
-            adjectives = [
-                "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
-                "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
-            ]
-            animals = [
-                "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
-                "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
-            ]
-            base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
-        else:
-            # funkybob uses global random state; isolate and restore it.
-            previous_state = random.getstate()
-            random.seed(seed)
+        for attempt in range(20):
+            seed = index + (generation * 1000) + (attempt * 7919)  # prime offset per retry
+            rng = random.Random(seed)
+
             try:
-                name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
-                base_name = next(iter(name_generator))
-            finally:
-                random.setstate(previous_state)
+                import funkybob
+            except ImportError:
+                adjectives = [
+                    "Swift", "Iron", "Clever", "Bold", "Silent", "Fierce",
+                    "Rapid", "Stone", "Noble", "Rogue", "Brisk", "Prime",
+                    "Dark", "Bright", "Steel", "Shadow", "Storm", "Frost",
+                    "Blaze", "Grim", "Keen", "Wild", "Deft", "True",
+                ]
+                animals = [
+                    "Falcon", "Viper", "Wolf", "Tiger", "Eagle", "Panther",
+                    "Raven", "Cobra", "Jaguar", "Lynx", "Hawk", "Shark",
+                    "Bear", "Fox", "Otter", "Crane", "Mantis", "Stag",
+                    "Hornet", "Asp", "Drake", "Condor", "Badger", "Heron",
+                ]
+                # 24 × 24 = 576 combinations — virtually eliminates collisions
+                base_name = f"{rng.choice(adjectives)}_{rng.choice(animals)}"
+            else:
+                previous_state = random.getstate()
+                random.seed(seed)
+                try:
+                    name_generator = funkybob.RandomNameGenerator(members=2, separator='_')
+                    base_name = next(iter(name_generator))
+                finally:
+                    random.setstate(previous_state)
 
-        # Add generation suffix if not first generation
-        if generation > 0:
-            return f"{base_name}_G{generation}"
-        return base_name
+            full_name = f"{base_name}_G{generation}" if generation > 0 else base_name
+            if full_name not in existing_names:
+                return full_name
+
+        # Fallback: append index to guarantee uniqueness
+        return f"{base_name}_{index}_G{generation}" if generation > 0 else f"{base_name}_{index}"
 
     def initialize_population(self, base_model_path: Optional[str] = None, variation_factor: float = 0.1):
         """
@@ -980,6 +1059,7 @@ class PopulationTrainer:
             else:
                 # Create new model from scratch
                 if self.algorithm == "ppo":
+                    from src.atom.training.utils.stable_ppo_config import get_shared_policy_kwargs
                     model = PPO(
                         "MlpPolicy",
                         env,
@@ -991,7 +1071,8 @@ class PopulationTrainer:
                         gamma=0.99,
                         gae_lambda=0.95,
                         clip_range=0.2,
-                        ent_coef=0.01  # Encourage exploration
+                        ent_coef=0.01,
+                        policy_kwargs=get_shared_policy_kwargs(),
                     )
                 else:  # SAC
                     model = SAC(
@@ -1047,20 +1128,44 @@ class PopulationTrainer:
     def _get_fighter_decision_func(self, fighter: PopulationFighter) -> Callable:
         """Create a decision function for a trained fighter."""
         def decide(snapshot):
-            obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+            obs = build_observation_from_snapshot(snapshot)
 
             # Get action from model
             action, _ = fighter.model.predict(obs, deterministic=False)
 
             # Convert continuous action to game action
+            from src.atom.training.action_codec import extract_stance
             acceleration = float(action[0]) * 4.5  # Scale from [-1, 1] to [-4.5, 4.5]
-            stance_idx = int(action[1])
-            stances = ["neutral", "extended", "defending"]  # Only 3 stances now
-            stance = stances[min(stance_idx, 2)]  # Clamp to 0-2
+            stance_idx = extract_stance(action)
+            stances = ["neutral", "extended", "defending"]
+            stance = stances[stance_idx]
 
             return {"acceleration": acceleration, "stance": stance}
 
         return decide
+
+    def _load_anchor_opponents(self) -> dict[str, Callable]:
+        """Load curriculum anchor opponents for retention scoring."""
+        import importlib.util
+        anchor_paths = {
+            "charge_on_approach": "fighters/test_dummies/atomic/charge_on_approach.py",
+            "hp_adaptive": "fighters/test_dummies/atomic/hp_adaptive.py",
+            "jab_and_move": "fighters/test_dummies/atomic/jab_and_move.py",
+            "swarmer": "fighters/examples/swarmer.py",
+        }
+        anchors = {}
+        for name, path in anchor_paths.items():
+            full_path = Path(path)
+            if not full_path.exists():
+                continue
+            spec = importlib.util.spec_from_file_location(f"anchor_{name}", str(full_path))
+            if spec is None or spec.loader is None:
+                continue
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            if hasattr(mod, "decide"):
+                anchors[name] = mod.decide
+        return anchors
 
     def create_matchmaking_pairs(self) -> List[Tuple[PopulationFighter, PopulationFighter]]:
         """
@@ -1136,6 +1241,7 @@ class PopulationTrainer:
             use_vmap=self.use_vmap,
             n_vmap_envs=self.n_vmap_envs,
             generation=self.generation,
+            seed=self.seed,
             verbose=self.verbose,
             logger=self.logger,
         )
@@ -1215,26 +1321,31 @@ class PopulationTrainer:
             "fighter": fighter.name,
             "episodes": callback.episode_count,
             "mean_reward": np.mean(callback.recent_rewards) if callback.recent_rewards else 0,
-            "opponents": opponent_names
+            "opponents": opponent_names,
+            "reward_trajectory": callback.reward_trajectory(),
         }
 
         vec_env.close()
 
         return stats
 
-    def run_evaluation_matches(self, num_matches_per_pair: int = 3) -> None:
+    def run_evaluation_matches(self, num_matches_per_pair: int = 3):
         """
         Run evaluation matches between all fighters to update ELO ratings.
+
+        Returns:
+            EvaluationRunResult with match count and per-fighter stats.
         """
         service = PopulationEvaluationService(self._build_evaluation_context())
-        matches_run = service.run(
+        eval_result = service.run(
             population=self.population,
             elo_tracker=self.elo_tracker,
             decision_func_factory=self._get_fighter_decision_func,
             env_factory=AtomCombatEnv,
             num_matches_per_pair=num_matches_per_pair,
         )
-        self.total_matches += matches_run
+        self.total_matches += eval_result.matches_run
+        return eval_result
 
     def _build_evaluation_context(self) -> EvaluationContext:
         """Build immutable context for evaluation helpers."""
@@ -1246,7 +1357,7 @@ class PopulationTrainer:
             logger=self.logger,
         )
 
-    def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> None:
+    def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> list[LineageEvent]:
         """
         Evolve the population by replacing weak fighters with mutations of strong ones.
 
@@ -1255,13 +1366,14 @@ class PopulationTrainer:
             mutation_rate: How much to vary the cloned models
         """
         evolver = PopulationEvolver(self._build_evolution_context())
-        evolver.evolve(
+        return evolver.evolve(
             population=self.population,
             elo_tracker=self.elo_tracker,
             keep_top=keep_top,
             mutation_rate=mutation_rate,
             create_fighter_name=self._create_fighter_name,
             fighter_factory=self._create_population_fighter,
+            anchor_scores=self._last_anchor_scores or None,
         )
 
     def _build_evolution_context(self) -> EvolutionContext:
@@ -1367,6 +1479,14 @@ class PopulationTrainer:
                     exported_count += 1
                 except Exception as e:
                     self.logger.error(f"Failed to export {fighter.name}: {e}")
+                    self._record_export_failure(
+                        fighter_name=fighter.name,
+                        export_target=str(ais_dir / fighter.name),
+                        exception=e,
+                        training_artifacts_saved=True,
+                        win_rate=win_rate,
+                        elo=float(stats.elo),
+                    )
                     if self.verbose:
                         print(f"  ⚠️  Failed to export {fighter.name}: {e}")
 
@@ -1412,6 +1532,221 @@ class PopulationTrainer:
         """Create a README.md file with fighter stats and usage info."""
         persistence = self._build_population_persistence_service()
         persistence.create_fighter_readme(fighter, stats, win_rate, output_path)
+
+    def _active_rankings_for_names(self, fighter_names: list[str]) -> list[Any]:
+        """Return Elo rankings restricted to the provided fighter names."""
+        active_names = set(fighter_names)
+        return [stats for stats in self.elo_tracker.get_rankings() if stats.name in active_names]
+
+    def _top_active_stats(self, fighter_names: list[str]):
+        """Return the current top-ranked active fighter stats, if any."""
+        rankings = self._active_rankings_for_names(fighter_names)
+        return rankings[0] if rankings else None
+
+    def _append_generation_summary(
+        self,
+        *,
+        generation: int,
+        pre_population_names: list[str],
+        post_population_names: list[str],
+        champion_before,
+        champion_after,
+        results: list[dict],
+        episodes_per_fighter: int,
+        training_seconds: float,
+        evaluation_seconds: float,
+        saving_seconds: float,
+    ) -> None:
+        """Persist a structured generation summary for later comparison."""
+        total_episodes = sum(int(result.get("episodes", 0)) for result in results)
+        mean_reward_overall = (
+            float(np.mean([result["mean_reward"] for result in results]))
+            if results
+            else None
+        )
+        survivor_names = sorted(set(pre_population_names) & set(post_population_names))
+        child_names = sorted(set(post_population_names) - set(pre_population_names))
+        generation_record = {
+            "timestamp": datetime.now().isoformat(),
+            "generation": int(generation),
+            "population_size": len(post_population_names),
+            "episodes_per_fighter_target": int(episodes_per_fighter),
+            "total_episodes_completed": int(total_episodes),
+            "training_wall_clock_seconds": float(training_seconds),
+            "evaluation_wall_clock_seconds": float(evaluation_seconds),
+            "saving_wall_clock_seconds": float(saving_seconds),
+            "total_generation_wall_clock_seconds": float(training_seconds + evaluation_seconds + saving_seconds),
+            "active_population_before_evolution": list(pre_population_names),
+            "active_population_after_evolution": list(post_population_names),
+            "survivor_names": survivor_names,
+            "survivor_count_carried_forward": len(survivor_names),
+            "child_names": child_names,
+            "child_count_introduced": len(child_names),
+            "champion_before_training": getattr(champion_before, "name", None),
+            "champion_before_training_elo": float(champion_before.elo) if champion_before is not None else None,
+            "champion_after_evaluation": getattr(champion_after, "name", None),
+            "champion_after_evaluation_elo": float(champion_after.elo) if champion_after is not None else None,
+            "champion_turnover": (
+                champion_before is not None
+                and champion_after is not None
+                and champion_before.name != champion_after.name
+            ),
+            "total_matches_so_far": int(self.total_matches),
+            "mean_reward_overall": mean_reward_overall,
+            "fighter_results": [
+                {
+                    "fighter": result.get("fighter"),
+                    "episodes": int(result.get("episodes", 0)),
+                    "mean_reward": float(result.get("mean_reward", 0.0)),
+                    "opponent_names": list(result.get("opponent_names", result.get("opponents", []))),
+                    "reward_trajectory": result.get("reward_trajectory"),
+                }
+                for result in results
+            ],
+            "diversity_metrics": self.elo_tracker.get_diversity_metrics(),
+        }
+        append_jsonl(self.analysis_dir / "generation_summary.jsonl", generation_record)
+
+    def _append_lineage_events(
+        self,
+        *,
+        generation: int,
+        lineage_events: list[LineageEvent],
+        active_population_names: list[str],
+    ) -> None:
+        """Persist detailed parent-child replacement events for one generation."""
+        if not lineage_events:
+            return
+
+        active_rankings = self._active_rankings_for_names(active_population_names)
+        active_rank_by_name = {
+            stats.name: rank
+            for rank, stats in enumerate(active_rankings, start=1)
+        }
+        active_elo_by_name = {
+            stats.name: float(stats.elo)
+            for stats in active_rankings
+        }
+        for event in lineage_events:
+            append_jsonl(
+                self.analysis_dir / "lineage_events.jsonl",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "generation": int(generation),
+                    "child_name": event.child_name,
+                    "child_generation": int(event.child_generation),
+                    "parent_name": event.parent_name,
+                    "replaced_fighter_name": event.replaced_fighter_name,
+                    "parent_elo_at_mutation": event.parent_elo_at_mutation,
+                    "child_post_evolution_rank": active_rank_by_name.get(event.child_name),
+                    "child_post_evolution_elo": active_elo_by_name.get(event.child_name),
+                    "replaced_generation": int(event.replaced_generation),
+                    "child_mass": float(event.child_mass),
+                },
+            )
+
+    def _append_current_leaderboard_snapshot(
+        self,
+        *,
+        generation: int,
+        active_population_names: list[str],
+        new_child_names: set[str],
+    ) -> None:
+        """Persist the active-population leaderboard after each generation."""
+        active_rankings = self._active_rankings_for_names(active_population_names)
+        fighter_by_name = {fighter.name: fighter for fighter in self.population}
+        for rank, stats in enumerate(active_rankings, start=1):
+            fighter = fighter_by_name.get(stats.name)
+            append_jsonl(
+                self.analysis_dir / "current_leaderboard.jsonl",
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "generation": int(generation),
+                    "fighter_name": stats.name,
+                    "active_generation_rank": int(rank),
+                    "active_generation_elo": float(stats.elo),
+                    "cumulative_wins": int(stats.wins),
+                    "cumulative_losses": int(stats.losses),
+                    "cumulative_draws": int(stats.draws),
+                    "lineage_label": getattr(fighter, "lineage", None),
+                    "fighter_generation": int(getattr(fighter, "generation", 0)) if fighter is not None else None,
+                    "status_in_generation": (
+                        "new_child" if stats.name in new_child_names else "incumbent"
+                    ),
+                },
+            )
+
+    def _log_style_matchmaking_record(
+        self,
+        *,
+        stage: str,
+        generation: int,
+        fighter_opponent_pairs: list | None = None,
+    ) -> None:
+        """Write a style matchmaking record to analysis/style_matchmaking.jsonl."""
+        record: dict = {
+            "timestamp": datetime.now().isoformat(),
+            "stage": stage,
+        }
+        if stage == "post_evaluation":
+            record["generation"] = int(generation)
+            record["fingerprints"] = {
+                name: {
+                    "stance_neutral_pct": fp.stance_neutral_pct,
+                    "stance_extended_pct": fp.stance_extended_pct,
+                    "stance_defending_pct": fp.stance_defending_pct,
+                    "damage_efficiency": fp.damage_efficiency,
+                    "avg_fight_length_pct": fp.avg_fight_length_pct,
+                    "source": fp.source,
+                }
+                for name, fp in self._cached_fingerprints.items()
+            }
+        elif stage == "pre_training":
+            record["applies_to_generation"] = int(generation)
+            record["roster"] = [f.name for f in self.population]
+            record["fingerprints"] = {
+                name: {
+                    "stance_neutral_pct": fp.stance_neutral_pct,
+                    "stance_extended_pct": fp.stance_extended_pct,
+                    "stance_defending_pct": fp.stance_defending_pct,
+                    "damage_efficiency": fp.damage_efficiency,
+                    "avg_fight_length_pct": fp.avg_fight_length_pct,
+                    "source": fp.source,
+                }
+                for name, fp in self._cached_fingerprints.items()
+            }
+            if fighter_opponent_pairs:
+                record["matchmaking_assignments"] = [
+                    {"fighter": f.name, "opponents": [o.name for o in opps]}
+                    for f, opps in fighter_opponent_pairs
+                ]
+        append_jsonl(self.analysis_dir / "style_matchmaking.jsonl", record)
+
+    def _record_export_failure(
+        self,
+        *,
+        fighter_name: str,
+        export_target: str,
+        exception: Exception,
+        training_artifacts_saved: bool,
+        win_rate: float | None = None,
+        elo: float | None = None,
+    ) -> None:
+        """Persist structured export failure details without interrupting training."""
+        append_jsonl(
+            self.analysis_dir / "export_failures.jsonl",
+            {
+                "timestamp": datetime.now().isoformat(),
+                "generation": int(self.generation),
+                "fighter_name": fighter_name,
+                "export_target": export_target,
+                "exception_type": exception.__class__.__name__,
+                "exception_message": str(exception),
+                "training_artifacts_saved": bool(training_artifacts_saved),
+                "win_rate": float(win_rate) if win_rate is not None else None,
+                "elo": float(elo) if elo is not None else None,
+            },
+        )
 
     def _build_training_loop_context(
         self,
@@ -1471,25 +1806,85 @@ class PopulationTrainer:
         # Training loop
         for gen in range(generations):
             loop_helper.log_generation_header(current_generation=self.generation + 1)
+            pre_population_names = [fighter.name for fighter in self.population]
+            champion_before = self._top_active_stats(pre_population_names)
 
-            # Create matchmaking pairs
-            pairs = self.create_matchmaking_pairs()
-
-            # Prepare fighter-opponent pairs for parallel training
-            fighter_opponent_pairs = loop_helper.build_fighter_opponent_pairs(self.population, pairs)
+            # Assign opponents via diversity matchmaking (or random for Gen 0)
+            if self._cached_fingerprints:
+                fighter_opponent_pairs = self.matchmaker.assign_opponents(
+                    population=self.population,
+                    fingerprints=self._cached_fingerprints,
+                    elo_tracker=self.elo_tracker,
+                )
+            else:
+                fighter_opponent_pairs = self.matchmaker.assign_random_opponents(
+                    population=self.population,
+                    opponents_per_fighter=min(
+                        self.matchmaker.context.opponents_per_fighter,
+                        len(self.population) - 1,
+                    ),
+                )
+            self._log_style_matchmaking_record(
+                stage="pre_training",
+                generation=self.generation + 1,
+                fighter_opponent_pairs=fighter_opponent_pairs,
+            )
+            episodes_per_fighter = episodes_per_generation // len(self.population)
 
             # Train all fighters in parallel
             loop_helper.log_generation_training_start(population_size=len(self.population))
-
+            training_started_at = time.time()
             results = self.train_fighters_parallel(
                 fighter_opponent_pairs,
-                episodes_per_fighter=episodes_per_generation // len(self.population)
+                episodes_per_fighter=episodes_per_fighter
             )
+            training_seconds = time.time() - training_started_at
 
             loop_helper.log_generation_training_summary(results)
 
-            # Evaluation matches
-            self.run_evaluation_matches(num_matches_per_pair=3)
+            # Evaluation matches — reset ELO so rankings reflect this
+            # generation only, not cumulative history.
+            evaluation_started_at = time.time()
+            self.elo_tracker.reset_ratings()
+            eval_result = self.run_evaluation_matches(num_matches_per_pair=3)
+            evaluation_seconds = time.time() - evaluation_started_at
+            champion_after = self._top_active_stats(pre_population_names)
+
+            # Compute style fingerprints from evaluation data
+            self._cached_fingerprints = self.fingerprinter.compute_fingerprints(
+                evaluation_stats=eval_result.per_fighter_stats,
+                max_ticks=self.max_ticks,
+                active_fighter_names=[f.name for f in self.population],
+            )
+            self._log_style_matchmaking_record(
+                stage="post_evaluation",
+                generation=self.generation,
+            )
+
+            # Curriculum anchor retention evaluation
+            if self._anchor_opponents:
+                anchor_eval_service = PopulationEvaluationService(self._build_evaluation_context())
+                anchor_results = anchor_eval_service.evaluate_against_anchors(
+                    population=self.population,
+                    anchor_opponents=self._anchor_opponents,
+                    decision_func_factory=self._get_fighter_decision_func,
+                    env_factory=AtomCombatEnv,
+                    matches_per_anchor=2,
+                )
+                self._last_anchor_scores = {
+                    name: data["anchor_score"] for name, data in anchor_results.items()
+                }
+                # Log per-anchor results
+                for fighter_name, data in anchor_results.items():
+                    rankings = self.elo_tracker.get_rankings()
+                    elo = next((s.elo for s in rankings if s.name == fighter_name), 1500.0)
+                    append_jsonl(self.analysis_dir / "anchor_evaluation.jsonl", {
+                        "generation": self.generation,
+                        "fighter": fighter_name,
+                        "anchors": data["anchors"],
+                        "anchor_score": round(data["anchor_score"], 3),
+                        "elo": round(float(elo), 1),
+                    })
 
             # Record replays if enabled (based on frequency)
             loop_helper.maybe_record_replays(
@@ -1503,11 +1898,47 @@ class PopulationTrainer:
             loop_helper.maybe_show_leaderboard(self.elo_tracker, self.population)
 
             # Evolution
+            lineage_events: list[LineageEvent] = []
             if loop_helper.should_evolve(gen):
-                self.evolve_population(keep_top=keep_top, mutation_rate=mutation_rate)
+                lineage_events = self.evolve_population(
+                    keep_top=keep_top,
+                    mutation_rate=mutation_rate,
+                )
+                # Inherit parent fingerprints for new children, prune replaced
+                if lineage_events and self._cached_fingerprints:
+                    self.fingerprinter.inherit_for_children(
+                        self._cached_fingerprints, lineage_events,
+                    )
+
+            post_population_names = [fighter.name for fighter in self.population]
+            new_child_names = {event.child_name for event in lineage_events}
 
             # Save checkpoint
+            save_started_at = time.time()
             self.save_population()
+            saving_seconds = time.time() - save_started_at
+            self._append_generation_summary(
+                generation=self.generation,
+                pre_population_names=pre_population_names,
+                post_population_names=post_population_names,
+                champion_before=champion_before,
+                champion_after=champion_after,
+                results=results,
+                episodes_per_fighter=episodes_per_fighter,
+                training_seconds=training_seconds,
+                evaluation_seconds=evaluation_seconds,
+                saving_seconds=saving_seconds,
+            )
+            self._append_lineage_events(
+                generation=self.generation,
+                lineage_events=lineage_events,
+                active_population_names=post_population_names,
+            )
+            self._append_current_leaderboard_snapshot(
+                generation=self.generation,
+                active_population_names=post_population_names,
+                new_child_names=new_child_names,
+            )
 
             self.generation += 1
 
