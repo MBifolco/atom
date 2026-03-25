@@ -61,7 +61,7 @@ def decide(snapshot):
 
     model = _load_model()
     obs = build_observation_from_snapshot(snapshot)
-    action, _ = model.predict(obs, deterministic=True)
+    action, _ = model.predict(obs, deterministic=False)
 
     acceleration = float(np.clip(action[0], -1.0, 1.0)) * 4.375
     stance_idx = int(np.argmax(action[1:4]))

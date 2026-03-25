@@ -34,7 +34,7 @@ def load_model(model_path: str):
     return model
 
 
-def run_match(model, opponent_path: str, seed: int = 42, verbose: bool = True, deterministic: bool = True) -> dict:
+def run_match(model, opponent_path: str, seed: int = 42, verbose: bool = True, deterministic: bool = False) -> dict:
     """Run a single match and return results with per-tick trace."""
     from src.atom.training.gym_env import AtomCombatEnv
 
@@ -190,7 +190,7 @@ def main():
     parser.add_argument("--seeds", type=int, nargs="+", help="Run with multiple seeds")
     parser.add_argument("--opponent", type=str, help="Single opponent path to test against")
     parser.add_argument("--quiet", action="store_true", help="Only show summary, no per-tick trace")
-    parser.add_argument("--stochastic", action="store_true", help="Use stochastic policy (deterministic=False)")
+    parser.add_argument("--deterministic", action="store_true", help="Use deterministic policy (not recommended — causes stance collapse)")
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -199,7 +199,7 @@ def main():
         sys.exit(1)
 
     model = load_model(model_path)
-    mode = "STOCHASTIC" if args.stochastic else "DETERMINISTIC"
+    mode = "DETERMINISTIC" if args.deterministic else "STOCHASTIC"
     print(f"  Mode: {mode}")
 
     # Default holdout suite (same as curriculum holdout evaluator)
@@ -230,7 +230,7 @@ def main():
             if not Path(opp["path"]).exists():
                 print(f"  SKIP: {opp['path']} not found")
                 continue
-            result = run_match(model, opp["path"], seed=seed, verbose=not args.quiet, deterministic=not args.stochastic)
+            result = run_match(model, opp["path"], seed=seed, verbose=not args.quiet, deterministic=args.deterministic)
             all_ticks.extend(result["ticks"])
             results_summary.append({
                 "seed": seed,
