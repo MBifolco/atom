@@ -30,9 +30,12 @@ LEVEL_REWARD_WEIGHTS = {
     "basic_skills":  {"proximity": 15.0, "inaction": 2.0, "stance": 5.0, "stamina": 2.0},
     "intermediate":  {"proximity": 10.0, "inaction": 1.5, "stance": 8.0, "stamina": 5.0},
     "advanced":      {"proximity": 5.0,  "inaction": 1.0, "stance": 5.0, "stamina": 3.0},
-    "adaptive":      {"proximity": 3.0,  "inaction": 1.0, "stance": 3.0, "stamina": 2.0},
-    "expert":        {"proximity": 1.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
-    "gauntlet":      {"proximity": 1.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "adaptive":      {"proximity": 1.0,  "inaction": 0.5, "stance": 2.0, "stamina": 1.0},
+    # Expert/Gauntlet: proximity and inaction zeroed — these mislead against
+    # counter-punchers (proximity punishes patience) and patient fighters
+    # (inaction punishes waiting). Damage + terminal remain always active.
+    "expert":        {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
+    "gauntlet":      {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
 }
 
 _STANCE_NAME_TO_INT = {

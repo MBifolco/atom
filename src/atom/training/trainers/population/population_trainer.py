@@ -916,9 +916,13 @@ class PopulationTrainer:
         self.matchmaker = DiversityMatchmaker(DiversityMatchmakingContext())
         self._cached_fingerprints: dict = {}
 
+        # Curriculum anchor opponents for retention scoring
+        self._anchor_opponents = self._load_anchor_opponents()
+
         # Training state
         self.generation = 0
         self.total_matches = 0
+        self._last_anchor_scores: dict[str, float] = {}
 
         # Replay recorder (if enabled)
         self.replay_recorder = None
@@ -1055,6 +1059,7 @@ class PopulationTrainer:
             else:
                 # Create new model from scratch
                 if self.algorithm == "ppo":
+                    from src.atom.training.utils.stable_ppo_config import get_shared_policy_kwargs
                     model = PPO(
                         "MlpPolicy",
                         env,
@@ -1066,7 +1071,8 @@ class PopulationTrainer:
                         gamma=0.99,
                         gae_lambda=0.95,
                         clip_range=0.2,
-                        ent_coef=0.01  # Encourage exploration
+                        ent_coef=0.01,
+                        policy_kwargs=get_shared_policy_kwargs(),
                     )
                 else:  # SAC
                     model = SAC(
@@ -1137,6 +1143,29 @@ class PopulationTrainer:
             return {"acceleration": acceleration, "stance": stance}
 
         return decide
+
+    def _load_anchor_opponents(self) -> dict[str, Callable]:
+        """Load curriculum anchor opponents for retention scoring."""
+        import importlib.util
+        anchor_paths = {
+            "charge_on_approach": "fighters/test_dummies/atomic/charge_on_approach.py",
+            "hp_adaptive": "fighters/test_dummies/atomic/hp_adaptive.py",
+            "jab_and_move": "fighters/test_dummies/atomic/jab_and_move.py",
+            "swarmer": "fighters/examples/swarmer.py",
+        }
+        anchors = {}
+        for name, path in anchor_paths.items():
+            full_path = Path(path)
+            if not full_path.exists():
+                continue
+            spec = importlib.util.spec_from_file_location(f"anchor_{name}", str(full_path))
+            if spec is None or spec.loader is None:
+                continue
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            if hasattr(mod, "decide"):
+                anchors[name] = mod.decide
+        return anchors
 
     def create_matchmaking_pairs(self) -> List[Tuple[PopulationFighter, PopulationFighter]]:
         """
@@ -1344,6 +1373,7 @@ class PopulationTrainer:
             mutation_rate=mutation_rate,
             create_fighter_name=self._create_fighter_name,
             fighter_factory=self._create_population_fighter,
+            anchor_scores=self._last_anchor_scores or None,
         )
 
     def _build_evolution_context(self) -> EvolutionContext:
@@ -1830,6 +1860,31 @@ class PopulationTrainer:
                 stage="post_evaluation",
                 generation=self.generation,
             )
+
+            # Curriculum anchor retention evaluation
+            if self._anchor_opponents:
+                anchor_eval_service = PopulationEvaluationService(self._build_evaluation_context())
+                anchor_results = anchor_eval_service.evaluate_against_anchors(
+                    population=self.population,
+                    anchor_opponents=self._anchor_opponents,
+                    decision_func_factory=self._get_fighter_decision_func,
+                    env_factory=AtomCombatEnv,
+                    matches_per_anchor=2,
+                )
+                self._last_anchor_scores = {
+                    name: data["anchor_score"] for name, data in anchor_results.items()
+                }
+                # Log per-anchor results
+                for fighter_name, data in anchor_results.items():
+                    rankings = self.elo_tracker.get_rankings()
+                    elo = next((s.elo for s in rankings if s.name == fighter_name), 1500.0)
+                    append_jsonl(self.analysis_dir / "anchor_evaluation.jsonl", {
+                        "generation": self.generation,
+                        "fighter": fighter_name,
+                        "anchors": data["anchors"],
+                        "anchor_score": round(data["anchor_score"], 3),
+                        "elo": round(float(elo), 1),
+                    })
 
             # Record replays if enabled (based on frequency)
             loop_helper.maybe_record_replays(

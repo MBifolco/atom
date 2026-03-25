@@ -170,7 +170,7 @@ class PopulationEvaluationService:
                 done = False
 
                 while not done:
-                    action, _ = fighter_a.model.predict(obs, deterministic=True)
+                    action, _ = fighter_a.model.predict(obs, deterministic=False)
                     obs, reward, terminated, truncated, info = env.step(action)
                     done = terminated or truncated
 
@@ -256,3 +256,61 @@ class PopulationEvaluationService:
             matches_run=matches_run,
             per_fighter_stats=per_fighter_stats,
         )
+
+    def evaluate_against_anchors(
+        self,
+        population: List[PopulationFighterProtocol],
+        anchor_opponents: Dict[str, Callable],
+        decision_func_factory: Callable[[PopulationFighterProtocol], Callable],
+        env_factory: Callable[..., Any],
+        matches_per_anchor: int = 2,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Evaluate each population fighter against fixed curriculum anchors.
+
+        Returns per-fighter results:
+            {fighter_name: {"anchors": {anchor_name: win_rate, ...}, "anchor_score": float}}
+
+        Does NOT modify ELO ratings.
+        """
+        results: Dict[str, Dict[str, Any]] = {}
+
+        for fighter in population:
+            per_anchor: Dict[str, float] = {}
+
+            for anchor_name, anchor_func in anchor_opponents.items():
+                wins = 0
+                for match_idx in range(matches_per_anchor):
+                    env = env_factory(
+                        opponent_decision_func=anchor_func,
+                        config=self.context.config,
+                        max_ticks=self.context.max_ticks,
+                    )
+                    obs, _ = env.reset()
+                    done = False
+                    while not done:
+                        action, _ = fighter.model.predict(obs, deterministic=False)
+                        obs, reward, terminated, truncated, info = env.step(action)
+                        done = terminated or truncated
+
+                    won = info.get("won", False)
+                    if won is None:
+                        fighter_hp = float(info.get("fighter_hp", 0))
+                        opponent_hp = float(info.get("opponent_hp", 0))
+                        won = fighter_hp > opponent_hp
+                    if won:
+                        wins += 1
+                    env.close()
+
+                per_anchor[anchor_name] = wins / max(1, matches_per_anchor)
+
+            anchor_score = sum(per_anchor.values()) / max(1, len(per_anchor))
+            results[fighter.name] = {
+                "anchors": per_anchor,
+                "anchor_score": anchor_score,
+            }
+
+            if self.context.verbose:
+                anchor_str = ", ".join(f"{k}={v:.0%}" for k, v in per_anchor.items())
+                print(f"  {fighter.name} anchors: {anchor_str} (avg={anchor_score:.0%})")
+
+        return results
