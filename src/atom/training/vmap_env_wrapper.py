@@ -27,7 +27,11 @@ from .signal_engine import (
     build_observation_batch,
     compute_step_rewards_batch,
 )
-from .action_codec import ACTION_SPACE_LOW, ACTION_SPACE_HIGH, extract_stance_batch
+from .action_codec import (
+    ACTION_SPACE_LOW, ACTION_SPACE_HIGH,
+    extract_stance_batch, scale_acceleration_batch,
+    STANCE_NAMES, stance_str_to_idx,
+)
 from src.atom.runtime.protocol import generate_snapshot
 
 
@@ -167,8 +171,8 @@ class VmapEnvWrapper(gym.Env):
         self.block_stamina_cost = self.config.block_stamina_cost
         self.hit_recoil_multiplier = self.config.hit_recoil_multiplier
 
-        # Stance mapping (3-stance system)
-        self.stance_names = ["neutral", "extended", "defending"]
+        # Stance mapping (3-stance system) — uses STANCE_NAMES from action_codec
+        self.stance_names = STANCE_NAMES
 
         # JAX states for all environments
         self.jax_states = None
@@ -279,7 +283,7 @@ class VmapEnvWrapper(gym.Env):
         """
         # Convert actions to JAX format
         # actions[:, 0] = acceleration (-1 to 1), actions[:, 1:4] = stance logits
-        accel = jnp.array(actions[:, 0]) * self.max_accel
+        accel = jnp.array(scale_acceleration_batch(actions, self.max_accel))
         stance_int = jnp.array(extract_stance_batch(actions))
 
         # Track stance usage per episode
@@ -291,7 +295,7 @@ class VmapEnvWrapper(gym.Env):
             # Population training: Use trained models to predict opponent actions
             opponent_observations = self._get_opponent_observations()  # [n_envs, obs_dim]
             opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 4]
-            opponent_accel = jnp.array(opponent_actions_np[:, 0]) * self.max_accel
+            opponent_accel = jnp.array(scale_acceleration_batch(opponent_actions_np, self.max_accel))
             opponent_stance = jnp.array(extract_stance_batch(opponent_actions_np))
         elif self.use_multi_opponent:
             # Curriculum training: Call batched JAX opponent functions
@@ -580,8 +584,8 @@ class VmapEnvWrapper(gym.Env):
 
             stance_value = action.get("stance", "neutral")
             if isinstance(stance_value, str):
-                if stance_value in self.stance_names:
-                    stance[i] = self.stance_names.index(stance_value)
+                if stance_value in STANCE_NAMES:
+                    stance[i] = stance_str_to_idx(stance_value)
                 else:
                     stance[i] = 0
             else:

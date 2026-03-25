@@ -58,18 +58,20 @@ def decide(snapshot):
         dict with acceleration (float) and stance (str)
     """
     from src.atom.training.signal_engine import build_observation_from_snapshot
+    from src.atom.training.action_codec import scale_and_validate_action, stance_idx_to_str
+    from src.atom.runtime.arena import WorldConfig
 
     model = _load_model()
     obs = build_observation_from_snapshot(snapshot)
     action, _ = model.predict(obs, deterministic=False)
 
-    acceleration = float(np.clip(action[0], -1.0, 1.0)) * 4.375
-    stance_idx = int(np.argmax(action[1:4]))
-    stances = ["neutral", "extended", "defending"]
+    acceleration, stance_idx = scale_and_validate_action(
+        action, WorldConfig().max_acceleration
+    )
 
     return {{
         "acceleration": acceleration,
-        "stance": stances[stance_idx],
+        "stance": stance_idx_to_str(stance_idx),
     }}
 '''
 

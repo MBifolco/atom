@@ -11,8 +11,12 @@ from gymnasium import spaces
 # Use relative imports within the src package
 from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
 from src.atom.runtime.protocol import generate_snapshot
-from .signal_engine import build_observation, compute_step_reward_scalar
-from .action_codec import ACTION_SPACE_LOW, ACTION_SPACE_HIGH, extract_stance
+from .signal_engine import build_observation, compute_step_reward_scalar, hp_pct
+from .action_codec import (
+    ACTION_SPACE_LOW, ACTION_SPACE_HIGH,
+    extract_stance, scale_and_validate_action,
+    STANCE_NAMES, stance_idx_to_str, stance_str_to_idx,
+)
 
 
 class AtomCombatEnv(gym.Env):
@@ -89,8 +93,8 @@ class AtomCombatEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Stance mapping (3-stance system)
-        self.stance_names = ["neutral", "extended", "defending"]  # Removed retracted
+        # Stance mapping (3-stance system) — uses STANCE_NAMES from action_codec
+        self.stance_names = STANCE_NAMES
 
         # State
         self.arena = None
@@ -175,13 +179,10 @@ class AtomCombatEnv(gym.Env):
         Returns:
             observation, reward, terminated, truncated, info
         """
-        # Convert action to arena format
-        # action[0] is acceleration normalized (-1 to 1)
-        # action[1:4] are stance logits — argmax selects stance
-        acceleration_normalized = float(np.clip(action[0], -1.0, 1.0))
-        acceleration = acceleration_normalized * self.config.max_acceleration
-
-        stance_idx = extract_stance(action)
+        # Convert action to arena format via canonical codec
+        acceleration, stance_idx = scale_and_validate_action(
+            action, self.config.max_acceleration
+        )
         self.stance_ticks[stance_idx] += 1
 
         # Use integer stance for JAX arena, string stance for Python arena
@@ -190,7 +191,7 @@ class AtomCombatEnv(gym.Env):
         if isinstance(self.arena, Arena1DJAXJit):
             fighter_action = {"acceleration": acceleration, "stance": stance_idx}
         else:
-            stance = self.stance_names[stance_idx]
+            stance = stance_idx_to_str(stance_idx)
             fighter_action = {"acceleration": acceleration, "stance": stance}
 
         # Get opponent action
@@ -200,7 +201,7 @@ class AtomCombatEnv(gym.Env):
         # Convert opponent stance to int if using JAX arena
         if isinstance(self.arena, Arena1DJAXJit) and isinstance(opponent_action_dict.get("stance"), str):
             opponent_action_dict = opponent_action_dict.copy()
-            opponent_action_dict["stance"] = self.stance_names.index(opponent_action_dict["stance"])
+            opponent_action_dict["stance"] = stance_str_to_idx(opponent_action_dict["stance"])
 
         # Execute tick in arena
         prev_fighter_hp = self.fighter.hp
@@ -234,8 +235,8 @@ class AtomCombatEnv(gym.Env):
         truncated = bool(self.tick >= self.max_ticks)
 
         # Calculate normalized state needed by canonical reward engine.
-        fighter_hp_pct = float(self.fighter.hp) / float(self.fighter.max_hp)
-        opponent_hp_pct = float(self.opponent.hp) / float(self.opponent.max_hp)
+        fighter_hp_pct = hp_pct(self.fighter.hp, self.fighter.max_hp)
+        opponent_hp_pct = hp_pct(self.opponent.hp, self.opponent.max_hp)
         stamina_pct = float(self.fighter.stamina) / float(self.fighter.max_stamina)
         opp_stamina_pct = float(self.opponent.stamina) / float(self.opponent.max_stamina)
         distance = float(abs(self.fighter.position - self.opponent.position))
@@ -312,7 +313,7 @@ class AtomCombatEnv(gym.Env):
 
     def _get_observation(self):
         """Get current observation as numpy array (12 dimensions)."""
-        return build_observation(
+        obs = build_observation(
             you_position=float(self.fighter.position),
             you_velocity=float(self.fighter.velocity),
             you_hp=float(self.fighter.hp),
@@ -328,6 +329,10 @@ class AtomCombatEnv(gym.Env):
             opponent_stance=self.opponent.stance,
             arena_width=float(self.config.arena_width),
         )
+        # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
+        if np.isnan(obs).any() or np.isinf(obs).any():
+            obs = np.nan_to_num(obs, nan=0.0, posinf=1000.0, neginf=-1000.0)
+        return obs
 
     def render(self):
         """Rendering not implemented for training."""

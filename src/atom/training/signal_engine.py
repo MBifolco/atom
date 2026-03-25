@@ -42,6 +42,11 @@ _STANCE_NAME_TO_INT = {
 }
 
 
+def hp_pct(hp: float, max_hp: float) -> float:
+    """Return HP as a fraction of max HP (0.0 – 1.0)."""
+    return float(hp) / float(max_hp)
+
+
 def stance_to_int(stance: int | float | str) -> int:
     """Convert stance representation (int/float/str) to canonical int index."""
     if isinstance(stance, str):

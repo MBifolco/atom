@@ -26,6 +26,65 @@ ACTION_SPACE_HIGH = np.array([1.0, 5.0, 5.0, 5.0], dtype=np.float32)
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Stance names (single source of truth for training paths)
+# ---------------------------------------------------------------------------
+
+STANCE_NAMES = ["neutral", "extended", "defending"]
+
+
+def stance_idx_to_str(idx: int) -> str:
+    """Convert stance index (0/1/2) to canonical name string."""
+    return STANCE_NAMES[idx]
+
+
+def stance_str_to_idx(name: str) -> int:
+    """Convert canonical stance name to index. Defaults to 0 (neutral)."""
+    try:
+        return STANCE_NAMES.index(name)
+    except ValueError:
+        return 0
+
+
+# ---------------------------------------------------------------------------
+# Scale + validate (single action from model.predict)
+# ---------------------------------------------------------------------------
+
+
+def scale_and_validate_action(
+    action: np.ndarray,
+    max_acceleration: float,
+) -> tuple[float, int]:
+    """Clip, scale, and decode a raw 4D action from model.predict().
+
+    Args:
+        action: shape (4,) — [accel, logit_neutral, logit_extended, logit_defending]
+        max_acceleration: world-config max acceleration (e.g. 4.3751)
+
+    Returns:
+        (acceleration, stance_idx) where acceleration is in world units.
+    """
+    acceleration = float(np.clip(action[0], -1.0, 1.0)) * max_acceleration
+    stance_idx = int(np.argmax(action[1:4]))
+    return acceleration, stance_idx
+
+
+def scale_acceleration_batch(
+    actions: np.ndarray,
+    max_acceleration: float,
+) -> np.ndarray:
+    """Clip and scale a batch of raw accelerations.
+
+    Args:
+        actions: shape (N, 4) raw actions from the model.
+        max_acceleration: world-config max acceleration.
+
+    Returns:
+        float32 array of shape (N,) with scaled accelerations.
+    """
+    return np.clip(actions[:, 0], -1.0, 1.0).astype(np.float32) * max_acceleration
+
+
 def extract_stance(action: np.ndarray) -> int:
     """Extract stance index from a single 4D action via argmax over logits.
 
