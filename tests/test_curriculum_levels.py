@@ -306,7 +306,7 @@ class TestCurriculumStructure:
 
     def test_l1_graduation_win_rate(self):
         curriculum = _build_curriculum()
-        assert curriculum[0].graduation_win_rate == pytest.approx(0.9)
+        assert curriculum[0].graduation_win_rate == pytest.approx(0.88)
 
     def test_l7_graduation_win_rate(self):
         curriculum = _build_curriculum()

@@ -528,7 +528,7 @@ class CurriculumTrainer:
         ex = Path("fighters/examples")
 
         return [
-            # Level 1: Fundamentals — basic stance recognition
+            # Level 1: Fundamentals — stationary + simple movement
             CurriculumLevel(
                 name="Fundamentals",
                 difficulty=DifficultyLevel.FUNDAMENTALS,
@@ -536,49 +536,49 @@ class CurriculumTrainer:
                     str(td / "stationary_neutral.py"),
                     str(td / "stationary_extended.py"),
                     str(td / "stationary_defending.py"),
-                ],
-                min_episodes=200,
-                graduation_win_rate=0.9,
-                graduation_episodes=50,
-                description="Learn basic attacking and stance usage against stationary targets",
-            ),
-            # Level 2: Movement Basics — pursuit, evasion, all 3 stances in motion
-            CurriculumLevel(
-                name="Basic Skills",
-                difficulty=DifficultyLevel.BASIC_SKILLS,
-                opponents=[
                     str(td / "approach_slow.py"),
-                    str(td / "approach_extended.py"),
                     str(td / "flee_always.py"),
-                    str(td / "flee_defending.py"),
                     str(td / "shuttle_medium.py"),
-                    str(td / "circle_left.py"),
-                    str(td / "circle_right.py"),
                 ],
                 min_episodes=300,
                 graduation_win_rate=0.88,
                 graduation_episodes=50,
-                description="Learn pursuit, evasion, and predictive movement against all stances",
+                description="Learn basic attacking against stationary and simple moving targets",
             ),
-            # Level 3: Stance & Stamina Awareness — read opponent state
+            # Level 2: Movement + Stances — opponents that move AND use stances
+            CurriculumLevel(
+                name="Basic Skills",
+                difficulty=DifficultyLevel.BASIC_SKILLS,
+                opponents=[
+                    str(td / "approach_extended.py"),
+                    str(td / "flee_defending.py"),
+                    str(td / "circle_left.py"),
+                    str(td / "circle_right.py"),
+                    str(td / "forward_mover.py"),
+                    str(td / "backward_mover.py"),
+                ],
+                min_episodes=300,
+                graduation_win_rate=0.85,
+                graduation_episodes=50,
+                description="Learn pursuit, evasion, and stance-aware combat against moving targets",
+            ),
+            # Level 3: Spacing & Stamina — distance management and resource awareness
             CurriculumLevel(
                 name="Intermediate",
                 difficulty=DifficultyLevel.INTERMEDIATE,
                 opponents=[
                     str(td / "distance_keeper_1m.py"),
                     str(td / "distance_keeper_3m.py"),
-                    str(td / "charge_on_approach.py"),
+                    str(td / "reactive_defender.py"),
                     str(td / "stamina_burner.py"),
                     str(td / "stamina_efficient.py"),
-                    str(td / "forward_mover.py"),
-                    str(td / "backward_mover.py"),
                 ],
                 min_episodes=400,
-                graduation_win_rate=0.85,
+                graduation_win_rate=0.82,
                 graduation_episodes=50,
-                description="Learn spacing control, stamina exploitation, and resource management",
+                description="Learn spacing control, overcoming defense, and stamina management",
             ),
-            # Level 4: Complex Patterns — multi-state behavioral patterns
+            # Level 4: Complex Patterns — multi-state behavioral patterns + counter-punching
             CurriculumLevel(
                 name="Advanced",
                 difficulty=DifficultyLevel.ADVANCED,
@@ -586,14 +586,15 @@ class CurriculumTrainer:
                     str(td / "aggressive_stance_switcher.py"),
                     str(td / "defensive_stance_switcher.py"),
                     str(td / "forward_charger.py"),
+                    str(td / "charge_on_approach.py"),
                     str(td / "oscillator.py"),
                     str(td / "sideways_mover_smooth.py"),
                     str(td / "strategic_retreater.py"),
                 ],
                 min_episodes=500,
-                graduation_win_rate=0.83,
+                graduation_win_rate=0.80,
                 graduation_episodes=50,
-                description="Read and counter multi-state behavioral patterns",
+                description="Read and counter complex behavioral patterns including counter-punchers",
             ),
             # Level 5: Adaptive Behavior — opponents react to match state
             CurriculumLevel(
@@ -633,8 +634,8 @@ class CurriculumTrainer:
                 opponents=[
                     str(td / "stationary_defending.py"),       # L1
                     str(td / "flee_defending.py"),              # L2
-                    str(td / "charge_on_approach.py"),          # L3
-                    str(td / "aggressive_stance_switcher.py"),  # L4
+                    str(td / "reactive_defender.py"),           # L3
+                    str(td / "charge_on_approach.py"),          # L4
                     str(td / "hp_adaptive.py"),                 # L5
                     str(ex / "boxer.py"),                       # L6
                     str(ex / "swarmer.py"),                     # L6
@@ -757,7 +758,7 @@ class CurriculumTrainer:
             {"category": "movement", "label": "approach_slow", "opponent_path": str(test_dummy_dir / "approach_slow.py")},
             {"category": "movement", "label": "circle_right", "opponent_path": str(test_dummy_dir / "circle_right.py")},
             {"category": "spacing", "label": "distance_keeper_1m", "opponent_path": str(test_dummy_dir / "distance_keeper_1m.py")},
-            {"category": "spacing", "label": "charge_on_approach", "opponent_path": str(test_dummy_dir / "charge_on_approach.py")},
+            {"category": "spacing", "label": "reactive_defender", "opponent_path": str(test_dummy_dir / "reactive_defender.py")},
             {"category": "advanced", "label": "aggressive_stance_switcher", "opponent_path": str(test_dummy_dir / "aggressive_stance_switcher.py")},
             {"category": "advanced", "label": "retreater", "opponent_path": str(test_dummy_dir / "retreater.py")},
             {"category": "adaptive", "label": "hp_adaptive", "opponent_path": str(test_dummy_dir / "hp_adaptive.py")},

@@ -206,6 +206,23 @@ def charge_on_approach_jax(state, config):
     return jnp.array([0.0, stance])
 
 
+def reactive_defender_jax(state, config):
+    """Stationary opponent that defends when opponent is close."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+
+    # Defend when close, neutral when far
+    stance = lax.cond(
+        distance < 1.5,
+        lambda _: 2,  # defending when close
+        lambda _: 0,  # neutral when far
+        None
+    )
+
+    return jnp.array([0.0, stance])
+
+
 def wall_hugger_left_jax(state, config):
     """Stays near left wall."""
     my_pos = state.fighter_b.position
@@ -840,6 +857,7 @@ JAX_OPPONENT_REGISTRY = {
     "stamina_cycler": (13, stamina_cycler_jax),
     "stamina_efficient": (14, stamina_efficient_jax),
     "charge_on_approach": (15, charge_on_approach_jax),
+    "reactive_defender": (39, reactive_defender_jax),
     "wall_hugger_left": (16, wall_hugger_left_jax),
     "wall_hugger_right": (17, wall_hugger_right_jax),
 
