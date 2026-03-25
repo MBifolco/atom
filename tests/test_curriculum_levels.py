@@ -58,6 +58,7 @@ EXPECTED_LEVEL_NAMES = [
     "Intermediate",
     "Advanced",
     "Adaptive",
+    "Pre-Expert",
     "Expert",
     "Gauntlet",
 ]
@@ -265,9 +266,9 @@ _STANCE_STR_TO_INT = {"neutral": 0, "extended": 1, "defending": 2}
 
 class TestCurriculumStructure:
 
-    def test_exactly_seven_levels(self):
+    def test_exactly_eight_levels(self):
         curriculum = _build_curriculum()
-        assert len(curriculum) == 7
+        assert len(curriculum) == 8
 
     # -------------------------------------------------------------------
     # 2. DifficultyLevel enum has ADAPTIVE and GAUNTLET
@@ -308,14 +309,14 @@ class TestCurriculumStructure:
         curriculum = _build_curriculum()
         assert curriculum[0].graduation_win_rate == pytest.approx(0.88)
 
-    def test_l7_graduation_win_rate(self):
+    def test_l8_graduation_win_rate(self):
         curriculum = _build_curriculum()
-        assert curriculum[6].graduation_win_rate == pytest.approx(0.75)
+        assert curriculum[7].graduation_win_rate == pytest.approx(0.75)  # Gauntlet
 
     def test_l5_l6_graduation_episodes(self):
         curriculum = _build_curriculum()
         assert curriculum[4].graduation_episodes == 75  # L5 (Adaptive)
-        assert curriculum[5].graduation_episodes == 75  # L6 (Expert)
+        assert curriculum[5].graduation_episodes == 75  # L6 (Pre-Expert)
 
 
 # ---------------------------------------------------------------------------

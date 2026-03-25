@@ -523,7 +523,7 @@ class CurriculumTrainer:
             self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
-        """Build the 7-level training curriculum."""
+        """Build the 8-level training curriculum."""
         td = Path("fighters/test_dummies/atomic")
         ex = Path("fighters/examples")
 
@@ -611,7 +611,23 @@ class CurriculumTrainer:
                 graduation_episodes=75,
                 description="Fight opponents that adapt to HP, stamina, and match phase",
             ),
-            # Level 6: Expert Fighters — diverse expert-level strategies
+            # Level 6: Pre-Expert — simplified expert styles bridging adaptive→expert
+            CurriculumLevel(
+                name="Pre-Expert",
+                difficulty=DifficultyLevel.EXPERT,
+                opponents=[
+                    str(td / "jab_and_move.py"),
+                    str(td / "wait_and_counter.py"),
+                    str(td / "hit_and_run.py"),
+                    str(td / "pressure_fighter.py"),
+                    str(td / "close_range_brawler.py"),
+                ],
+                min_episodes=500,
+                graduation_win_rate=0.78,
+                graduation_episodes=75,
+                description="Learn to handle simplified expert fighting styles before facing full experts",
+            ),
+            # Level 7: Expert Fighters — diverse expert-level strategies
             CurriculumLevel(
                 name="Expert",
                 difficulty=DifficultyLevel.EXPERT,
@@ -623,11 +639,11 @@ class CurriculumTrainer:
                     str(ex / "swarmer.py"),
                 ],
                 min_episodes=600,
-                graduation_win_rate=0.78,
+                graduation_win_rate=0.70,
                 graduation_episodes=75,
                 description="Master combat against diverse expert strategies",
             ),
-            # Level 7: Gauntlet — prove generalization across all difficulty levels
+            # Level 8: Gauntlet — prove generalization across all difficulty levels
             CurriculumLevel(
                 name="Gauntlet",
                 difficulty=DifficultyLevel.GAUNTLET,
@@ -637,8 +653,9 @@ class CurriculumTrainer:
                     str(td / "reactive_defender.py"),           # L3
                     str(td / "charge_on_approach.py"),          # L4
                     str(td / "hp_adaptive.py"),                 # L5
-                    str(ex / "boxer.py"),                       # L6
-                    str(ex / "swarmer.py"),                     # L6
+                    str(td / "jab_and_move.py"),                # L6
+                    str(ex / "boxer.py"),                       # L7
+                    str(ex / "swarmer.py"),                     # L7
                 ],
                 min_episodes=600,
                 graduation_win_rate=0.75,

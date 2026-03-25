@@ -167,7 +167,7 @@ class TestCurriculumTrainerInit:
                 verbose=False
             )
 
-            assert len(trainer.curriculum) == 7  # 7 levels
+            assert len(trainer.curriculum) == 8  # 8 levels
             assert trainer.curriculum[0].name == "Fundamentals"
             assert trainer.curriculum[-1].name == "Gauntlet"
 
@@ -206,8 +206,9 @@ class TestCurriculumTrainerCurriculum:
             assert curriculum[2].difficulty == DifficultyLevel.INTERMEDIATE
             assert curriculum[3].difficulty == DifficultyLevel.ADVANCED
             assert curriculum[4].difficulty == DifficultyLevel.ADAPTIVE
-            assert curriculum[5].difficulty == DifficultyLevel.EXPERT
-            assert curriculum[6].difficulty == DifficultyLevel.GAUNTLET
+            assert curriculum[5].difficulty == DifficultyLevel.EXPERT  # Pre-Expert
+            assert curriculum[6].difficulty == DifficultyLevel.EXPERT  # Expert
+            assert curriculum[7].difficulty == DifficultyLevel.GAUNTLET
 
     def test_curriculum_opponents_exist(self):
         """Test that curriculum references opponent files."""

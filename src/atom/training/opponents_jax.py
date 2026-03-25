@@ -223,6 +223,133 @@ def reactive_defender_jax(state, config):
     return jnp.array([0.0, stance])
 
 
+# --- Bridge level (simplified expert) fighters ---
+
+def jab_and_move_jax(state, config):
+    """Simplified Boxer: approach to jab range, attack with stamina, retreat when tired."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+
+    def tired(_):
+        return jnp.array([-direction * 2.0, 0])  # retreat, neutral
+
+    def approach(_):
+        return jnp.array([direction * 2.5, 0])  # approach, neutral
+
+    def in_range(_):
+        s = lax.cond(stamina_pct > 0.40, lambda _: 1, lambda _: 0, None)
+        return jnp.array([0.0, s])  # stay, attack if stamina
+
+    return lax.cond(
+        stamina_pct < 0.25,
+        tired,
+        lambda _: lax.cond(distance > 1.2, approach, in_range, None),
+        None
+    )
+
+
+def wait_and_counter_jax(state, config):
+    """Simplified Counter Puncher: defend by default, counter when close."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+
+    def too_tired(_):
+        return jnp.array([0.0, 2])  # hold, defend
+
+    def counter(_):
+        return jnp.array([direction * 1.0, 1])  # step in, extended
+
+    def default(_):
+        return jnp.array([0.0, 2])  # hold, defend
+
+    return lax.cond(
+        stamina_pct < 0.20,
+        too_tired,
+        lambda _: lax.cond(distance < 1.0, counter, default, None),
+        None
+    )
+
+
+def hit_and_run_jax(state, config):
+    """Simplified Out-Fighter: approach, strike at mid range, retreat when close."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+
+    def approach(_):
+        return jnp.array([direction * 3.0, 0])  # approach, neutral
+
+    def strike(_):
+        return jnp.array([direction * 0.5, 1])  # drift in, extended
+
+    def retreat(_):
+        return jnp.array([-direction * 3.0, 0])  # retreat, neutral
+
+    return lax.cond(
+        distance > 1.5,
+        approach,
+        lambda _: lax.cond(distance > 1.0, strike, retreat, None),
+        None
+    )
+
+
+def pressure_fighter_jax(state, config):
+    """Simplified Slugger: constant forward pressure, attack in range."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+
+    def critical(_):
+        return jnp.array([direction * 0.6, 2])  # press, defend
+
+    def in_range(_):
+        return jnp.array([direction * 0.6, 1])  # press, extended
+
+    def closing(_):
+        return jnp.array([direction * 0.6, 0])  # press, neutral
+
+    return lax.cond(
+        stamina_pct < 0.15,
+        critical,
+        lambda _: lax.cond(distance < 2.0, in_range, closing, None),
+        None
+    )
+
+
+def close_range_brawler_jax(state, config):
+    """Simplified Swarmer: rush in aggressively, always extended."""
+    opp_pos = state.fighter_a.position
+    my_pos = state.fighter_b.position
+    distance = jnp.abs(opp_pos - my_pos)
+    direction = jnp.sign(opp_pos - my_pos)
+    stamina_pct = state.fighter_b.stamina / state.fighter_b.max_stamina
+
+    def emergency(_):
+        return jnp.array([0.0, 2])  # stop, defend
+
+    def very_close(_):
+        return jnp.array([direction * 0.3, 1])  # ease off, extended
+
+    def closing(_):
+        return jnp.array([direction * 0.8, 1])  # rush, extended
+
+    return lax.cond(
+        stamina_pct < 0.10,
+        emergency,
+        lambda _: lax.cond(distance < 0.5, very_close, closing, None),
+        None
+    )
+
+
 def wall_hugger_left_jax(state, config):
     """Stays near left wall."""
     my_pos = state.fighter_b.position
@@ -858,6 +985,11 @@ JAX_OPPONENT_REGISTRY = {
     "stamina_efficient": (14, stamina_efficient_jax),
     "charge_on_approach": (15, charge_on_approach_jax),
     "reactive_defender": (39, reactive_defender_jax),
+    "jab_and_move": (40, jab_and_move_jax),
+    "wait_and_counter": (41, wait_and_counter_jax),
+    "hit_and_run": (42, hit_and_run_jax),
+    "pressure_fighter": (43, pressure_fighter_jax),
+    "close_range_brawler": (44, close_range_brawler_jax),
     "wall_hugger_left": (16, wall_hugger_left_jax),
     "wall_hugger_right": (17, wall_hugger_right_jax),
 
