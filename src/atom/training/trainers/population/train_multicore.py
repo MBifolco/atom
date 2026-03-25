@@ -99,7 +99,7 @@ class PopulationFighter:
             self.env_for_decision = AtomCombatEnv(opponent_decision_func=lambda s: {"acceleration": 0, "stance": "neutral"})
             self.env_for_decision.reset()
 
-        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+        obs = build_observation_from_snapshot(snapshot)
 
         # Get action from model
         action, _ = self.model.predict(obs, deterministic=False)

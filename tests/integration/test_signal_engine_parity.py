@@ -26,7 +26,6 @@ def test_observation_batch_matches_scalar():
     opp_stamina = np.array([45.0, 35.0, 25.0, 15.0], dtype=np.float32)
     opp_max_stamina = np.array([60.0, 60.0, 60.0, 60.0], dtype=np.float32)
     opp_stance = np.array([0, 1, 2, 1], dtype=np.int32)
-    recent_damage = np.array([0.0, 2.0, 4.0, 6.0], dtype=np.float32)
 
     batch = build_observation_batch(
         you_position=you_pos,
@@ -43,10 +42,9 @@ def test_observation_batch_matches_scalar():
         opponent_max_stamina=opp_max_stamina,
         opponent_stance=opp_stance,
         arena_width=15.0,
-        recent_damage=recent_damage,
     )
 
-    assert batch.shape == (n, 13)
+    assert batch.shape == (n, 12)
 
     for i in range(n):
         scalar = build_observation(
@@ -64,7 +62,6 @@ def test_observation_batch_matches_scalar():
             opponent_max_stamina=float(opp_max_stamina[i]),
             opponent_stance=int(opp_stance[i]),
             arena_width=15.0,
-            recent_damage=float(recent_damage[i]),
         )
         assert np.allclose(scalar, batch[i], atol=1e-6)
 

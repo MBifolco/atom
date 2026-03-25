@@ -60,7 +60,7 @@ class PopulationFighter:
                 "stance": random.choice(["neutral", "extended", "defending"])
             }
 
-        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+        obs = build_observation_from_snapshot(snapshot)
 
         # Get action from model
         action, _ = self.model.predict(obs, deterministic=False)

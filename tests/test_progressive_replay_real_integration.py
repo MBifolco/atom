@@ -118,7 +118,7 @@ class TestRealProgressiveReplayIntegration:
                 }
             }
 
-            obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+            obs = build_observation_from_snapshot(snapshot)
 
             # Model should be able to predict with this observation
             action, _ = trainer.model.predict(np.array([obs]), deterministic=True)

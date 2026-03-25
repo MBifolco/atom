@@ -30,9 +30,8 @@ def _base_snapshot():
 
 def test_snapshot_adapter_matches_builder_for_opponent_on_right():
     snapshot = _base_snapshot()
-    obs_from_snapshot = build_observation_from_snapshot(snapshot, recent_damage=3.5)
+    obs_from_snapshot = build_observation_from_snapshot(snapshot)
 
-    # direction=+1 => opponent absolute velocity = you_velocity + rel_velocity
     expected = build_observation(
         you_position=2.0,
         you_velocity=0.5,
@@ -48,10 +47,9 @@ def test_snapshot_adapter_matches_builder_for_opponent_on_right():
         opponent_max_stamina=10.0,
         opponent_stance="extended",
         arena_width=12.0,
-        recent_damage=3.5,
     )
 
-    assert obs_from_snapshot.shape == (13,)
+    assert obs_from_snapshot.shape == (12,)
     np.testing.assert_allclose(obs_from_snapshot, expected, rtol=1e-6, atol=1e-6)
 
 
@@ -64,9 +62,8 @@ def test_snapshot_adapter_matches_builder_for_opponent_on_left():
     snapshot["opponent"]["velocity"] = 0.9
     snapshot["opponent"]["stance_hint"] = 2
 
-    obs_from_snapshot = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+    obs_from_snapshot = build_observation_from_snapshot(snapshot)
 
-    # direction=-1 => rel_velocity = you_vel - opp_vel => opp_vel = you_vel - rel_velocity
     expected = build_observation(
         you_position=9.0,
         you_velocity=-0.4,
@@ -82,17 +79,7 @@ def test_snapshot_adapter_matches_builder_for_opponent_on_left():
         opponent_max_stamina=10.0,
         opponent_stance=2,
         arena_width=12.0,
-        recent_damage=0.0,
     )
 
     np.testing.assert_allclose(obs_from_snapshot, expected, rtol=1e-6, atol=1e-6)
     assert obs_from_snapshot[11] == 2.0
-
-
-def test_snapshot_adapter_prefers_snapshot_recent_damage_if_present():
-    snapshot = _base_snapshot()
-    snapshot["recent_damage_dealt"] = 9.0
-
-    obs = build_observation_from_snapshot(snapshot, recent_damage=1.0)
-    assert obs[12] == 9.0
-

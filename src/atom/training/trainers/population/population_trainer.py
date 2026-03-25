@@ -386,7 +386,7 @@ def _create_opponent_decide_func(model):
         Decide function compatible with AtomCombatEnv
     """
     def decide(snapshot):
-        obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+        obs = build_observation_from_snapshot(snapshot)
 
         action, _ = model.predict(obs, deterministic=False)
 
@@ -1122,7 +1122,7 @@ class PopulationTrainer:
     def _get_fighter_decision_func(self, fighter: PopulationFighter) -> Callable:
         """Create a decision function for a trained fighter."""
         def decide(snapshot):
-            obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+            obs = build_observation_from_snapshot(snapshot)
 
             # Get action from model
             action, _ = fighter.model.predict(obs, deterministic=False)

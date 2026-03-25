@@ -94,9 +94,8 @@ def build_observation(
     opponent_max_stamina: float,
     opponent_stance: int | float | str,
     arena_width: float,
-    recent_damage: float,
 ) -> np.ndarray:
-    """Build a single 13-dimensional training observation."""
+    """Build a single 12-dimensional training observation."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -112,15 +111,12 @@ def build_observation(
         opponent_max_stamina=np.array([opponent_max_stamina], dtype=np.float32),
         opponent_stance=np.array([opponent_stance], dtype=object),
         arena_width=arena_width,
-        recent_damage=np.array([recent_damage], dtype=np.float32),
     )
     return obs[0]
 
 
 def build_observation_from_snapshot(
     snapshot: Mapping[str, Any],
-    *,
-    recent_damage: float = 0.0,
 ) -> np.ndarray:
     """
     Build canonical observation from protocol snapshot (`generate_snapshot` format).
@@ -155,7 +151,6 @@ def build_observation_from_snapshot(
         else:
             opponent_velocity = you_velocity + rel_velocity
 
-    snapshot_recent_damage = snapshot.get("recent_damage_dealt", recent_damage)
     opponent_stance = opponent.get("stance_hint", opponent.get("stance", "neutral"))
 
     return build_observation(
@@ -173,7 +168,6 @@ def build_observation_from_snapshot(
         opponent_max_stamina=float(opponent["max_stamina"]),
         opponent_stance=opponent_stance,
         arena_width=float(arena["width"]),
-        recent_damage=float(snapshot_recent_damage),
     )
 
 
@@ -193,9 +187,8 @@ def build_observation_batch(
     opponent_max_stamina,
     opponent_stance,
     arena_width: float,
-    recent_damage,
 ) -> np.ndarray:
-    """Build batched 13-dimensional observations with canonical semantics."""
+    """Build batched 12-dimensional observations with canonical semantics."""
     you_position = _to_float_array(you_position)
     you_velocity = _to_float_array(you_velocity)
     you_hp = _to_float_array(you_hp)
@@ -209,7 +202,6 @@ def build_observation_batch(
     opponent_stamina = _to_float_array(opponent_stamina)
     opponent_max_stamina = _to_float_array(opponent_max_stamina)
     opponent_stance_int = _to_stance_array(opponent_stance).astype(np.float32)
-    recent_damage = _to_float_array(recent_damage)
 
     hp_norm = you_hp / np.maximum(you_max_hp, 1.0)
     stamina_norm = you_stamina / np.maximum(you_max_stamina, 1.0)
@@ -236,7 +228,6 @@ def build_observation_batch(
             wall_dist_left,
             wall_dist_right,
             opponent_stance_int,
-            recent_damage,
         ],
         axis=1,
     ).astype(np.float32)

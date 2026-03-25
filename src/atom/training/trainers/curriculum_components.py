@@ -908,7 +908,7 @@ class ReplayEvaluationService:
 
         else:
             def ai_decide(snapshot):
-                obs = build_observation_from_snapshot(snapshot, recent_damage=0.0)
+                obs = build_observation_from_snapshot(snapshot)
                 try:
                     action, _ = model.predict(
                         np.array([obs]),

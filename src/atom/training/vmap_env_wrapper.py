@@ -135,8 +135,8 @@ class VmapEnvWrapper(gym.Env):
 
         # Define observation/action spaces (enhanced to match AtomCombatEnv)
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 100], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -479,7 +479,6 @@ class VmapEnvWrapper(gym.Env):
             opponent_max_stamina=np.array(self.jax_states.fighter_b.max_stamina),
             opponent_stance=np.array(self.jax_states.fighter_b.stance),
             arena_width=self.arena_width,
-            recent_damage=np.array(self.episode_damage_dealt),
         )
 
     def _get_opponent_observations(self):
@@ -499,7 +498,6 @@ class VmapEnvWrapper(gym.Env):
             opponent_max_stamina=np.array(self.jax_states.fighter_a.max_stamina),
             opponent_stance=np.array(self.jax_states.fighter_a.stance),
             arena_width=self.arena_width,
-            recent_damage=np.array(self.episode_damage_taken),
         )
 
     def _predict_opponent_actions(self, opponent_observations):
