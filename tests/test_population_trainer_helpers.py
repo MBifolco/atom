@@ -249,7 +249,7 @@ class TestCreateOpponentDecideFuncComplete:
 
         # Check observation was created correctly
         assert model.last_obs is not None
-        assert model.last_obs.shape == (12,)
+        assert model.last_obs.shape == (14,)
         assert model.last_obs.dtype == np.float32
 
         # Check values

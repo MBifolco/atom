@@ -44,7 +44,7 @@ def test_observation_batch_matches_scalar():
         arena_width=15.0,
     )
 
-    assert batch.shape == (n, 12)
+    assert batch.shape == (n, 14)
 
     for i in range(n):
         scalar = build_observation(

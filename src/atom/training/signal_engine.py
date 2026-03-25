@@ -99,8 +99,10 @@ def build_observation(
     opponent_max_stamina: float,
     opponent_stance: int | float | str,
     arena_width: float,
+    you_stance: int | float | str = 0,
+    tick_fraction: float = 0.0,
 ) -> np.ndarray:
-    """Build a single 12-dimensional training observation."""
+    """Build a single 14-dimensional training observation."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -116,6 +118,8 @@ def build_observation(
         opponent_max_stamina=np.array([opponent_max_stamina], dtype=np.float32),
         opponent_stance=np.array([opponent_stance], dtype=object),
         arena_width=arena_width,
+        you_stance=np.array([you_stance], dtype=object),
+        tick_fraction=np.array([tick_fraction], dtype=np.float32),
     )
     return obs[0]
 
@@ -158,6 +162,9 @@ def build_observation_from_snapshot(
 
     opponent_stance = opponent.get("stance_hint", opponent.get("stance", "neutral"))
 
+    you_stance = you.get("stance", "neutral")
+    tick_fraction = float(snapshot.get("tick_fraction", 0.0))
+
     return build_observation(
         you_position=you_position,
         you_velocity=you_velocity,
@@ -173,6 +180,8 @@ def build_observation_from_snapshot(
         opponent_max_stamina=float(opponent["max_stamina"]),
         opponent_stance=opponent_stance,
         arena_width=float(arena["width"]),
+        you_stance=you_stance,
+        tick_fraction=tick_fraction,
     )
 
 
@@ -192,8 +201,10 @@ def build_observation_batch(
     opponent_max_stamina,
     opponent_stance,
     arena_width: float,
+    you_stance=None,
+    tick_fraction=None,
 ) -> np.ndarray:
-    """Build batched 12-dimensional observations with canonical semantics."""
+    """Build batched 14-dimensional observations with canonical semantics."""
     you_position = _to_float_array(you_position)
     you_velocity = _to_float_array(you_velocity)
     you_hp = _to_float_array(you_hp)
@@ -207,6 +218,16 @@ def build_observation_batch(
     opponent_stamina = _to_float_array(opponent_stamina)
     opponent_max_stamina = _to_float_array(opponent_max_stamina)
     opponent_stance_int = _to_stance_array(opponent_stance).astype(np.float32)
+
+    if you_stance is not None:
+        you_stance_int = _to_stance_array(you_stance).astype(np.float32)
+    else:
+        you_stance_int = np.zeros_like(you_position)
+
+    if tick_fraction is not None:
+        tick_fraction = _to_float_array(tick_fraction)
+    else:
+        tick_fraction = np.zeros_like(you_position)
 
     hp_norm = you_hp / np.maximum(you_max_hp, 1.0)
     stamina_norm = you_stamina / np.maximum(you_max_stamina, 1.0)
@@ -233,6 +254,8 @@ def build_observation_batch(
             wall_dist_left,
             wall_dist_right,
             opponent_stance_int,
+            you_stance_int,
+            tick_fraction,
         ],
         axis=1,
     ).astype(np.float32)

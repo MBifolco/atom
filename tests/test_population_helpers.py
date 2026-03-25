@@ -171,7 +171,7 @@ class TestCreateOpponentDecideFunc:
 
         # Check that model received correct observation
         assert model.last_obs is not None
-        assert model.last_obs.shape == (12,)
+        assert model.last_obs.shape == (14,)
         # First element should be position
         assert model.last_obs[0] == 2.0
         # Third element should be normalized HP

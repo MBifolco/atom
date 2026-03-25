@@ -74,13 +74,13 @@ class AtomCombatEnv(gym.Env):
         self.reward_weights = reward_weights
         self.opponent_name = opponent_name
 
-        # Define observation space (13 values for enhanced training)
+        # Define observation space (14 values for enhanced training)
         # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
         #  opp_hp_norm, opp_stamina_norm, arena_width,
-        #  wall_dist_left, wall_dist_right, opp_stance_int]
+        #  wall_dist_left, wall_dist_right, opp_stance_int, you_stance_int, tick_fraction]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -312,7 +312,7 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (12 dimensions)."""
+        """Get current observation as numpy array (14 dimensions)."""
         obs = build_observation(
             you_position=float(self.fighter.position),
             you_velocity=float(self.fighter.velocity),
@@ -328,6 +328,8 @@ class AtomCombatEnv(gym.Env):
             opponent_max_stamina=float(self.opponent.max_stamina),
             opponent_stance=self.opponent.stance,
             arena_width=float(self.config.arena_width),
+            you_stance=self.fighter.stance,
+            tick_fraction=self.tick / self.max_ticks,
         )
         # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
         if np.isnan(obs).any() or np.isinf(obs).any():
