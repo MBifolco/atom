@@ -55,7 +55,8 @@ class ProgressiveTrainer:
                  replay_frequency: int = 5,
                  override_episodes_per_level: int = None,
                  checkpoint_interval: int = 100000,
-                 seed: int = 1337):
+                 seed: int = 1337,
+                 backend=None):
         """
         Initialize the progressive trainer.
 
@@ -96,6 +97,9 @@ class ProgressiveTrainer:
         self.curriculum_dir = self.output_dir / "curriculum"
         self.population_dir = self.output_dir / "population"
         self.analysis_dir = ensure_analysis_dir(self.output_dir)
+
+        # Training backend (pluggable algorithm)
+        self.backend = backend
 
         # Training components
         self.curriculum_trainer = None
@@ -211,6 +215,7 @@ class ProgressiveTrainer:
             override_episodes_per_level=self.override_episodes_per_level,
             checkpoint_interval=self.checkpoint_interval,
             seed=self.seed,
+            backend=self.backend,
         )
 
         # Train through curriculum
@@ -364,11 +369,12 @@ class ProgressiveTrainer:
             max_ticks=self.max_ticks,
             verbose=self.verbose,
             n_parallel_fighters=self.n_parallel_fighters,
-            use_vmap=self.use_vmap,  # Use GPU if enabled
-            n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+            use_vmap=self.use_vmap,
+            n_vmap_envs=45,
             record_replays=self.record_replays,
             replay_recording_frequency=self.replay_frequency,
             seed=self.seed,
+            backend=self.backend,
         )
 
         # Initialize population with the curriculum model as base
@@ -426,11 +432,12 @@ class ProgressiveTrainer:
                 max_ticks=self.max_ticks,
                 verbose=self.verbose,
                 n_parallel_fighters=self.n_parallel_fighters,
-                use_vmap=population_use_vmap,  # May be overridden by population_cpu_only
-                n_vmap_envs=45,  # Reduced from 250 to fit 8 parallel fighters in 8GB VRAM
+                use_vmap=population_use_vmap,
+                n_vmap_envs=45,
                 record_replays=self.record_replays,
                 replay_recording_frequency=self.replay_frequency,
                 seed=self.seed,
+                backend=self.backend,
             )
 
         # Check if we have a base model from curriculum training
