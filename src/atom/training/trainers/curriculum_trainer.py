@@ -252,12 +252,11 @@ class CurriculumCallback(BaseCallback):
             self.rollout_count = 0
         self.rollout_count += 1
 
-        # For SAC: Only log every 50 rollouts to reduce spam
-        # For PPO: Always log (only happens once per iteration)
-        should_log = (
-            self.curriculum_trainer.algorithm == 'ppo' or
-            self.rollout_count % 50 == 1
-        )
+        # PPO: log every rollout (only happens once per iteration ~2048 steps)
+        # SAC: log every 500 rollouts (each rollout is 1 step, would spam otherwise)
+        backend = getattr(self.curriculum_trainer, 'backend', None)
+        is_on_policy = backend.capabilities.on_policy if backend else True
+        should_log = is_on_policy or self.rollout_count % 500 == 1
 
         if self.verbose and should_log:
             print(f"\n🎮 Collecting rollouts (GPU physics)...", flush=True)
@@ -266,11 +265,9 @@ class CurriculumCallback(BaseCallback):
         """Called after rollouts are collected, before training."""
         import time
 
-        # Same logging logic as _on_rollout_start
-        should_log = (
-            self.curriculum_trainer.algorithm == 'ppo' or
-            self.rollout_count % 50 == 1
-        )
+        backend = getattr(self.curriculum_trainer, 'backend', None)
+        is_on_policy = backend.capabilities.on_policy if backend else True
+        should_log = is_on_policy or self.rollout_count % 500 == 1
 
         if self.last_rollout_time:
             rollout_duration = time.time() - self.last_rollout_time
@@ -288,10 +285,9 @@ class CurriculumCallback(BaseCallback):
         import time
 
         # Same logging logic as other methods
-        should_log = (
-            self.curriculum_trainer.algorithm == 'ppo' or
-            getattr(self, 'rollout_count', 0) % 50 == 0
-        )
+        backend = getattr(self.curriculum_trainer, 'backend', None)
+        is_on_policy = backend.capabilities.on_policy if backend else True
+        should_log = is_on_policy or getattr(self, 'rollout_count', 0) % 500 == 0
 
         if self.last_train_time:
             train_duration = time.time() - self.last_train_time
