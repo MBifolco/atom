@@ -703,7 +703,8 @@ class CurriculumTrainer:
         self.logger.info("="*80)
         self.logger.info("CURRICULUM TRAINING INITIALIZED")
         self.logger.info(f"Algorithm: {self.algorithm}")
-        self.logger.info(f"Training Backend: SB3 (PyTorch) with JAX physics")
+        backend_name = self.backend.capabilities.name if self.backend else "unknown"
+        self.logger.info(f"Training Backend: {backend_name}")
         self.logger.info(f"GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
         self.logger.info(f"Curriculum Levels: {len(self.curriculum)}")
         self.logger.info(f"Training Seed: {self.seed}")

@@ -496,7 +496,8 @@ class ProgressiveTrainer:
             print("STARTING PROGRESSIVE TRAINING PIPELINE")
             print("🚀"*40)
             print(f"\nConfiguration:")
-            print(f"  Training Backend: {'SBX (JAX)' if USING_SBX else 'SB3 (PyTorch)'}")
+            backend_name = self.backend.capabilities.name if self.backend else "unknown"
+            print(f"  Training Backend: {backend_name}")
             print(f"  GPU Acceleration: {'Enabled (vmap)' if self.use_vmap else 'Disabled'}")
             print(f"  Runtime Platform: {DETECTED_RUNTIME_PLATFORM}")
             print(f"  Seed: {self.seed}")

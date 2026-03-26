@@ -96,8 +96,12 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     if args.mode == "quick":
+        # Off-policy backends (SAC) need more timesteps because each
+        # timestep = 1 tick across 1 env, vs PPO where 1 rollout = 2048 ticks.
+        # With 250 vmap envs, 10K timesteps = only 40 ticks (no episodes finish).
+        quick_timesteps = 500_000 if backend.capabilities.on_policy is False else 10_000
         trainer.run_complete_pipeline(
-            curriculum_timesteps=10_000,
+            curriculum_timesteps=quick_timesteps,
             population_generations=2,
             population_size=4,
             episodes_per_generation=500,
