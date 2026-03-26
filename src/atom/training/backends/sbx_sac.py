@@ -118,13 +118,28 @@ class SBXSACBackend:
         )
 
     def replace_env(self, model: Any, envs: Any) -> None:
-        """Replace environment and reset cached observations.
+        """Replace environment for SAC by saving/loading into new env.
 
-        SBX set_env(force_reset=True) sets _last_obs=None, same as SB3.
+        SAC's replay buffer is tied to the original env's shape. Simple
+        set_env causes shape mismatches on the next step. Instead, save
+        the model weights and load into a fresh model with the new env.
+        This gives a clean replay buffer and optimizer state while
+        preserving the learned policy.
         """
-        model.set_env(envs)
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp) / "sac_transfer.zip"
+            model.save(tmp_path)
+            loaded = SAC.load(tmp_path, env=envs)
+
+        # Transfer the loaded model's internals back to the original object
+        # so callers that hold a reference to model still work.
+        model.policy = loaded.policy
+        model.replay_buffer = loaded.replay_buffer
+        model.env = loaded.env
         model._last_obs = envs.reset()
         model._last_episode_starts = np.ones((envs.num_envs,), dtype=bool)
+        model.num_timesteps = loaded.num_timesteps
 
     def get_policy_arch(self) -> dict:
         return dict(_POLICY_ARCH)
