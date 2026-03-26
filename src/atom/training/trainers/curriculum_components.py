@@ -1209,15 +1209,26 @@ class EnvFactory:
 class ModelFactory:
     """Creates RL models with project-stable defaults."""
 
-    def __init__(self, *, logs_dir: Path, verbose: bool, seed: int):
+    def __init__(self, *, logs_dir: Path, verbose: bool, seed: int, backend=None):
         self.logs_dir = Path(logs_dir)
         self.verbose = verbose
         self.seed = seed
+        self.backend = backend
 
     def create_model(self, *, algorithm: str, envs, device: str, seed: int | None = None):
+        model_seed = self.seed if seed is None else seed
+
+        if self.backend is not None:
+            model = self.backend.create_model(
+                envs, seed=model_seed, mode="curriculum",
+                tensorboard_log=str(self.logs_dir / "tensorboard"),
+                verbose=2 if self.verbose else 0,
+            )
+            return model
+
+        # Legacy path: no backend provided — fall back to direct SB3 construction
         algo = algorithm.lower()
         actual_device = "cpu" if device == "auto" else device
-        model_seed = self.seed if seed is None else seed
 
         if algo == "ppo":
             if self.verbose:

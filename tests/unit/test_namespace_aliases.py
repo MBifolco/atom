@@ -44,9 +44,9 @@ def test_patching_legacy_module_updates_new_curriculum_trainer(monkeypatch):
     new_module = import_module("src.atom.training.trainers.curriculum_trainer")
     sentinel = object()
 
-    monkeypatch.setattr(legacy_module, "PPO", sentinel)
+    monkeypatch.setattr(legacy_module, "SB3PPOBackend", sentinel)
 
-    assert new_module.PPO is sentinel
+    assert new_module.SB3PPOBackend is sentinel
 
 
 def test_selected_legacy_utility_wrappers_are_retired():

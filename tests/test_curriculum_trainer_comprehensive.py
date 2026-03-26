@@ -894,6 +894,7 @@ class TestCurriculumTrainerStateRestore:
 
             trainer.create_envs_for_level = Mock(return_value=Mock(close=Mock()))
             trainer.initialize_model = Mock(side_effect=lambda: setattr(trainer, "model", FakeModel()))
+            trainer.backend.load_model = Mock(return_value=FakeModel())
 
             captured = {}
 
@@ -1016,14 +1017,16 @@ def decide(state):
             assert trainer.model is not None
             trainer.envs.close()
 
-    def test_initialize_model_unknown_algorithm(self):
-        """Test that unknown algorithm raises error."""
+    def test_initialize_model_unknown_algorithm_without_backend(self):
+        """Test that unknown algorithm raises error when no backend is provided."""
         with tempfile.TemporaryDirectory() as tmpdir:
             trainer = CurriculumTrainer(
                 output_dir=tmpdir,
                 verbose=False
             )
 
+            # Remove backend so ModelFactory falls through to legacy path
+            trainer.model_factory.backend = None
             trainer.algorithm = "unknown"
             trainer.envs = Mock()
 
@@ -1206,7 +1209,7 @@ class TestCurriculumTrainerLoadCheckpoint:
     """Tests for checkpoint loading."""
 
     def test_load_checkpoint_ppo(self):
-        """Test loading a PPO checkpoint."""
+        """Test loading a PPO checkpoint via backend."""
         with tempfile.TemporaryDirectory() as tmpdir:
             trainer = CurriculumTrainer(
                 algorithm="ppo",
@@ -1214,14 +1217,11 @@ class TestCurriculumTrainerLoadCheckpoint:
                 verbose=False
             )
 
-            # Mock the load process
-            with patch('src.training.trainers.curriculum_trainer.PPO') as mock_ppo:
-                mock_ppo.load.return_value = Mock()
+            trainer.backend.load_model = Mock(return_value=Mock())
+            trainer.envs = Mock()
+            trainer.load_checkpoint("/fake/path.zip")
 
-                trainer.envs = Mock()
-                trainer.load_checkpoint("/fake/path.zip")
-
-                mock_ppo.load.assert_called_once()
+            trainer.backend.load_model.assert_called_once_with("/fake/path.zip", envs=trainer.envs)
 
 
 class TestCurriculumTrainerSaveCheckpoint:

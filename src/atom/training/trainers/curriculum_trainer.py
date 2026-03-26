@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 # Use Stable Baselines3 with PyTorch (JAX is in physics engine)
-from stable_baselines3 import PPO, SAC
+from ..backends import SB3PPOBackend
 
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
@@ -368,7 +368,8 @@ class CurriculumTrainer:
                  level1_sanity_gate_min_recent_win_rate: float = 0.15,
                  level1_sanity_gate_min_overall_win_rate: float = 0.12,
                  min_mean_damage_dealt: float = 5.0,
-                 min_nonzero_damage_rate: float = 0.3):
+                 min_nonzero_damage_rate: float = 0.3,
+                 backend=None):
         """
         Initialize the curriculum trainer.
 
@@ -408,6 +409,7 @@ class CurriculumTrainer:
         self.level1_sanity_gate_min_recent_win_rate = level1_sanity_gate_min_recent_win_rate
         self.level1_sanity_gate_min_overall_win_rate = level1_sanity_gate_min_overall_win_rate
         self.abort_reason = None
+        self.backend = backend or SB3PPOBackend(device=device)
 
         # Validate override
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
@@ -508,6 +510,7 @@ class CurriculumTrainer:
             logs_dir=self.logs_dir,
             verbose=self.verbose,
             seed=self.seed,
+            backend=self.backend,
         )
         self.level_transition_state_machine = LevelTransitionStateMachine()
         self._current_level_started_at = time.time()
@@ -805,7 +808,7 @@ class CurriculumTrainer:
             fight_length = 0
 
             while not done:
-                action, _ = eval_model.predict(obs, deterministic=deterministic)
+                action = self.backend.predict(eval_model, obs, deterministic=deterministic)
                 obs, reward, terminated, truncated, info = env.step(action)
                 total_reward += float(reward)
                 fight_length += 1
@@ -912,7 +915,6 @@ class CurriculumTrainer:
         was saved at graduation time so the holdout evaluation uses the exact
         weights and metadata from that level.
         """
-        model_cls = PPO if self.algorithm == "ppo" else SAC
         while self._pending_holdout_labels:
             entry = self._pending_holdout_labels.pop(0)
             if isinstance(entry, tuple):
@@ -920,7 +922,7 @@ class CurriculumTrainer:
                 snapshot_path = entry[1]
                 metadata = entry[2] if len(entry) > 2 else None
                 try:
-                    snapshot_model = model_cls.load(snapshot_path, device="cpu")
+                    snapshot_model = self.backend.load_model(snapshot_path)
                     self._record_holdout_evaluation(label, model=snapshot_model, snapshot_metadata=metadata)
                     del snapshot_model
                 except Exception as exc:
@@ -1155,12 +1157,7 @@ class CurriculumTrainer:
                 description=level.description,
             )
             self.envs = self.create_envs_for_level(reduced_level)
-            self.model.set_env(self.envs)
-            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
-            # new env to populate _last_obs so the next collect_rollouts doesn't
-            # crash with "Unrecognized type of observation NoneType".
-            self.model._last_obs = self.envs.reset()
-            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
+            self.backend.replace_env(self.model, self.envs)
         else:
             # CPU path: retarget existing envs to unmastered opponents only
             for env_idx in range(self.n_envs):
@@ -1298,7 +1295,7 @@ class CurriculumTrainer:
         snapshot_path = self.models_dir / "checkpoints" / f"holdout_snapshot_{checkpoint_label}.zip"
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         if self.model is not None:
-            self.model.save(snapshot_path)
+            self.backend.save_model(self.model, snapshot_path)
         # Queue label, path, and metadata captured at graduation time
         snapshot_metadata = {
             "level_index": int(self.progress.current_level),
@@ -1361,12 +1358,7 @@ class CurriculumTrainer:
                 self.envs = self.create_envs_for_level(new_level)
 
                 # Update model's environment reference
-                self.model.set_env(self.envs)
-                # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
-                # new env to populate _last_obs so the next collect_rollouts doesn't
-                # crash with "Unrecognized type of observation NoneType".
-                self.model._last_obs = self.envs.reset()
-                self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
+                self.backend.replace_env(self.model, self.envs)
             else:
                 # For CPU: Switch opponents in existing environments (avoids closing/recreating VecEnv)
                 # This prevents Monitor file handle issues during level transitions
@@ -1487,7 +1479,7 @@ class CurriculumTrainer:
 
         # Save final model
         final_model_path = self.models_dir / "curriculum_graduate.zip"
-        self.model.save(final_model_path)
+        self.backend.save_model(self.model, final_model_path)
         self.logger.info(f"Final model saved to: {final_model_path}")
 
         # Save replay index if recording was enabled
@@ -1592,12 +1584,7 @@ class CurriculumTrainer:
             self.logger.info("Restoring vmap environments to checkpoint level state...")
             old_envs = self.envs
             self.envs = self.create_envs_for_level(restored_level)
-            self.model.set_env(self.envs)
-            # SB3's set_env sets _last_obs=None (force_reset=True). Reset the
-            # new env to populate _last_obs so the next collect_rollouts doesn't
-            # crash with "Unrecognized type of observation NoneType".
-            self.model._last_obs = self.envs.reset()
-            self.model._last_episode_starts = np.ones((self.envs.num_envs,), dtype=bool)
+            self.backend.replace_env(self.model, self.envs)
             if old_envs is not self.envs and hasattr(old_envs, "close"):
                 old_envs.close()
             return
@@ -1705,7 +1692,7 @@ class CurriculumTrainer:
                 self.logger.info("Resume requested but no checkpoint bundle found; starting fresh run.")
             else:
                 self.logger.info(f"Resuming from checkpoint bundle: {latest_bundle.model_path}")
-                self.model = self.model.__class__.load(latest_bundle.model_path, env=self.envs)
+                self.model = self.backend.load_model(latest_bundle.model_path, envs=self.envs)
                 checkpoint_state = self.recovery_manager.load_checkpoint_training_state(latest_bundle)
                 if checkpoint_state is not None:
                     self._restore_training_state(callback, checkpoint_state)
@@ -1801,7 +1788,7 @@ class CurriculumTrainer:
 
         # Save the model only if graduated
         final_model_path = self.models_dir / "curriculum_graduate.zip"
-        self.model.save(final_model_path)
+        self.backend.save_model(self.model, final_model_path)
         self.logger.info(f"Model saved to: {final_model_path}")
 
     def save_checkpoint(self, name: str = None):
@@ -1813,18 +1800,14 @@ class CurriculumTrainer:
             name = f"level_{self.progress.current_level}_ep_{self.progress.total_episodes}"
 
         checkpoint_path = self.models_dir / f"{name}.zip"
-        self.model.save(checkpoint_path)
+        self.backend.save_model(self.model, checkpoint_path)
         self.logger.info(f"Checkpoint saved: {checkpoint_path}")
 
         return checkpoint_path
 
     def load_checkpoint(self, path: str):
         """Load a model checkpoint."""
-        if self.algorithm == "ppo":
-            self.model = PPO.load(path, env=self.envs)
-        elif self.algorithm == "sac":
-            self.model = SAC.load(path, env=self.envs)
-
+        self.model = self.backend.load_model(path, envs=self.envs)
         self.logger.info(f"Checkpoint loaded: {path}")
 
 
