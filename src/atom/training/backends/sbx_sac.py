@@ -78,13 +78,16 @@ class SBXSACBackend:
         """Create a new SAC model."""
         config = dict(_CURRICULUM_TRAINING_CONFIG) if mode == "curriculum" else dict(_POPULATION_TRAINING_CONFIG)
 
+        # Cap verbose at 1 for SAC — verbose=2 prints stats every 4 episodes
+        # which creates 50K+ lines of output per level
+        sac_verbose = min(verbose, 1)
         model = SAC(
             "MlpPolicy",
             envs,
             seed=seed,
             policy_kwargs=dict(_POLICY_ARCH),
             tensorboard_log=tensorboard_log,
-            verbose=verbose,
+            verbose=sac_verbose,
             **config,
         )
         return model
@@ -115,6 +118,7 @@ class SBXSACBackend:
             callback=callback,
             reset_num_timesteps=reset_num_timesteps,
             progress_bar=progress_bar,
+            log_interval=100,  # Log SB3 stats every 100 episodes, not every 4
         )
 
     def replace_env(self, model: Any, envs: Any) -> None:
