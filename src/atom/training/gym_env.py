@@ -79,8 +79,8 @@ class AtomCombatEnv(gym.Env):
         #  opp_hp_norm, opp_stamina_norm, arena_width,
         #  wall_dist_left, wall_dist_right, opp_stance_int, you_stance_int, tick_fraction]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1, 1, 1], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -312,7 +312,10 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (14 dimensions)."""
+        """Get current observation as numpy array (16 dimensions)."""
+        opponent_direction = float(np.sign(float(self.opponent.position) - float(self.fighter.position)))
+        ticks_since_hit = max(0, self.tick - int(self.fighter.last_hit_tick))
+        hit_cooldown_fraction = min(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0)
         obs = build_observation(
             you_position=float(self.fighter.position),
             you_velocity=float(self.fighter.velocity),
@@ -330,6 +333,8 @@ class AtomCombatEnv(gym.Env):
             arena_width=float(self.config.arena_width),
             you_stance=self.fighter.stance,
             tick_fraction=self.tick / self.max_ticks,
+            opponent_direction=opponent_direction,
+            hit_cooldown_fraction=hit_cooldown_fraction,
         )
         # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
         if np.isnan(obs).any() or np.isinf(obs).any():

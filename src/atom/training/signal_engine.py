@@ -26,16 +26,13 @@ STANCE_DEFENDING = 2
 DEFAULT_REWARD_WEIGHTS = {"proximity": 1.0, "inaction": 1.0, "stance": 1.0, "stamina": 1.0}
 
 LEVEL_REWARD_WEIGHTS = {
-    "fundamentals":  {"proximity": 20.0, "inaction": 3.0, "stance": 5.0, "stamina": 1.0},
-    "basic_skills":  {"proximity": 15.0, "inaction": 2.0, "stance": 5.0, "stamina": 2.0},
-    "intermediate":  {"proximity": 10.0, "inaction": 1.5, "stance": 8.0, "stamina": 5.0},
-    "advanced":      {"proximity": 5.0,  "inaction": 1.0, "stance": 5.0, "stamina": 3.0},
-    "adaptive":      {"proximity": 1.0,  "inaction": 0.5, "stance": 2.0, "stamina": 1.0},
-    # Expert/Gauntlet: proximity and inaction zeroed — these mislead against
-    # counter-punchers (proximity punishes patience) and patient fighters
-    # (inaction punishes waiting). Damage + terminal remain always active.
-    "expert":        {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
-    "gauntlet":      {"proximity": 0.0,  "inaction": 0.0, "stance": 1.0, "stamina": 1.0},
+    "fundamentals":  {"proximity": 10.0, "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "basic_skills":  {"proximity": 5.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "intermediate":  {"proximity": 3.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "advanced":      {"proximity": 1.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "adaptive":      {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "expert":        {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "gauntlet":      {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
 }
 
 _STANCE_NAME_TO_INT = {
@@ -104,8 +101,10 @@ def build_observation(
     arena_width: float,
     you_stance: int | float | str = 0,
     tick_fraction: float = 0.0,
+    opponent_direction: float = 0.0,
+    hit_cooldown_fraction: float = 1.0,
 ) -> np.ndarray:
-    """Build a single 14-dimensional training observation."""
+    """Build a single 16-dimensional training observation."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -123,6 +122,8 @@ def build_observation(
         arena_width=arena_width,
         you_stance=np.array([you_stance], dtype=object),
         tick_fraction=np.array([tick_fraction], dtype=np.float32),
+        opponent_direction=np.array([opponent_direction], dtype=np.float32),
+        hit_cooldown_fraction=np.array([hit_cooldown_fraction], dtype=np.float32),
     )
     return obs[0]
 
@@ -168,6 +169,13 @@ def build_observation_from_snapshot(
     you_stance = you.get("stance", "neutral")
     tick_fraction = float(snapshot.get("tick_fraction", 0.0))
 
+    opponent_direction = float(opponent.get("direction", 0.0))
+
+    # Normalize hit cooldown: 0.0 = just hit (on cooldown), 1.0 = ready to hit.
+    # Uses 5.0 as normalization constant (matches WorldConfig.hit_cooldown_ticks default).
+    ticks_since_hit = float(you.get("ticks_since_last_hit", 5))
+    hit_cooldown_fraction = min(ticks_since_hit / 5.0, 1.0)
+
     return build_observation(
         you_position=you_position,
         you_velocity=you_velocity,
@@ -185,6 +193,8 @@ def build_observation_from_snapshot(
         arena_width=float(arena["width"]),
         you_stance=you_stance,
         tick_fraction=tick_fraction,
+        opponent_direction=opponent_direction,
+        hit_cooldown_fraction=hit_cooldown_fraction,
     )
 
 
@@ -206,8 +216,10 @@ def build_observation_batch(
     arena_width: float,
     you_stance=None,
     tick_fraction=None,
+    opponent_direction=None,
+    hit_cooldown_fraction=None,
 ) -> np.ndarray:
-    """Build batched 14-dimensional observations with canonical semantics."""
+    """Build batched 16-dimensional observations with canonical semantics."""
     you_position = _to_float_array(you_position)
     you_velocity = _to_float_array(you_velocity)
     you_hp = _to_float_array(you_hp)
@@ -231,6 +243,16 @@ def build_observation_batch(
         tick_fraction = _to_float_array(tick_fraction)
     else:
         tick_fraction = np.zeros_like(you_position)
+
+    if opponent_direction is not None:
+        opponent_direction = _to_float_array(opponent_direction)
+    else:
+        opponent_direction = np.sign(opponent_position - you_position)
+
+    if hit_cooldown_fraction is not None:
+        hit_cooldown_fraction = _to_float_array(hit_cooldown_fraction)
+    else:
+        hit_cooldown_fraction = np.ones_like(you_position)
 
     hp_norm = you_hp / np.maximum(you_max_hp, 1.0)
     stamina_norm = you_stamina / np.maximum(you_max_stamina, 1.0)
@@ -259,6 +281,8 @@ def build_observation_batch(
             opponent_stance_int,
             you_stance_int,
             tick_fraction,
+            opponent_direction,
+            hit_cooldown_fraction,
         ],
         axis=1,
     ).astype(np.float32)

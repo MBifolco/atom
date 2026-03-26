@@ -56,7 +56,7 @@ class TestAtomCombatEnvInit:
         opponent_func = lambda state: {"stance": "neutral", "movement": 0}
         env = AtomCombatEnv(opponent_func)
 
-        assert env.observation_space.shape == (14,)  # Enhanced observation space
+        assert env.observation_space.shape == (16,)  # Enhanced observation space
 
     def test_action_space_shape(self):
         """Test action space has correct shape."""
@@ -108,7 +108,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset()
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
         assert isinstance(info, dict)
 
     def test_reset_with_seed(self):
@@ -118,7 +118,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset(seed=42)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_reset_with_options(self):
         """Test reset with options dict."""
@@ -127,7 +127,7 @@ class TestAtomCombatEnvReset:
 
         obs, info = env.reset(options={"test": True})
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_reset_creates_arena(self):
         """Test that reset creates arena and fighters."""
@@ -201,7 +201,7 @@ class TestAtomCombatEnvStep:
         action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, _, _, _, _ = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_with_neutral_action(self):
         """Test step with neutral stance action."""
@@ -213,7 +213,7 @@ class TestAtomCombatEnvStep:
         action = np.array([0.0, 1.0, -1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_with_forward_movement(self):
         """Test step with forward acceleration."""
@@ -225,7 +225,7 @@ class TestAtomCombatEnvStep:
         action = np.array([1.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_with_backward_movement(self):
         """Test step with backward acceleration."""
@@ -237,7 +237,7 @@ class TestAtomCombatEnvStep:
         action = np.array([-1.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_with_extended_stance(self):
         """Test step with extended stance."""
@@ -249,7 +249,7 @@ class TestAtomCombatEnvStep:
         action = np.array([0.0, -1.0, 1.0, -1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_with_defending_stance(self):
         """Test step with defending stance."""
@@ -261,7 +261,7 @@ class TestAtomCombatEnvStep:
         action = np.array([0.0, -1.0, -1.0, 1.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (14,)  # Enhanced observation space
+        assert obs.shape == (16,)  # Enhanced observation space
 
     def test_step_timeout_truncation(self):
         """Test that step truncates on timeout."""
@@ -332,7 +332,7 @@ class TestAtomCombatEnvIntegration:
             if terminated or truncated:
                 break
 
-            assert obs.shape == (14,)  # Enhanced observation space
+            assert obs.shape == (16,)  # Enhanced observation space
 
     def test_multiple_episodes(self):
         """Test running multiple episodes."""

@@ -44,9 +44,11 @@ def test_observation_batch_matches_scalar():
         arena_width=15.0,
     )
 
-    assert batch.shape == (n, 14)
+    assert batch.shape == (n, 16)
 
     for i in range(n):
+        # Compute direction to match batch auto-computation (np.sign(opp - you))
+        direction = float(np.sign(float(opp_pos[i]) - float(you_pos[i])))
         scalar = build_observation(
             you_position=float(you_pos[i]),
             you_velocity=float(you_vel[i]),
@@ -62,6 +64,7 @@ def test_observation_batch_matches_scalar():
             opponent_max_stamina=float(opp_max_stamina[i]),
             opponent_stance=int(opp_stance[i]),
             arena_width=15.0,
+            opponent_direction=direction,
         )
         assert np.allclose(scalar, batch[i], atol=1e-6)
 

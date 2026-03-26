@@ -176,7 +176,7 @@ class TestReplayRecorderSnapshotConversion:
 
             assert isinstance(obs, np.ndarray)
             assert obs.dtype == np.float32
-            assert len(obs) == 14  # Enhanced observation space
+            assert len(obs) == 16  # Enhanced observation space
 
             # Check specific values
             assert obs[0] == 3.0  # position

@@ -139,8 +139,8 @@ class VmapEnvWrapper(gym.Env):
 
         # Define observation/action spaces (enhanced to match AtomCombatEnv)
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1], dtype=np.float32),
+            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0], dtype=np.float32),
+            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1, 1, 1], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -468,6 +468,9 @@ class VmapEnvWrapper(gym.Env):
 
     def _get_observations(self):
         """Extract enhanced observations from JAX states."""
+        opponent_direction = np.sign(np.array(self.jax_states.fighter_b.position) - np.array(self.jax_states.fighter_a.position))
+        ticks_since_hit = np.maximum(0, np.array(self.tick_counts) - np.array(self.jax_states.fighter_a.last_hit_tick))
+        hit_cooldown_fraction = np.minimum(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0).astype(np.float32)
         return build_observation_batch(
             you_position=np.array(self.jax_states.fighter_a.position),
             you_velocity=np.array(self.jax_states.fighter_a.velocity),
@@ -485,10 +488,15 @@ class VmapEnvWrapper(gym.Env):
             arena_width=self.arena_width,
             you_stance=np.array(self.jax_states.fighter_a.stance),
             tick_fraction=np.array(self.tick_counts / self.max_ticks, dtype=np.float32),
+            opponent_direction=opponent_direction,
+            hit_cooldown_fraction=hit_cooldown_fraction,
         )
 
     def _get_opponent_observations(self):
         """Extract observations from opponent's perspective for model predictions."""
+        opponent_direction = np.sign(np.array(self.jax_states.fighter_a.position) - np.array(self.jax_states.fighter_b.position))
+        ticks_since_hit = np.maximum(0, np.array(self.tick_counts) - np.array(self.jax_states.fighter_b.last_hit_tick))
+        hit_cooldown_fraction = np.minimum(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0).astype(np.float32)
         return build_observation_batch(
             you_position=np.array(self.jax_states.fighter_b.position),
             you_velocity=np.array(self.jax_states.fighter_b.velocity),
@@ -506,6 +514,8 @@ class VmapEnvWrapper(gym.Env):
             arena_width=self.arena_width,
             you_stance=np.array(self.jax_states.fighter_b.stance),
             tick_fraction=np.array(self.tick_counts / self.max_ticks, dtype=np.float32),
+            opponent_direction=opponent_direction,
+            hit_cooldown_fraction=hit_cooldown_fraction,
         )
 
     def _predict_opponent_actions(self, opponent_observations):

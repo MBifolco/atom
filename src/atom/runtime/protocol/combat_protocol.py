@@ -132,7 +132,8 @@ def generate_snapshot(
             "max_hp": float(my_fighter.max_hp),
             "stamina": float(my_fighter.stamina),
             "max_stamina": float(my_fighter.max_stamina),
-            "stance": my_stance
+            "stance": my_stance,
+            "ticks_since_last_hit": max(0, int(tick) - int(getattr(my_fighter, 'last_hit_tick', 0))),
         },
         "opponent": {
             "distance": float(distance),
