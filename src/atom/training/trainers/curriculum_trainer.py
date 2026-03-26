@@ -279,7 +279,9 @@ class CurriculumCallback(BaseCallback):
 
         self.last_train_time = time.time()
         if self.verbose and should_log:
-            print(f"🧠 Training neural network (CPU)...", flush=True)
+            backend = getattr(self.curriculum_trainer, 'backend', None)
+            device = backend.capabilities.framework if backend else "CPU"
+            print(f"🧠 Training neural network ({device})...", flush=True)
 
     def _on_training_end(self) -> None:
         """Called after training completes."""
@@ -1136,6 +1138,11 @@ class CurriculumTrainer:
         if not self._pending_opponent_pool_refresh:
             return
         self._pending_opponent_pool_refresh = False
+
+        # Off-policy backends (SAC): skip env recreation mid-level to avoid
+        # replay buffer shape mismatch. Training continues against all opponents.
+        if self.backend and not self.backend.capabilities.on_policy:
+            return
 
         level = self.get_current_level()
         all_names = [Path(p).stem for p in level.opponents]
