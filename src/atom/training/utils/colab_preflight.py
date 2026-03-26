@@ -99,7 +99,10 @@ def run_preflight(
     sync_mode = runtime_env.get("ATOM_DRIVE_REPO_SYNC_MODE", "stash").strip()
 
     _append_sync_mode_check(checks, sync_mode=sync_mode)
-    _append_drive_mount_check(checks, drive_repo=drive_repo)
+
+    # Drive mount only required for stages that write to Drive (not bootstrap)
+    if stage != "bootstrap":
+        _append_drive_mount_check(checks, drive_repo=drive_repo)
 
     if stage == "bootstrap":
         _append_command_check(checks, "git")
