@@ -22,26 +22,26 @@ _POLICY_ARCH = {
 
 _CURRICULUM_TRAINING_CONFIG = {
     "learning_rate": 3e-4,
+    "buffer_size": 300_000,
+    "learning_starts": 2000,
+    "batch_size": 256,
+    "tau": 0.005,
+    "gamma": 0.99,
+    "ent_coef": "auto_0.1",  # Auto-tune with floor of 0.1 (prevents entropy collapse)
+    "train_freq": 4,  # Train every 4 steps (reduces overhead with 250 envs)
+    "gradient_steps": 2,  # 2 updates per train call (compensates for lower train_freq)
+}
+
+_POPULATION_TRAINING_CONFIG = {
+    "learning_rate": 3e-4,
     "buffer_size": 100_000,
     "learning_starts": 1000,
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": "auto",
-    "train_freq": 1,
-    "gradient_steps": 1,
-}
-
-_POPULATION_TRAINING_CONFIG = {
-    "learning_rate": 3e-4,
-    "buffer_size": 50_000,
-    "learning_starts": 500,
-    "batch_size": 256,
-    "tau": 0.005,
-    "gamma": 0.99,
-    "ent_coef": "auto",
-    "train_freq": 1,
-    "gradient_steps": 1,
+    "ent_coef": "auto_0.1",
+    "train_freq": 4,
+    "gradient_steps": 2,
 }
 
 
