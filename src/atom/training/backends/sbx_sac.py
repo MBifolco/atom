@@ -139,7 +139,11 @@ class SBXSACBackend:
         model.env = loaded.env
         model._last_obs = envs.reset()
         model._last_episode_starts = np.ones((envs.num_envs,), dtype=bool)
-        model.num_timesteps = loaded.num_timesteps
+
+        # Reset num_timesteps below learning_starts so SAC collects
+        # experience into the fresh buffer before attempting to train.
+        # Without this, SAC tries to sample from an empty buffer.
+        model.num_timesteps = 0
 
     def get_policy_arch(self) -> dict:
         return dict(_POLICY_ARCH)
