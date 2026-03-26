@@ -517,6 +517,9 @@ def _train_single_fighter_parallel(
     use_vmap: bool = True,  # GPU mode by default
     n_vmap_envs: int = 250
 ) -> Dict:
+    # NOTE: This function runs in a subprocess and cannot share the backend
+    # object. Direct SB3 imports are intentional here. To support multiple
+    # backends in subprocess training, serialize backend config and reconstruct.
     """
     Train a single fighter in a separate process.
 
@@ -1331,6 +1334,7 @@ class PopulationTrainer:
             generation=self.generation,
             verbose=self.verbose,
             logger=self.logger,
+            backend=self.backend,
         )
 
     def evolve_population(self, keep_top: float = 0.5, mutation_rate: float = 0.1) -> list[LineageEvent]:

@@ -124,6 +124,7 @@ class TestBackendProtocolCompleteness:
             "get_policy_arch",
             "reduce_learning_rate",
             "clone_and_mutate",
+            "create_dummy_env",
             "handle_distribution_shift",
         ]
         for method_name in required:

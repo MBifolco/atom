@@ -113,7 +113,12 @@ class ModelArtifactStore:
         fighter_opponent_pairs: List[Tuple[PopulationFighterProtocol, List[PopulationFighterProtocol]]],
         episodes_per_fighter: int,
     ) -> None:
-        """Reload trained models back into fighter instances."""
+        """Reload trained models back into fighter instances.
+
+        NOTE: Uses direct SB3 PPO.load/SAC.load because models were saved by
+        a subprocess that cannot share the backend object. To support multiple
+        backends in subprocess training, serialize backend config and reconstruct.
+        """
         for fighter, _ in fighter_opponent_pairs:
             temp_path = self.temp_model_paths.get(fighter.name)
             if temp_path is None or not temp_path.exists():

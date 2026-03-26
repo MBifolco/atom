@@ -29,7 +29,7 @@ Examples:
     )
 
     parser.add_argument("--mode", choices=["quick", "curriculum", "population", "complete"], default="complete", help="Training mode")
-    parser.add_argument("--algorithm", choices=["ppo", "sac"], default="ppo", help="RL algorithm to use")
+    parser.add_argument("--algorithm", choices=["ppo", "sac"], default="ppo", help="[DEPRECATED — use --backend instead] RL algorithm")
     parser.add_argument("--timesteps", type=int, default=500_000, help="Timesteps for curriculum training")
     parser.add_argument("--seed", type=int, default=1337, help="Training seed for reproducible runs")
     parser.add_argument("--population", type=int, default=8, help="Population size")
@@ -51,7 +51,7 @@ Examples:
     parser.add_argument("--keep-top", type=float, default=0.5, help="Fraction of population to keep during evolution (default: 0.5 = top 50%%)")
     parser.add_argument("--mutation-rate", type=float, default=0.1, help="Mutation strength for evolved fighters (default: 0.1 = 10%% weight noise)")
     parser.add_argument("--evolution-frequency", type=int, default=2, help="Evolve population every N generations (default: 2)")
-    parser.add_argument("--backend", choices=["sb3_ppo", "sbx_sac"], default="sb3_ppo", help="Training backend: sb3_ppo (Stable Baselines3 PPO) or sbx_sac (SBX SAC, all-JAX)")
+    parser.add_argument("--backend", choices=["sb3_ppo"], default="sb3_ppo", help="Training backend (sbx_sac will be added in Phase 2)")
     return parser
 
 
@@ -71,17 +71,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Construct training backend from CLI flag
     from src.atom.training.backends import SB3PPOBackend
-    if args.backend == "sb3_ppo":
-        backend = SB3PPOBackend(device=args.device)
-    elif args.backend == "sbx_sac":
-        try:
-            from src.atom.training.backends.sbx_sac import SBXSACBackend
-            backend = SBXSACBackend()
-        except ImportError:
-            print("ERROR: sbx_sac backend requires 'sbx-rl' package. Install with: pip install sbx-rl")
-            raise SystemExit(1)
-    else:
-        backend = SB3PPOBackend(device=args.device)
+    backend = SB3PPOBackend(device=args.device)
 
     trainer = ProgressiveTrainer(
         algorithm=args.algorithm,

@@ -86,6 +86,10 @@ class TrainingBackend(Protocol):
         """
         ...
 
+    def create_dummy_env(self, config: Any, max_ticks: int, fighter_mass: float) -> Any:
+        """Create a minimal env for model loading/cloning."""
+        ...
+
     def handle_distribution_shift(self, model: Any, kind: str) -> None:
         """Called when the environment distribution changes.
 

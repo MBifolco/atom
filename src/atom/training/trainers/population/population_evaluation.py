@@ -95,6 +95,7 @@ class EvaluationContext:
     generation: int
     verbose: bool
     logger: logging.Logger
+    backend: Any = None
 
 
 class PopulationEvaluationService:
@@ -170,7 +171,10 @@ class PopulationEvaluationService:
                 done = False
 
                 while not done:
-                    action, _ = fighter_a.model.predict(obs, deterministic=False)
+                    if self.context.backend is not None:
+                        action = self.context.backend.predict(fighter_a.model, obs, deterministic=False)
+                    else:
+                        action, _ = fighter_a.model.predict(obs, deterministic=False)
                     obs, reward, terminated, truncated, info = env.step(action)
                     done = terminated or truncated
 
@@ -288,7 +292,10 @@ class PopulationEvaluationService:
                     obs, _ = env.reset()
                     done = False
                     while not done:
-                        action, _ = fighter.model.predict(obs, deterministic=False)
+                        if self.context.backend is not None:
+                            action = self.context.backend.predict(fighter.model, obs, deterministic=False)
+                        else:
+                            action, _ = fighter.model.predict(obs, deterministic=False)
                         obs, reward, terminated, truncated, info = env.step(action)
                         done = terminated or truncated
 
