@@ -127,9 +127,11 @@ class SBXSACBackend:
         SAC's replay buffer is tied to the original env's shape. Simple
         set_env causes shape mismatches on the next step. Instead, save
         the model weights and load into a fresh model with the new env.
-        This gives a clean replay buffer and optimizer state while
-        preserving the learned policy.
+        The replay buffer is preserved so off-policy phases can accumulate
+        experience across level transitions.
         """
+        saved_buffer = model.replay_buffer
+
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp) / "sac_transfer.zip"
@@ -139,14 +141,10 @@ class SBXSACBackend:
         # Transfer the loaded model's internals back to the original object
         # so callers that hold a reference to model still work.
         model.policy = loaded.policy
-        model.replay_buffer = loaded.replay_buffer
         model.env = loaded.env
+        model.replay_buffer = saved_buffer  # Preserve old buffer!
         model._last_obs = envs.reset()
         model._last_episode_starts = np.ones((envs.num_envs,), dtype=bool)
-
-        # Reset num_timesteps below learning_starts so SAC collects
-        # experience into the fresh buffer before attempting to train.
-        # Without this, SAC tries to sample from an empty buffer.
         model.num_timesteps = 0
 
     def get_policy_arch(self) -> dict:
@@ -186,9 +184,11 @@ class SBXSACBackend:
         return new_model
 
     def handle_distribution_shift(self, model: Any, kind: str) -> None:
-        """Clear replay buffer on level transitions, keep on pool refresh."""
-        if kind == "level_transition":
-            model.replay_buffer.reset()
+        """Off-policy phases accumulate opponents — old data is still valid.
+
+        Only clear buffer if explicitly requested (future "hard_reset" kind).
+        """
+        pass
 
     def create_dummy_env(self, config: Any, max_ticks: int, fighter_mass: float) -> Any:
         """Create a minimal env for model loading/cloning."""

@@ -192,8 +192,8 @@ class TestSBXSACBackendProtocol:
 
         env.close()
 
-    def test_handle_distribution_shift_clears_buffer(self):
-        """level_transition should clear replay buffer."""
+    def test_handle_distribution_shift_preserves_buffer(self):
+        """level_transition should preserve replay buffer for off-policy phases."""
         from src.atom.training.backends import SBXSACBackend
         from src.atom.training.gym_env import AtomCombatEnv
         from stable_baselines3.common.vec_env import DummyVecEnv
@@ -209,8 +209,9 @@ class TestSBXSACBackendProtocol:
         model.learn(total_timesteps=200)
         assert model.replay_buffer.pos > 0
 
+        old_pos = model.replay_buffer.pos
         backend.handle_distribution_shift(model, "level_transition")
-        assert model.replay_buffer.pos == 0
+        assert model.replay_buffer.pos == old_pos  # Buffer preserved
 
         # pool_refresh should NOT clear
         model.learn(total_timesteps=100)

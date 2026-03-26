@@ -469,6 +469,7 @@ class CurriculumTrainer:
         self.mastery_tracker = OpponentMasteryTracker()
         self._active_level_opponents: List[str] = []
         self._pending_opponent_pool_refresh = False
+        self._phase_new_opponents = None
 
         # Initialize NaN detector for debugging
         self.nan_detector = NaNDetector(
@@ -534,7 +535,123 @@ class CurriculumTrainer:
             self.logger.info(f"⚠️  Graduation override enabled: {self.override_episodes_per_level} episodes per level")
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
-        """Build the 8-level training curriculum."""
+        """Build the training curriculum based on backend type."""
+        backend = getattr(self, 'backend', None)
+        if backend and not backend.capabilities.on_policy:
+            return self._build_offpolicy_curriculum()
+        return self._build_onpolicy_curriculum()
+
+    def _build_offpolicy_curriculum(self) -> List[CurriculumLevel]:
+        """Build phased mixed curriculum for off-policy backends (SAC).
+
+        Opponents accumulate across phases rather than being replaced.
+        This prevents replay buffer invalidation and gives SAC diverse experience.
+        """
+        td = Path("fighters/test_dummies/atomic")
+        ex = Path("fighters/examples")
+
+        # Phase 1: Fundamentals + Basics (L1+L2 opponents)
+        phase1_opponents = [
+            str(td / "stationary_neutral.py"),
+            str(td / "stationary_extended.py"),
+            str(td / "stationary_defending.py"),
+            str(td / "approach_slow.py"),
+            str(td / "flee_always.py"),
+            str(td / "shuttle_medium.py"),
+            str(td / "approach_extended.py"),
+            str(td / "flee_defending.py"),
+            str(td / "circle_left.py"),
+            str(td / "circle_right.py"),
+            str(td / "forward_mover.py"),
+            str(td / "backward_mover.py"),
+        ]
+
+        # Phase 2: + Intermediate + Advanced (adds L3+L4)
+        phase2_new = [
+            str(td / "distance_keeper_1m.py"),
+            str(td / "distance_keeper_3m.py"),
+            str(td / "reactive_defender.py"),
+            str(td / "stamina_burner.py"),
+            str(td / "stamina_efficient.py"),
+            str(td / "aggressive_stance_switcher.py"),
+            str(td / "defensive_stance_switcher.py"),
+            str(td / "forward_charger.py"),
+            str(td / "charge_on_approach.py"),
+            str(td / "oscillator.py"),
+            str(td / "sideways_mover_smooth.py"),
+            str(td / "strategic_retreater.py"),
+        ]
+
+        # Phase 3: + Adaptive + Pre-Expert + Expert (adds L5+L6+L7)
+        phase3_new = [
+            str(td / "hp_adaptive.py"),
+            str(td / "stamina_punisher.py"),
+            str(td / "range_switcher.py"),
+            str(td / "comeback_fighter.py"),
+            str(td / "jab_and_move.py"),
+            str(td / "wait_and_counter.py"),
+            str(td / "hit_and_run.py"),
+            str(td / "pressure_fighter.py"),
+            str(td / "close_range_brawler.py"),
+            str(ex / "boxer.py"),
+            str(ex / "counter_puncher.py"),
+            str(ex / "out_fighter.py"),
+            str(ex / "slugger.py"),
+            str(ex / "swarmer.py"),
+        ]
+
+        gauntlet_opponents = [
+            str(td / "stationary_defending.py"),
+            str(td / "flee_defending.py"),
+            str(td / "reactive_defender.py"),
+            str(td / "charge_on_approach.py"),
+            str(td / "hp_adaptive.py"),
+            str(td / "jab_and_move.py"),
+            str(ex / "boxer.py"),
+            str(ex / "swarmer.py"),
+        ]
+
+        return [
+            CurriculumLevel(
+                name="Phase 1: Fundamentals + Basics",
+                difficulty=DifficultyLevel.BASIC_SKILLS,
+                opponents=phase1_opponents,
+                min_episodes=1000,
+                graduation_win_rate=0.75,
+                graduation_episodes=100,
+                description="Learn basic combat against stationary and simple moving targets",
+            ),
+            CurriculumLevel(
+                name="Phase 2: Through Advanced",
+                difficulty=DifficultyLevel.ADVANCED,
+                opponents=phase1_opponents + phase2_new,
+                min_episodes=1500,
+                graduation_win_rate=0.60,
+                graduation_episodes=150,
+                description="Add spacing, stamina, and complex pattern opponents to the mix",
+            ),
+            CurriculumLevel(
+                name="Phase 3: Full Curriculum",
+                difficulty=DifficultyLevel.EXPERT,
+                opponents=phase1_opponents + phase2_new + phase3_new,
+                min_episodes=3000,
+                graduation_win_rate=0.50,
+                graduation_episodes=200,
+                description="Face all opponents including experts simultaneously",
+            ),
+            CurriculumLevel(
+                name="Gauntlet",
+                difficulty=DifficultyLevel.GAUNTLET,
+                opponents=gauntlet_opponents,
+                min_episodes=600,
+                graduation_win_rate=0.75,
+                graduation_episodes=100,
+                description="Prove generalization against a mixed field spanning all difficulty levels",
+            ),
+        ]
+
+    def _build_onpolicy_curriculum(self) -> List[CurriculumLevel]:
+        """Build the 8-level on-policy training curriculum."""
         td = Path("fighters/test_dummies/atomic")
         ex = Path("fighters/examples")
 
@@ -729,6 +846,10 @@ class CurriculumTrainer:
 
     def _current_reward_weights(self) -> dict:
         """Get reward weights for the current curriculum level."""
+        if self.backend and not self.backend.capabilities.on_policy:
+            # Fixed profile for off-policy — buffer data must stay valid across phases
+            return {"proximity": 5.0, "inaction": 1.0, "stance": 3.0, "stamina": 1.0}
+        # On-policy: per-level weights
         from ..signal_engine import LEVEL_REWARD_WEIGHTS, DEFAULT_REWARD_WEIGHTS
         level = self.get_current_level()
         return LEVEL_REWARD_WEIGHTS.get(level.difficulty.value, DEFAULT_REWARD_WEIGHTS)
@@ -959,6 +1080,15 @@ class CurriculumTrainer:
         # Initialize active opponent pool for the new level
         self._active_level_opponents = self._get_level_opponent_names()
         self._pending_opponent_pool_refresh = False
+
+        # Track which opponents are new in this phase (for off-policy relaxed graduation)
+        if self.progress.current_level > 0 and self.backend and not self.backend.capabilities.on_policy:
+            prev_level = self.curriculum[self.progress.current_level - 1]
+            prev_names = set(Path(p).stem for p in prev_level.opponents)
+            current_names = set(Path(p).stem for p in self.get_current_level().opponents)
+            self._phase_new_opponents = current_names - prev_names
+        else:
+            self._phase_new_opponents = None
 
     def _build_reward_component_means(self) -> dict[str, float]:
         """Aggregate recent reward component breakdowns into mean values."""
@@ -1266,19 +1396,39 @@ class CurriculumTrainer:
                 self.progress_reporter.log_graduation_decision(decision)
             return False
 
-        # Per-opponent mastery gate: all opponents must be individually mastered
+        # Per-opponent mastery gate
         if decision.reason != "override":
             level_names = self._get_level_opponent_names()
-            all_mastered = all(o in self.progress.mastered_opponents for o in level_names)
-            if not all_mastered:
-                unmastered = [o for o in level_names if o not in self.progress.mastered_opponents]
-                if self.progress.episodes_at_level % 100 == 0:
-                    per_opp_eps = {n: self.progress.per_opponent_episodes.get(n, 0) for n in unmastered}
-                    self.logger.info(
-                        f"Aggregate checks pass but {len(unmastered)} opponents unmastered: "
-                        f"{unmastered} (per-opp eps: {per_opp_eps})"
-                    )
-                return False
+
+            if self._phase_new_opponents is not None:
+                # Off-policy: only require mastery for NEW opponents in this phase
+                new_mastered = all(o in self.progress.mastered_opponents
+                                   for o in level_names if o in self._phase_new_opponents)
+                if not new_mastered:
+                    unmastered_new = [o for o in self._phase_new_opponents
+                                      if o not in self.progress.mastered_opponents]
+                    if self.progress.episodes_at_level % 100 == 0:
+                        self.logger.info(f"New opponents unmastered: {unmastered_new}")
+                    return False
+
+                # Check retention floor for retained opponents (warn but don't block)
+                retained = [o for o in level_names if o not in self._phase_new_opponents]
+                for opp in retained:
+                    recent = self.progress.per_opponent_recent.get(opp, [])
+                    if recent and sum(recent) / len(recent) < 0.3:
+                        self.logger.warning(f"Retention warning: {opp} WR below 30%")
+            else:
+                # On-policy: all opponents must be individually mastered
+                all_mastered = all(o in self.progress.mastered_opponents for o in level_names)
+                if not all_mastered:
+                    unmastered = [o for o in level_names if o not in self.progress.mastered_opponents]
+                    if self.progress.episodes_at_level % 100 == 0:
+                        per_opp_eps = {n: self.progress.per_opponent_episodes.get(n, 0) for n in unmastered}
+                        self.logger.info(
+                            f"Aggregate checks pass but {len(unmastered)} opponents unmastered: "
+                            f"{unmastered} (per-opp eps: {per_opp_eps})"
+                        )
+                    return False
 
         # Deterministic sanity gate
         if decision.reason != "override":
@@ -1384,8 +1534,9 @@ class CurriculumTrainer:
                     # Use env_method to call set_opponent() on each environment
                     self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
 
-            # For off-policy backends: clear replay buffer on level transition
-            self.backend.handle_distribution_shift(self.model, "level_transition")
+            # Only clear buffer for on-policy backends
+            if self.backend.capabilities.on_policy:
+                self.backend.handle_distribution_shift(self.model, "level_transition")
 
             self._begin_level_observation_window()
 

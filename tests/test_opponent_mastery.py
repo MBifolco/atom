@@ -676,6 +676,7 @@ class TestShouldGraduateMasteryGate:
 
         trainer.progress_reporter = MagicMock()
         trainer.logger = MagicMock()
+        trainer._phase_new_opponents = None  # On-policy: no phase tracking
 
         result = CurriculumTrainer.should_graduate(trainer)
 
