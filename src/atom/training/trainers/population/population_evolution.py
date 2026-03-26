@@ -107,6 +107,7 @@ class PopulationEvolver:
         create_fighter_name: Callable[[int, int], str],
         fighter_factory: Callable[..., PopulationFighterProtocol],
         anchor_scores: dict[str, float] | None = None,
+        backend: Any = None,
     ) -> List[LineageEvent]:
         """
         Evolve the population by replacing lower-ranked fighters with mutated children.
@@ -142,6 +143,7 @@ class PopulationEvolver:
                 parent=parent,
                 new_mass=new_mass,
                 mutation_rate=mutation_rate,
+                backend=backend,
             )
 
             new_fighter = fighter_factory(
@@ -265,8 +267,16 @@ class PopulationEvolver:
         parent: PopulationFighterProtocol,
         new_mass: float,
         mutation_rate: float,
+        backend: Any = None,
     ) -> Any:
         """Clone parent model into a new environment and apply mutation."""
+        if backend is not None:
+            env = backend.create_dummy_env(
+                self.context.config, self.context.max_ticks, new_mass,
+            )
+            return backend.clone_and_mutate(parent.model, env, mutation_rate)
+
+        # Fallback: direct SB3 path (no backend)
         env = self._create_loading_env(new_mass)
         model = self._load_parent_model(parent=parent, env=env)
         self._apply_mutation(model, mutation_rate=mutation_rate)

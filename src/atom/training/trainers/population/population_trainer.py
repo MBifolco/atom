@@ -830,7 +830,8 @@ class PopulationTrainer:
                  record_replays: bool = False,
                  replay_recording_frequency: int = 5,
                  replay_matches_per_pair: int = 2,
-                 seed: int = 1337):
+                 seed: int = 1337,
+                 backend=None):
         """
         Initialize the population trainer.
 
@@ -851,7 +852,10 @@ class PopulationTrainer:
             replay_recording_frequency: Record replays every N generations
             replay_matches_per_pair: Number of evaluation matches per fighter pair for replay recording
             seed: Training seed used for deterministic population initialization
+            backend: Training backend (default: SB3PPOBackend)
         """
+        from src.atom.training.backends import SB3PPOBackend
+        self.backend = backend or SB3PPOBackend(device="cpu")
         self.population_size = population_size
         self.config = config or WorldConfig()
         self.algorithm = algorithm.lower()
@@ -1046,46 +1050,21 @@ class PopulationTrainer:
 
             # Create or load model
             if base_model_path and Path(base_model_path).exists():
-                # Load from base model
-                if self.algorithm == "ppo":
-                    model = PPO.load(base_model_path, env=env)
-                else:  # SAC
-                    model = SAC.load(base_model_path, env=env)
+                # Load from base model via backend
+                model = self.backend.load_model(base_model_path, envs=env)
 
                 # Add variation for diversity (except first fighter)
                 if i > 0 and variation_factor > 0:
                     self._add_variation_to_model(model, variation_factor)
 
             else:
-                # Create new model from scratch
-                if self.algorithm == "ppo":
-                    from src.atom.training.utils.stable_ppo_config import get_shared_policy_kwargs
-                    model = PPO(
-                        "MlpPolicy",
-                        env,
-                        verbose=0,
-                        learning_rate=1e-4,
-                        n_steps=2048 // self.n_envs_per_fighter,
-                        batch_size=64,
-                        n_epochs=10,
-                        gamma=0.99,
-                        gae_lambda=0.95,
-                        clip_range=0.2,
-                        ent_coef=0.01,
-                        policy_kwargs=get_shared_policy_kwargs(),
-                    )
-                else:  # SAC
-                    model = SAC(
-                        "MlpPolicy",
-                        env,
-                        verbose=0,
-                        learning_rate=1e-4,  # Lower for fine-tuning and stability
-                        buffer_size=50000,
-                        learning_starts=100,
-                        batch_size=256,
-                        tau=0.005,
-                        gamma=0.99
-                    )
+                # Create new model from scratch via backend
+                model = self.backend.create_model(
+                    env,
+                    seed=self.seed + i,
+                    mode="population",
+                    n_envs_per_fighter=self.n_envs_per_fighter,
+                )
 
             fighter = PopulationFighter(
                 name=name,
@@ -1285,13 +1264,10 @@ class PopulationTrainer:
             # Save current model temporarily
             temp_path = self.models_dir / f"temp_{fighter.name}.zip"
             temp_path.parent.mkdir(exist_ok=True)
-            fighter.model.save(temp_path)
+            self.backend.save_model(fighter.model, temp_path)
 
-            # Reload with new environment
-            if self.algorithm == "ppo":
-                fighter.model = PPO.load(temp_path, env=vec_env)
-            else:
-                fighter.model = SAC.load(temp_path, env=vec_env)
+            # Reload with new environment via backend
+            fighter.model = self.backend.load_model(temp_path, envs=vec_env)
 
             # Clean up temp file
             temp_path.unlink()
@@ -1374,6 +1350,7 @@ class PopulationTrainer:
             create_fighter_name=self._create_fighter_name,
             fighter_factory=self._create_population_fighter,
             anchor_scores=self._last_anchor_scores or None,
+            backend=self.backend,
         )
 
     def _build_evolution_context(self) -> EvolutionContext:

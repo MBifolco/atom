@@ -945,13 +945,12 @@ class TestPopulationTrainerInitializePopulationVerbose:
                 verbose=True
             )
 
-            with patch('src.training.trainers.population.population_trainer.PPO') as MockPPO:
+            with patch.object(trainer.backend, 'load_model') as mock_load:
                 mock_instance = Mock()
                 mock_instance.policy = Mock()
                 mock_instance.policy.state_dict.return_value = {}
                 mock_instance.policy.load_state_dict = Mock()
-                MockPPO.return_value = mock_instance
-                MockPPO.load = Mock(return_value=mock_instance)
+                mock_load.return_value = mock_instance
 
                 # Create a fake base model file
                 base_model = Path(tmpdir) / "base.zip"
