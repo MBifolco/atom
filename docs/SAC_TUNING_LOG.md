@@ -52,3 +52,51 @@ The policy then couldn't explore different tactics for harder opponents.
 - Faster wall-clock training (~2x speedup from train_freq=4)
 - Maintained exploration through curriculum (ent_coef stays ≥0.1)
 - Better sample reuse from larger buffer
+
+---
+
+## Run SAC-3: Phased Mixed Curriculum + auto_0.1 (commit dd03e96)
+
+**Config changes from SAC-2:**
+- Phased mixed curriculum: 3 phases accumulating opponents instead of 8 sequential levels
+- Phase 1: 12 opponents (L1+L2), Phase 2: 24, Phase 3: 38
+- Replay buffer preserved across phases
+- Fixed reward weights across all phases
+- ent_coef: "auto_0.1" (initial value 0.1, auto-tuned from there)
+
+**Results:**
+- Phase 1: NOT graduated after 42,396 episodes, 7.4M timesteps, ~75 minutes
+- Overall WR: 37% and DECLINING (was 43% at ep 4000)
+- 6/12 opponents mastered, 6 stuck at 0% WR
+- ent_coef collapsed: 0.10 → 0.0017 (same as SAC-1)
+
+**Diagnosis:**
+- `"auto_0.1"` in SBX only sets the INITIAL value — there is no floor
+- Auto-tuning drove entropy to 0.0017 despite starting at 0.1
+- Policy locked into beating easy movers (100% WR) but 0% vs stationary/defensive
+- Mixed curriculum didn't help because the core issue is entropy collapse
+- WR declining over time = policy getting worse, not better
+
+**Mastered:** approach_slow (100%), shuttle_medium (100%), circle_left (100%),
+approach_extended (92%), forward_mover (15%), stationary_neutral (5%)
+
+**Stuck at 0%:** stationary_extended, stationary_defending, flee_always,
+circle_right, flee_defending, backward_mover
+
+---
+
+## Run SAC-4: Fixed entropy coefficient (next run)
+
+**Changes from SAC-3:**
+1. `ent_coef`: "auto_0.1" → 0.1 (FIXED, no auto-tuning)
+
+**Rationale:**
+- Three runs of auto-tuned entropy all collapsed to <0.01
+- SBX auto-tuning has no floor mechanism
+- Fixed ent_coef=0.1 guarantees ongoing exploration
+- This is the standard fix for entropy collapse in SAC literature
+
+**Expected effect:**
+- ent_coef stays at 0.1 throughout training (no collapse)
+- Policy maintains exploration diversity against all opponents
+- Should break through the 0% WR barrier on stationary/defensive opponents

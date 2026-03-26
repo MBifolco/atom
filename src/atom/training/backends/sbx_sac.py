@@ -27,9 +27,9 @@ _CURRICULUM_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": "auto_0.1",  # Auto-tune with floor of 0.1 (prevents entropy collapse)
-    "train_freq": 4,  # Train every 4 steps (reduces overhead with 250 envs)
-    "gradient_steps": 2,  # 2 updates per train call (compensates for lower train_freq)
+    "ent_coef": 0.1,  # Fixed — auto-tuning collapses to ~0.001 and kills exploration
+    "train_freq": 4,
+    "gradient_steps": 2,
 }
 
 _POPULATION_TRAINING_CONFIG = {
@@ -39,7 +39,7 @@ _POPULATION_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": "auto_0.1",
+    "ent_coef": 0.1,
     "train_freq": 4,
     "gradient_steps": 2,
 }
