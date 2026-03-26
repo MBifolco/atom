@@ -51,7 +51,7 @@ Examples:
     parser.add_argument("--keep-top", type=float, default=0.5, help="Fraction of population to keep during evolution (default: 0.5 = top 50%%)")
     parser.add_argument("--mutation-rate", type=float, default=0.1, help="Mutation strength for evolved fighters (default: 0.1 = 10%% weight noise)")
     parser.add_argument("--evolution-frequency", type=int, default=2, help="Evolve population every N generations (default: 2)")
-    parser.add_argument("--backend", choices=["sb3_ppo"], default="sb3_ppo", help="Training backend (sbx_sac will be added in Phase 2)")
+    parser.add_argument("--backend", choices=["sb3_ppo", "sbx_sac"], default="sb3_ppo", help="Training backend: sb3_ppo (PPO, PyTorch) or sbx_sac (SAC, all-JAX)")
     return parser
 
 
@@ -70,8 +70,11 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     # Construct training backend from CLI flag
-    from src.atom.training.backends import SB3PPOBackend
-    backend = SB3PPOBackend(device=args.device)
+    from src.atom.training.backends import SB3PPOBackend, SBXSACBackend
+    if args.backend == "sbx_sac":
+        backend = SBXSACBackend()
+    else:
+        backend = SB3PPOBackend(device=args.device)
 
     trainer = ProgressiveTrainer(
         algorithm=args.algorithm,

@@ -7,5 +7,6 @@ which algorithm is running.
 
 from .protocol import BackendCapabilities, TrainingBackend
 from .sb3_ppo import SB3PPOBackend
+from .sbx_sac import SBXSACBackend
 
-__all__ = ["BackendCapabilities", "TrainingBackend", "SB3PPOBackend"]
+__all__ = ["BackendCapabilities", "TrainingBackend", "SB3PPOBackend", "SBXSACBackend"]

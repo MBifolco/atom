@@ -26,3 +26,4 @@ coverage>=7.3.0
 # Optional JAX RL dependencies (future PureJaxRL integration)
 # Install manually only when needed:
 #   pip install distrax>=0.1.7
+sbx-rl>=0.25.0

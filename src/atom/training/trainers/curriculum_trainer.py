@@ -297,6 +297,16 @@ class CurriculumCallback(BaseCallback):
                 print(f"✅ Neural network trained in {train_duration:.2f}s\n", flush=True)
 
     def _on_step(self) -> bool:
+        # For off-policy backends (SAC): periodic flush since there are no
+        # rollout boundaries. Do holdout flush + pool refresh every 2048 steps.
+        backend = getattr(self.curriculum_trainer, 'backend', None)
+        if backend is not None and hasattr(backend, 'capabilities'):
+            if backend.capabilities.flush_mode == "step_interval":
+                if self.n_calls > 0 and self.n_calls % 2048 == 0:
+                    self._skip_until_rollout_start = False
+                    self.curriculum_trainer._flush_pending_holdouts()
+                    self.curriculum_trainer._apply_opponent_pool_refresh()
+
         # Check for NaN in observations, actions, and rewards
         if hasattr(self.curriculum_trainer, 'nan_detector'):
             detector = self.curriculum_trainer.nan_detector
@@ -1369,6 +1379,9 @@ class CurriculumTrainer:
 
                     # Use env_method to call set_opponent() on each environment
                     self.envs.env_method('set_opponent', opponent_func, indices=[env_idx])
+
+            # For off-policy backends: clear replay buffer on level transition
+            self.backend.handle_distribution_shift(self.model, "level_transition")
 
             self._begin_level_observation_window()
 
