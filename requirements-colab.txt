@@ -11,7 +11,7 @@
 
 -r requirements.txt
 
-stable-baselines3==2.7.0
+stable-baselines3>=2.8.0a0
 gymnasium==1.1.1
 numpy==2.0.2
 tensorboard==2.20.0
