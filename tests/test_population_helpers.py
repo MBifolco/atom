@@ -171,13 +171,12 @@ class TestCreateOpponentDecideFunc:
 
         # Check that model received correct observation
         assert model.last_obs is not None
-        assert model.last_obs.shape == (16,)
-        # First element should be position
-        assert model.last_obs[0] == 2.0
-        # Third element should be normalized HP
-        assert model.last_obs[2] == 0.5  # 50/100
-        # Opponent stance defaults to neutral
-        assert model.last_obs[11] == 0.0
+        assert model.last_obs.shape == (15,)
+        # Egocentric layout: obs[0] = distance, obs[2] = hp_norm
+        assert model.last_obs[0] == 8.0  # distance = |10 - 2|
+        assert model.last_obs[2] == 0.5  # 50/100 hp_norm
+        # Opponent stance at index 6
+        assert model.last_obs[6] == 0.0  # neutral
 
 
 class TestCreateVmapEnvironment:

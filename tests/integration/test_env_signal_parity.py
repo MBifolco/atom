@@ -34,7 +34,7 @@ def test_initial_observation_parity_single_vs_vmap():
     )
     obs_vmap, _ = env_vmap.reset(seed=42)
 
-    assert obs_vmap.shape == (1, 16)
+    assert obs_vmap.shape == (1, 15)
     assert np.allclose(obs_single, obs_vmap[0], atol=1e-5)
 
 

@@ -78,9 +78,10 @@ class SBXSACBackend:
         """Create a new SAC model."""
         config = dict(_CURRICULUM_TRAINING_CONFIG) if mode == "curriculum" else dict(_POPULATION_TRAINING_CONFIG)
 
-        # Cap verbose at 1 for SAC — verbose=2 prints stats every 4 episodes
-        # which creates 50K+ lines of output per level
-        sac_verbose = min(verbose, 1)
+        # Force verbose=0 for SAC — SBX logs rollout/train stats every few
+        # episodes even at verbose=1, creating massive output. Our own
+        # progress logging (every 100 episodes) provides all needed info.
+        sac_verbose = 0
         model = SAC(
             "MlpPolicy",
             envs,

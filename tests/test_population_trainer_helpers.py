@@ -249,20 +249,17 @@ class TestCreateOpponentDecideFuncComplete:
 
         # Check observation was created correctly
         assert model.last_obs is not None
-        assert model.last_obs.shape == (16,)
+        assert model.last_obs.shape == (15,)
         assert model.last_obs.dtype == np.float32
 
-        # Check values
-        assert model.last_obs[0] == 4.0  # position
-        assert model.last_obs[1] == 1.0  # velocity
-        assert model.last_obs[2] == 0.6  # hp normalized (60/100)
-        assert model.last_obs[3] == 0.5  # stamina normalized (5/10)
-        assert model.last_obs[4] == 7.0  # distance
-        assert model.last_obs[8] == 12.5  # arena width
-        assert model.last_obs[9] == 4.0  # wall_dist_left
-        assert model.last_obs[10] == 8.5  # wall_dist_right
-        assert model.last_obs[11] == 0.0  # default opponent stance (neutral)
-        # recent_damage dimension removed from observations
+        # Check values (egocentric layout)
+        # Egocentric layout: [distance, closing_vel, hp, stamina, opp_hp, opp_stamina,
+        #   opp_stance, you_stance, wall_toward, wall_behind, arena_width, ...]
+        assert model.last_obs[0] == 7.0   # distance
+        assert model.last_obs[2] == 0.6   # hp normalized (60/100)
+        assert model.last_obs[3] == 0.5   # stamina normalized (5/10)
+        assert model.last_obs[10] == 12.5  # arena width
+        assert model.last_obs[6] == 0.0   # opponent stance (neutral)
 
 
 class TestComputeTrainingSummary:

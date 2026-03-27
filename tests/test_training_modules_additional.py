@@ -64,7 +64,7 @@ class TestAtomCombatEnvRewardCalculation:
 
         # Check that HP is still valid
         assert 0 <= obs[2] <= 1  # Our HP normalized
-        assert 0 <= obs[6] <= 1  # Opponent HP normalized
+        assert 0 <= obs[4] <= 1  # Opponent HP normalized
 
 
 class TestAtomCombatEnvReset:
@@ -150,7 +150,7 @@ class TestWorldConfigVariations:
         obs, _ = env.reset()
 
         # Arena width should be in observation
-        assert obs[8] == 20.0
+        assert obs[10] == 20.0
 
     def test_small_arena(self):
         """Test with small arena."""
@@ -160,7 +160,7 @@ class TestWorldConfigVariations:
         env = AtomCombatEnv(opponent_func, config=config)
         obs, _ = env.reset()
 
-        assert obs[8] == 5.0
+        assert obs[10] == 5.0
 
 
 class TestReplayStoreComprehensive:

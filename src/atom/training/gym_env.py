@@ -75,12 +75,12 @@ class AtomCombatEnv(gym.Env):
         self.opponent_name = opponent_name
 
         # Define observation space (14 values for enhanced training)
-        # [position, velocity, hp_norm, stamina_norm, distance, rel_velocity,
-        #  opp_hp_norm, opp_stamina_norm, arena_width,
-        #  wall_dist_left, wall_dist_right, opp_stance_int, you_stance_int, tick_fraction]
+        # Egocentric 15D: [distance, closing_vel, hp, stamina, opp_hp, opp_stamina,
+        #  opp_stance, you_stance, wall_toward, wall_behind, arena_width,
+        #  tick_frac, hit_cooldown, position_norm, opp_closing_vel]
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1, 1, 1], dtype=np.float32),
+            low=np.array([0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5], dtype=np.float32),
+            high=np.array([15, 5, 1, 1, 1, 1, 2, 2, 15, 15, 15, 1, 1, 1, 5], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -318,7 +318,7 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (16 dimensions)."""
+        """Get current observation as numpy array (15 dimensions, egocentric)."""
         opponent_direction = float(np.sign(float(self.opponent.position) - float(self.fighter.position)))
         ticks_since_hit = max(0, self.tick - int(self.fighter.last_hit_tick))
         hit_cooldown_fraction = min(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0)

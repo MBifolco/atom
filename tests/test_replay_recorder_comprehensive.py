@@ -176,17 +176,14 @@ class TestReplayRecorderSnapshotConversion:
 
             assert isinstance(obs, np.ndarray)
             assert obs.dtype == np.float32
-            assert len(obs) == 16  # Enhanced observation space
+            assert len(obs) == 15  # Enhanced observation space
 
-            # Check specific values
-            assert obs[0] == 3.0  # position
-            assert obs[1] == 0.5  # velocity
+            # Check specific values (egocentric layout)
+            assert obs[0] == 4.0  # distance (|7-3|)
             assert obs[2] == 0.8  # hp_norm (80/100)
             assert obs[3] == 0.5  # stamina_norm (50/100)
-            assert obs[4] == 4.0  # distance
-            assert obs[5] == pytest.approx(-0.2)  # rel_velocity
-            assert obs[6] == 0.9  # opp_hp_norm (90/100)
-            assert obs[7] == 0.75  # opp_stamina_norm (75/100)
+            assert obs[4] == 0.9  # opp_hp_norm (90/100)
+            assert obs[5] == 0.75  # opp_stamina_norm (75/100)
 
     def test_snapshot_to_obs_full_hp_stamina(self):
         """Test conversion with full HP and stamina."""
@@ -223,8 +220,8 @@ class TestReplayRecorderSnapshotConversion:
 
             assert obs[2] == 1.0  # hp_norm
             assert obs[3] == 1.0  # stamina_norm
-            assert obs[6] == 1.0  # opp_hp_norm
-            assert obs[7] == 1.0  # opp_stamina_norm
+            assert obs[4] == 1.0  # opp_hp_norm
+            assert obs[5] == 1.0  # opp_stamina_norm
 
     def test_snapshot_to_obs_low_hp_stamina(self):
         """Test conversion with low HP and stamina."""
@@ -261,8 +258,8 @@ class TestReplayRecorderSnapshotConversion:
 
             assert obs[2] == 0.1  # hp_norm (10/100)
             assert obs[3] == 0.05  # stamina_norm (5/100)
-            assert obs[6] == 0.15  # opp_hp_norm (15/100)
-            assert obs[7] == 0.1  # opp_stamina_norm (10/100)
+            assert obs[4] == 0.15  # opp_hp_norm (15/100)
+            assert obs[5] == 0.1  # opp_stamina_norm (10/100)
 
 
 class TestReplayRecorderActionConversion:
@@ -500,7 +497,7 @@ class TestReplayRecorderEdgeCases:
 
             obs = recorder._snapshot_to_obs(snapshot)
             # Arena width should be in the observation
-            assert obs[8] == 20.0
+            assert obs[10] == 20.0
 
     def test_multiple_save_replay_index_overwrites(self):
         """Test that saving index multiple times overwrites."""

@@ -138,9 +138,10 @@ class VmapEnvWrapper(gym.Env):
             self.use_opponent_models = False
 
         # Define observation/action spaces (enhanced to match AtomCombatEnv)
+        # Egocentric 15D obs — see signal_engine.build_observation_batch
         self.observation_space = spaces.Box(
-            low=np.array([0, -3, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0], dtype=np.float32),
-            high=np.array([15, 3, 1, 1, 15, 5, 1, 1, 15, 15, 15, 2, 2, 1, 1, 1], dtype=np.float32),
+            low=np.array([0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5], dtype=np.float32),
+            high=np.array([15, 5, 1, 1, 1, 1, 2, 2, 15, 15, 15, 1, 1, 1, 5], dtype=np.float32),
             dtype=np.float32
         )
 

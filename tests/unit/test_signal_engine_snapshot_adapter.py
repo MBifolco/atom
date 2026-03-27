@@ -51,7 +51,7 @@ def test_snapshot_adapter_matches_builder_for_opponent_on_right():
         hit_cooldown_fraction=1.0,
     )
 
-    assert obs_from_snapshot.shape == (16,)
+    assert obs_from_snapshot.shape == (15,)
     np.testing.assert_allclose(obs_from_snapshot, expected, rtol=1e-6, atol=1e-6)
 
 
@@ -86,4 +86,4 @@ def test_snapshot_adapter_matches_builder_for_opponent_on_left():
     )
 
     np.testing.assert_allclose(obs_from_snapshot, expected, rtol=1e-6, atol=1e-6)
-    assert obs_from_snapshot[11] == 2.0
+    assert obs_from_snapshot[6] == 2.0

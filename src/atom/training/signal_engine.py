@@ -104,7 +104,7 @@ def build_observation(
     opponent_direction: float = 0.0,
     hit_cooldown_fraction: float = 1.0,
 ) -> np.ndarray:
-    """Build a single 16-dimensional training observation."""
+    """Build a single 15-dimensional egocentric training observation."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -219,7 +219,28 @@ def build_observation_batch(
     opponent_direction=None,
     hit_cooldown_fraction=None,
 ) -> np.ndarray:
-    """Build batched 16-dimensional observations with canonical semantics."""
+    """Build batched 15-dimensional egocentric observations.
+
+    All spatial features are relative to the opponent's direction so
+    the policy sees the same observation regardless of which side the
+    opponent is on.  Layout:
+
+        [0]  distance              (unsigned, always positive)
+        [1]  closing_velocity      (positive = approaching opponent)
+        [2]  hp_norm               (0-1)
+        [3]  stamina_norm          (0-1)
+        [4]  opp_hp_norm           (0-1)
+        [5]  opp_stamina_norm      (0-1)
+        [6]  opponent_stance       (0/1/2)
+        [7]  you_stance            (0/1/2)
+        [8]  wall_dist_toward      (wall behind opponent)
+        [9]  wall_dist_behind      (wall behind you)
+        [10] arena_width           (constant context)
+        [11] tick_fraction          (0-1)
+        [12] hit_cooldown_fraction  (0=just hit, 1=ready)
+        [13] position_in_arena     (normalized 0-1, for wall awareness)
+        [14] opp_closing_velocity  (positive = opponent approaching you)
+    """
     you_position = _to_float_array(you_position)
     you_velocity = _to_float_array(you_velocity)
     you_hp = _to_float_array(you_hp)
@@ -244,11 +265,6 @@ def build_observation_batch(
     else:
         tick_fraction = np.zeros_like(you_position)
 
-    if opponent_direction is not None:
-        opponent_direction = _to_float_array(opponent_direction)
-    else:
-        opponent_direction = np.sign(opponent_position - you_position)
-
     if hit_cooldown_fraction is not None:
         hit_cooldown_fraction = _to_float_array(hit_cooldown_fraction)
     else:
@@ -260,29 +276,41 @@ def build_observation_batch(
     opp_stamina_norm = opponent_stamina / np.maximum(opponent_max_stamina, 1.0)
 
     distance = np.abs(opponent_position - you_position)
-    rel_velocity = _relative_velocity(you_position, you_velocity, opponent_position, opponent_velocity)
 
+    # Opponent direction: +1 if opponent is to the right, -1 if left
+    opp_dir = np.sign(opponent_position - you_position)
+    opp_dir = np.where(opp_dir == 0.0, 1.0, opp_dir)
+
+    # Egocentric velocities: positive = moving toward opponent
+    closing_velocity = you_velocity * opp_dir
+    opp_closing_velocity = -opponent_velocity * opp_dir
+
+    # Egocentric wall distances: toward opponent and behind you
     wall_dist_left = you_position
     wall_dist_right = float(arena_width) - you_position
+    wall_dist_toward = np.where(opp_dir > 0, wall_dist_right, wall_dist_left)
+    wall_dist_behind = np.where(opp_dir > 0, wall_dist_left, wall_dist_right)
+
+    # Normalized position (0-1) for general arena awareness
+    position_in_arena = you_position / float(arena_width)
 
     obs = np.stack(
         [
-            you_position,
-            you_velocity,
-            hp_norm,
-            stamina_norm,
-            distance,
-            rel_velocity,
-            opp_hp_norm,
-            opp_stamina_norm,
-            np.full_like(you_position, float(arena_width), dtype=np.float32),
-            wall_dist_left,
-            wall_dist_right,
-            opponent_stance_int,
-            you_stance_int,
-            tick_fraction,
-            opponent_direction,
-            hit_cooldown_fraction,
+            distance,                # [0]
+            closing_velocity,        # [1]
+            hp_norm,                 # [2]
+            stamina_norm,            # [3]
+            opp_hp_norm,             # [4]
+            opp_stamina_norm,        # [5]
+            opponent_stance_int,     # [6]
+            you_stance_int,          # [7]
+            wall_dist_toward,        # [8]
+            wall_dist_behind,        # [9]
+            np.full_like(you_position, float(arena_width), dtype=np.float32),  # [10]
+            tick_fraction,           # [11]
+            hit_cooldown_fraction,   # [12]
+            position_in_arena,       # [13]
+            opp_closing_velocity,    # [14]
         ],
         axis=1,
     ).astype(np.float32)
