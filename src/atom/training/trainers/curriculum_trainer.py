@@ -567,10 +567,10 @@ class CurriculumTrainer:
             CurriculumLevel(
                 name="Test",
                 description=f"Test opponents: {', '.join(opponent_names)}",
+                difficulty=DifficultyLevel.BASIC_SKILLS,
                 opponents=opponent_paths,
-                win_rate_threshold=0.75,
+                graduation_win_rate=0.75,
                 min_episodes=100,
-                reward_profile="fundamentals",
             ),
         ]
 
