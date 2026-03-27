@@ -697,11 +697,13 @@ class CurriculumTrainer:
             CurriculumLevel(
                 name="Gauntlet",
                 difficulty=DifficultyLevel.GAUNTLET,
-                opponents=gauntlet_opponents,
+                # Keep ALL opponents active — gauntlet adds focus on hard ones
+                # via weighted sampling, but never drops earlier opponents.
+                opponents=phase1_opponents + phase2_new + phase3_new,
                 min_episodes=600,
-                graduation_win_rate=0.75,
-                graduation_episodes=100,
-                description="Prove generalization against a mixed field spanning all difficulty levels",
+                graduation_win_rate=0.60,
+                graduation_episodes=200,
+                description="Maintain mastery across all opponents while proving expert-level play",
             ),
         ]
 
