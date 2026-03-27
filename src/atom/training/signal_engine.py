@@ -458,6 +458,17 @@ def compute_step_rewards_batch(
             last_distance_arr = _to_float_array(last_distance)
             distance_delta = last_distance_arr - distance
 
+            # Bootstrap approach: reward closing distance when no damage dealt yet.
+            # This drives the fighter to engage fleeing opponents. Fades once
+            # combat starts (damage_dealt > 0 means the fighter knows how to fight).
+            no_damage_yet = episode_damage_dealt == 0.0
+            bootstrap_mask = mid_mask & no_damage_yet & (distance_delta > 0.05)
+            proximity_component += np.where(bootstrap_mask, 0.3, 0.0)
+
+            # Also penalize not closing when far away and no damage yet
+            far_no_damage = mid_mask & no_damage_yet & (distance > float(arena_width) * 0.3)
+            proximity_component += np.where(far_no_damage, -0.05, 0.0)
+
             pursue_cond = (opponent_hp_pct < 0.3) | (opp_stamina_pct < 0.2)
             recover_cond = (~pursue_cond) & (stamina_pct < 0.2)
             engage_cond = (~pursue_cond) & (~recover_cond) & (distance < float(arena_width) * 0.25)
