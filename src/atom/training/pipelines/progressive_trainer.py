@@ -56,7 +56,8 @@ class ProgressiveTrainer:
                  override_episodes_per_level: int = None,
                  checkpoint_interval: int = 100000,
                  seed: int = 1337,
-                 backend=None):
+                 backend=None,
+                 test_opponents: str = None):
         """
         Initialize the progressive trainer.
 
@@ -87,6 +88,7 @@ class ProgressiveTrainer:
         self.replay_frequency = replay_frequency
         self.override_episodes_per_level = override_episodes_per_level
         self.checkpoint_interval = checkpoint_interval
+        self.test_opponents = test_opponents
         self.seed = int(seed)
         if self.seed < 0:
             raise ValueError(f"seed must be non-negative, got {self.seed}")
@@ -216,6 +218,7 @@ class ProgressiveTrainer:
             checkpoint_interval=self.checkpoint_interval,
             seed=self.seed,
             backend=self.backend,
+            test_opponents=self.test_opponents,
         )
 
         # Train through curriculum
