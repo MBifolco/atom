@@ -294,7 +294,7 @@ class VmapEnvWrapper(gym.Env):
         if self.use_opponent_models:
             # Population training: Use trained models to predict opponent actions
             opponent_observations = self._get_opponent_observations()  # [n_envs, obs_dim]
-            opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 4]
+            opponent_actions_np = self._predict_opponent_actions(opponent_observations)  # [n_envs, 2]
             opponent_accel = jnp.array(scale_acceleration_batch(opponent_actions_np, self.max_accel))
             opponent_stance = jnp.array(extract_stance_batch(opponent_actions_np))
         elif self.use_multi_opponent:
@@ -528,12 +528,12 @@ class VmapEnvWrapper(gym.Env):
             opponent_observations: [n_envs, obs_dim] numpy array
 
         Returns:
-            actions: [n_envs, 4] numpy array (acceleration, logit_neutral, logit_extended, logit_defending)
+            actions: [n_envs, 2] numpy array (acceleration, stance_selector)
         """
         n_models = len(self.opponent_models)
         envs_per_model = self.n_envs // n_models
 
-        all_actions = np.zeros((self.n_envs, 4), dtype=np.float32)
+        all_actions = np.zeros((self.n_envs, 2), dtype=np.float32)
 
         # Predict in batches for each model
         for i, model in enumerate(self.opponent_models):

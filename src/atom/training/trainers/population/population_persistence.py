@@ -153,13 +153,13 @@ import numpy as np
 import onnxruntime as ort
 from pathlib import Path
 from src.atom.training.signal_engine import build_observation_from_snapshot
+from src.atom.training.action_codec import scale_and_validate_action, stance_idx_to_str
 
 # ONNX model path (relative to this file)
 ONNX_MODEL = "{onnx_filename}"
 
 # Global session (loaded once)
 _session = None
-_stance_names = ["neutral", "extended", "defending"]
 
 
 def _load_session():
@@ -195,15 +195,10 @@ def decide(snapshot):
     output_names = [output.name for output in session.get_outputs()]
     outputs = session.run(output_names, {{input_name: obs}})
 
-    # Parse action
-    # Action space is Box: [acceleration, logit_neutral, logit_extended, logit_defending]
+    # Parse action — 2D Box: [acceleration, stance_selector]
     action = outputs[0][0]
-    acceleration_normalized = np.clip(action[0], -1.0, 1.0)
-    stance_idx = int(np.argmax(action[1:4]))
-
-    # Scale acceleration (max_acceleration = 4.5)
-    acceleration = float(acceleration_normalized * 4.5)
-    stance = _stance_names[stance_idx]
+    acceleration, stance_idx = scale_and_validate_action(action, 4.5)
+    stance = stance_idx_to_str(stance_idx)
 
     return {{"acceleration": acceleration, "stance": stance}}
 '''

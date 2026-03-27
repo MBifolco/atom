@@ -276,7 +276,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([0.5, 1.0, -1.0, -1.0])  # acceleration 0.5, neutral (logit_neutral highest)
+            action = np.array([0.5, 0.0])  # acceleration 0.5, neutral (center bin)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 0.5
@@ -290,7 +290,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([1.0, -1.0, 1.0, -1.0])  # acceleration 1.0, extended (logit_extended highest)
+            action = np.array([1.0, 0.7])  # acceleration 1.0, extended (selector >= 1/3)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == 1.0
@@ -304,7 +304,7 @@ class TestReplayRecorderActionConversion:
                 verbose=False
             )
 
-            action = np.array([-0.5, -1.0, -1.0, 1.0])  # acceleration -0.5, defending (logit_defending highest)
+            action = np.array([-0.5, -0.7])  # acceleration -0.5, defending (selector < -1/3)
             result = recorder._action_to_dict(action)
 
             assert result["acceleration"] == -0.5
@@ -319,30 +319,30 @@ class TestReplayRecorderActionConversion:
             )
 
             # Test over max
-            action = np.array([2.0, -1.0, 1.0, -1.0])
+            action = np.array([2.0, 0.7])
             result = recorder._action_to_dict(action)
             assert result["acceleration"] == 1.0
 
             # Test under min
-            action = np.array([-2.0, -1.0, 1.0, -1.0])
+            action = np.array([-2.0, 0.7])
             result = recorder._action_to_dict(action)
             assert result["acceleration"] == -1.0
 
-    def test_action_to_dict_clips_stance_index(self):
-        """Test that stance index is clipped to valid range."""
+    def test_action_to_dict_stance_bins(self):
+        """Test that stance selector bins work correctly."""
         with tempfile.TemporaryDirectory() as tmpdir:
             recorder = ReplayRecorder(
                 output_dir=tmpdir,
                 verbose=False
             )
 
-            # Test all logits equal (argmax returns 0 = neutral)
-            action = np.array([0.0, 0.0, 0.0, 0.0])
+            # Zero selector → neutral (center bin default)
+            action = np.array([0.0, 0.0])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "neutral"  # argmax ties go to first index
+            assert result["stance"] == "neutral"
 
-            # Test defending logit highest
-            action = np.array([0.0, -5.0, -5.0, 5.0])
+            # Negative selector → defending
+            action = np.array([0.0, -0.7])
             result = recorder._action_to_dict(action)
             assert result["stance"] == "defending"
 
@@ -540,10 +540,10 @@ class TestReplayRecorderEdgeCases:
                 verbose=False
             )
 
-            # Logit values determine stance via argmax
-            action = np.array([0.0, -0.5, 1.7, -0.3])
+            # Stance selector bin determines stance
+            action = np.array([0.0, 0.7])
             result = recorder._action_to_dict(action)
-            assert result["stance"] == "extended"  # logit_extended (1.7) is highest
+            assert result["stance"] == "extended"  # selector >= 1/3 → extended
 
 
 class TestSaveSampledReplays:

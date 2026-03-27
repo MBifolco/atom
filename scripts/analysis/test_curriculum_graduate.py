@@ -61,8 +61,9 @@ def run_match(model, opponent_path: str, seed: int = 42, verbose: bool = True, d
 
     while not done:
         action, _ = model.predict(obs, deterministic=deterministic)
+        from src.atom.training.action_codec import extract_stance
         raw_accel = float(action[0])
-        raw_stance = int(np.argmax(action[1:4]))  # stance from logits
+        raw_stance = extract_stance(action)
 
         obs, reward, terminated, truncated, info = env.step(action)
         total_reward += float(reward)

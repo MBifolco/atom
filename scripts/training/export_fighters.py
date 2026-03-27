@@ -28,7 +28,7 @@ ELO: {elo}
 Generation: {generation}
 Lineage: {lineage}
 
-Trained using PPO with 4D logit action space.
+Trained using RL with 2D binned action space.
 """
 
 import numpy as np

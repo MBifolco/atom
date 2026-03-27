@@ -123,17 +123,17 @@ class TestRealProgressiveReplayIntegration:
             # Model should be able to predict with this observation
             action, _ = trainer.model.predict(np.array([obs]), deterministic=True)
 
-            # Action should be 2D array with batch dimension (1, 4)
-            assert action.shape == (1, 4), f"Expected action shape (1, 4), got {action.shape}"
+            # Action should be 2D array with batch dimension (1, 2)
+            assert action.shape == (1, 2), f"Expected action shape (1, 2), got {action.shape}"
 
             # Test that we can extract the actual action values
             action_values = action[0] if action.ndim > 1 else action
-            assert len(action_values) == 4
+            assert len(action_values) == 2
 
             # Acceleration should be in [-1, 1]
             assert -1.0 <= action_values[0] <= 1.0
-            # Stance logits should be in [-5, 5]
-            assert -5.0 <= action_values[1] <= 5.0
+            # Stance selector should be in [-1, 1]
+            assert -1.0 <= action_values[1] <= 1.0
 
     def test_progressive_replays_actually_recorded_during_training(self):
         """Test that progressive replays are actually saved during training with telemetry."""

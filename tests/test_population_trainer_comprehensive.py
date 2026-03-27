@@ -357,7 +357,7 @@ class TestPopulationTrainerGetFighterDecisionFunc:
             )
 
             mock_model = Mock()
-            mock_model.predict.return_value = (np.array([0.5, -1.0, 1.0, -1.0]), None)
+            mock_model.predict.return_value = (np.array([0.5, 0.7]), None)
 
             fighter = PopulationFighter(name="test", model=mock_model)
             decide_func = trainer._get_fighter_decision_func(fighter)
@@ -374,7 +374,7 @@ class TestPopulationTrainerGetFighterDecisionFunc:
             )
 
             mock_model = Mock()
-            mock_model.predict.return_value = (np.array([0.5, -1.0, 1.0, -1.0]), None)
+            mock_model.predict.return_value = (np.array([0.5, 0.7]), None)
 
             fighter = PopulationFighter(name="test", model=mock_model)
             decide_func = trainer._get_fighter_decision_func(fighter)
@@ -553,7 +553,7 @@ class TestCreateOpponentDecideFuncEdgeCases:
         """Test clips stance index to valid range."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([0.0, 10.0, -5.0, -5.0]), None  # Extreme logit values
+                return np.array([0.0, 0.9]), None  # Extreme logit values
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -572,7 +572,7 @@ class TestCreateOpponentDecideFuncEdgeCases:
         """Test handles negative acceleration prediction."""
         class MockModel:
             def predict(self, obs, deterministic=False):
-                return np.array([-1.0, 1.0, -1.0, -1.0]), None
+                return np.array([-1.0, 0.0]), None
 
         decide_func = _create_opponent_decide_func(MockModel())
 
@@ -980,7 +980,7 @@ class TestPopulationTrainerRunEvaluationMatchesDetailed:
             # Create mock fighters
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(
                     name=f"fighter_{i}",
                     model=mock_model
@@ -1018,7 +1018,7 @@ class TestPopulationTrainerRunEvaluationMatchesDetailed:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(
                     name=f"fighter_{i}",
                     model=mock_model
@@ -1498,7 +1498,7 @@ class TestPopulationTrainerRunEvaluationMatchesMore:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(
                     name=f"fighter_{i}",
                     model=mock_model
@@ -1532,7 +1532,7 @@ class TestPopulationTrainerRunEvaluationMatchesMore:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(
                     name=f"fighter_{i}",
                     model=mock_model
@@ -1720,7 +1720,7 @@ class TestPopulationTrainerRunEvaluationMatchesBranches:
             )
 
             mock_model = Mock()
-            mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+            mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
             fighter = PopulationFighter(
                 name="solo_fighter",
                 model=mock_model
@@ -1814,7 +1814,7 @@ class TestPopulationTrainerTrainFighterBatch:
             # Create mock fighters
             mock_model = Mock()
             mock_model.n_envs = 2  # Match expected envs
-            mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+            mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
             mock_model.learn = Mock()
             mock_model.set_env = Mock()
 
@@ -1822,11 +1822,11 @@ class TestPopulationTrainerTrainFighterBatch:
 
             opponent1 = PopulationFighter(
                 name="opp1",
-                model=Mock(predict=Mock(return_value=(np.array([0.0, 1.0, -1.0, -1.0]), None)))
+                model=Mock(predict=Mock(return_value=(np.array([0.0, 0.0]), None)))
             )
             opponent2 = PopulationFighter(
                 name="opp2",
-                model=Mock(predict=Mock(return_value=(np.array([0.0, 1.0, -1.0, -1.0]), None)))
+                model=Mock(predict=Mock(return_value=(np.array([0.0, 0.0]), None)))
             )
 
             # Run batch training
@@ -1893,7 +1893,7 @@ class TestPopulationTrainerVerboseBranches:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)
@@ -1967,7 +1967,7 @@ class TestPopulationTrainerEloTrackerIntegration:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)
@@ -2159,7 +2159,7 @@ class TestPopulationTrainerEvaluationBWins:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)
@@ -2190,7 +2190,7 @@ class TestPopulationTrainerEvaluationBWins:
 
             for i in range(2):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)
@@ -2438,7 +2438,7 @@ class TestPopulationTrainerTrainFighterBatchEnvMismatch:
             # Create mock fighters with matching n_envs
             mock_model = Mock()
             mock_model.n_envs = 2  # Matching number
-            mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+            mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
             mock_model.learn = Mock()
             mock_model.set_env = Mock()
 
@@ -2446,7 +2446,7 @@ class TestPopulationTrainerTrainFighterBatchEnvMismatch:
 
             opponent = PopulationFighter(
                 name="opponent",
-                model=Mock(predict=Mock(return_value=(np.array([0.0, 1.0, -1.0, -1.0]), None)))
+                model=Mock(predict=Mock(return_value=(np.array([0.0, 0.0]), None)))
             )
 
             trainer.population.append(fighter)
@@ -2769,7 +2769,7 @@ class TestPopulationTrainerBatchTrainStatistics:
             fighter = PopulationFighter(name="fighter", model=mock_model)
             opponent = PopulationFighter(
                 name="opponent",
-                model=Mock(predict=Mock(return_value=(np.array([0.0, 1.0, -1.0, -1.0]), None)))
+                model=Mock(predict=Mock(return_value=(np.array([0.0, 0.0]), None)))
             )
 
             trainer.population = [fighter, opponent]
@@ -2873,7 +2873,7 @@ class TestPopulationTrainerMatchmakingWithEloSuggestions:
             # Create 4 fighters
             for i in range(4):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)
@@ -3005,7 +3005,7 @@ class TestPopulationTrainerModelEnvMismatch:
             fighter = PopulationFighter(name="fighter", model=mock_model)
             opponent = PopulationFighter(
                 name="opponent",
-                model=Mock(predict=Mock(return_value=(np.array([0.0, 1.0, -1.0, -1.0]), None)))
+                model=Mock(predict=Mock(return_value=(np.array([0.0, 0.0]), None)))
             )
 
             trainer.population = [fighter, opponent]
@@ -3060,7 +3060,7 @@ class TestPopulationTrainerDetailedEloIntegration:
 
             for i in range(3):
                 mock_model = Mock()
-                mock_model.predict.return_value = (np.array([0.0, 1.0, -1.0, -1.0]), None)
+                mock_model.predict.return_value = (np.array([0.0, 0.0]), None)
                 fighter = PopulationFighter(name=f"fighter_{i}", model=mock_model)
                 trainer.population.append(fighter)
                 trainer.elo_tracker.add_fighter(fighter.name)

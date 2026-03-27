@@ -48,7 +48,7 @@ class TestSB3PPOBackendProtocol:
         action = backend.predict(model, obs)
 
         assert isinstance(action, np.ndarray)
-        assert action.shape[-1] == 4  # 4D action space
+        assert action.shape[-1] == 2  # 2D action space
         env.close()
 
     def test_predict_deterministic_flag(self):
@@ -180,7 +180,7 @@ class TestSBXSACBackendProtocol:
         # Predict
         action = backend.predict(model, obs)
         assert isinstance(action, np.ndarray)
-        assert action.shape[-1] == 4
+        assert action.shape[-1] == 2
 
         # Save and load
         with tempfile.TemporaryDirectory() as tmp:

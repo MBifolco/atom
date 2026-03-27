@@ -63,17 +63,17 @@ class TestAtomCombatEnvInit:
         opponent_func = lambda state: {"stance": "neutral", "movement": 0}
         env = AtomCombatEnv(opponent_func)
 
-        assert env.action_space.shape == (4,)
+        assert env.action_space.shape == (2,)
 
     def test_action_space_bounds(self):
         """Test action space has correct bounds."""
         opponent_func = lambda state: {"stance": "neutral", "movement": 0}
         env = AtomCombatEnv(opponent_func)
 
-        assert env.action_space.low[0] == -1.0  # acceleration min
-        assert env.action_space.high[0] == 1.0  # acceleration max
-        assert env.action_space.low[1] == -5.0   # logit min
-        assert env.action_space.high[1] == 5.0   # logit max
+        assert env.action_space.low[0] == -1.0   # acceleration min
+        assert env.action_space.high[0] == 1.0   # acceleration max
+        assert env.action_space.low[1] == -1.0    # stance selector min
+        assert env.action_space.high[1] == 1.0    # stance selector max
 
     def test_stance_names_length(self):
         """Test stance names has 3 stances."""

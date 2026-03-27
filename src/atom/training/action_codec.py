@@ -1,13 +1,16 @@
 """
-Action encoding/decoding for the 4D logit-based action space.
+Action encoding/decoding for the 2D binned action space.
 
-Action layout: [acceleration, logit_neutral, logit_extended, logit_defending]
+Action layout: [acceleration, stance_selector]
   - acceleration: continuous in [-1, 1], scaled to max_acceleration by the env
-  - logits 1-3: stance scores — argmax selects the active stance (0/1/2)
+  - stance_selector: continuous in [-1, 1], mapped to 3 equal bins:
+      [-1, -1/3)  → defending  (index 2)
+      [-1/3, 1/3) → neutral    (index 0) — center bin, safe default
+      [1/3, 1]    → extended   (index 1)
 
 This module is the single source of truth for action space bounds and stance
 extraction. All environments, trainers, and export paths should use these
-helpers instead of inline int() casts.
+helpers instead of inline logic.
 """
 
 from __future__ import annotations
@@ -15,16 +18,17 @@ from __future__ import annotations
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Action space bounds
+# Action space bounds (2D: acceleration + stance selector)
 # ---------------------------------------------------------------------------
 
-ACTION_SPACE_LOW = np.array([-1.0, -5.0, -5.0, -5.0], dtype=np.float32)
-ACTION_SPACE_HIGH = np.array([1.0, 5.0, 5.0, 5.0], dtype=np.float32)
+ACTION_SPACE_LOW = np.array([-1.0, -1.0], dtype=np.float32)
+ACTION_SPACE_HIGH = np.array([1.0, 1.0], dtype=np.float32)
 
-# ---------------------------------------------------------------------------
-# NumPy helpers (single env / CPU paths)
-# ---------------------------------------------------------------------------
+# Bin edges for stance selector: [-1, -1/3) = defending, [-1/3, 1/3) = neutral, [1/3, 1] = extended
+STANCE_BIN_EDGES = np.array([-1 / 3, 1 / 3], dtype=np.float64)
 
+# Maps digitize bin index (0, 1, 2) → stance index (defending=2, neutral=0, extended=1)
+_BIN_TO_STANCE = np.array([2, 0, 1], dtype=np.int32)
 
 # ---------------------------------------------------------------------------
 # Stance names (single source of truth for training paths)
@@ -55,17 +59,17 @@ def scale_and_validate_action(
     action: np.ndarray,
     max_acceleration: float,
 ) -> tuple[float, int]:
-    """Clip, scale, and decode a raw 4D action from model.predict().
+    """Clip, scale, and decode a raw 2D action from model.predict().
 
     Args:
-        action: shape (4,) — [accel, logit_neutral, logit_extended, logit_defending]
+        action: shape (2,) — [acceleration, stance_selector]
         max_acceleration: world-config max acceleration (e.g. 4.3751)
 
     Returns:
         (acceleration, stance_idx) where acceleration is in world units.
     """
     acceleration = float(np.clip(action[0], -1.0, 1.0)) * max_acceleration
-    stance_idx = int(np.argmax(action[1:4]))
+    stance_idx = extract_stance(action)
     return acceleration, stance_idx
 
 
@@ -76,7 +80,7 @@ def scale_acceleration_batch(
     """Clip and scale a batch of raw accelerations.
 
     Args:
-        actions: shape (N, 4) raw actions from the model.
+        actions: shape (N, 2) raw actions from the model.
         max_acceleration: world-config max acceleration.
 
     Returns:
@@ -85,28 +89,41 @@ def scale_acceleration_batch(
     return np.clip(actions[:, 0], -1.0, 1.0).astype(np.float32) * max_acceleration
 
 
+# ---------------------------------------------------------------------------
+# NumPy helpers (single env / CPU paths)
+# ---------------------------------------------------------------------------
+
+
 def extract_stance(action: np.ndarray) -> int:
-    """Extract stance index from a single 4D action via argmax over logits.
+    """Extract stance index from a single 2D action via bin lookup.
 
     Args:
-        action: shape (4,) — [accel, logit_neutral, logit_extended, logit_defending]
+        action: shape (2,) — [acceleration, stance_selector]
 
     Returns:
         Stance index: 0 (neutral), 1 (extended), or 2 (defending).
     """
-    return int(np.argmax(action[1:4]))
+    selector = float(np.clip(action[1], -1.0, 1.0))
+    if selector < -1 / 3:
+        return 2  # defending
+    elif selector < 1 / 3:
+        return 0  # neutral
+    else:
+        return 1  # extended
 
 
 def extract_stance_batch(actions: np.ndarray) -> np.ndarray:
-    """Extract stance indices from a batch of 4D actions.
+    """Extract stance indices from a batch of 2D actions.
 
     Args:
-        actions: shape (N, 4)
+        actions: shape (N, 2)
 
     Returns:
         int32 array of shape (N,) with values in {0, 1, 2}.
     """
-    return np.argmax(actions[:, 1:4], axis=1).astype(np.int32)
+    selectors = np.clip(actions[:, 1], -1.0, 1.0)
+    bin_indices = np.digitize(selectors, STANCE_BIN_EDGES)  # 0, 1, or 2
+    return _BIN_TO_STANCE[bin_indices]
 
 
 # ---------------------------------------------------------------------------
@@ -120,11 +137,17 @@ def extract_stance_jax(action):
     Suitable for use inside ``jax.vmap``-ed step functions.
 
     Args:
-        action: JAX array of shape (4,)
+        action: JAX array of shape (2,)
 
     Returns:
         JAX int32 scalar.
     """
     import jax.numpy as jnp
 
-    return jnp.argmax(action[1:4]).astype(jnp.int32)
+    selector = jnp.clip(action[1], -1.0, 1.0)
+    # [-1, -1/3) → defending (2), [-1/3, 1/3) → neutral (0), [1/3, 1] → extended (1)
+    return jnp.where(
+        selector < -1 / 3,
+        jnp.int32(2),  # defending
+        jnp.where(selector < 1 / 3, jnp.int32(0), jnp.int32(1)),  # neutral / extended
+    )

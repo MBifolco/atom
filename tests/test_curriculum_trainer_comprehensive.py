@@ -549,7 +549,7 @@ class TestVmapEnvAdapter:
 
         adapter = VmapEnvAdapter(mock_vmap_env)
 
-        actions = np.zeros((4, 4))
+        actions = np.zeros((4, 2))
         adapter.step_async(actions)
         obs, rewards, dones, infos = adapter.step_wait()
 

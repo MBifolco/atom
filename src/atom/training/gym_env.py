@@ -84,9 +84,8 @@ class AtomCombatEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Action space: [acceleration, logit_neutral, logit_extended, logit_defending]
-        # Stance selected via argmax over logits — works with both stochastic
-        # and deterministic PPO policies (no int-truncation collapse).
+        # Action space: [acceleration, stance_selector]
+        # Stance selected via bin lookup on selector — see action_codec.py
         self.action_space = spaces.Box(
             low=ACTION_SPACE_LOW,
             high=ACTION_SPACE_HIGH,

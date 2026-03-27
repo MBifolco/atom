@@ -386,9 +386,9 @@ class ReplayRecorder:
 
     def _action_to_dict(self, action: np.ndarray) -> Dict[str, Any]:
         """Convert RL model action to decision dict."""
-        # Match the action space from AtomCombatEnv
+        # Match the 2D action space from AtomCombatEnv
         # action[0]: acceleration (-1 to 1)
-        # action[1]: stance (0=neutral, 1=extended, 2=defending)
+        # action[1]: stance selector (-1 to 1, binned to 3 stances)
 
         acceleration = float(np.clip(action[0], -1.0, 1.0))
 

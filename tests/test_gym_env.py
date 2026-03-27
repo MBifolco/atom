@@ -52,12 +52,12 @@ class TestAtomCombatEnv:
             opponent_decision_func=simple_opponent,
         )
 
-        # Should be Box([-1, -5, -5, -5], [1, 5, 5, 5]) for 4D logit action space
-        assert env.action_space.shape == (4,)
+        # Should be Box([-1, -1], [1, 1]) for 2D binned action space
+        assert env.action_space.shape == (2,)
         assert env.action_space.low[0] == -1.0
         assert env.action_space.high[0] == 1.0
-        assert env.action_space.low[1] == -5.0
-        assert env.action_space.high[1] == 5.0
+        assert env.action_space.low[1] == -1.0
+        assert env.action_space.high[1] == 1.0
 
     def test_reset_returns_valid_observation(self):
         """Test reset returns valid observation."""
