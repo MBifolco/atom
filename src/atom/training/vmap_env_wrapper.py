@@ -282,9 +282,14 @@ class VmapEnvWrapper(gym.Env):
             infos: list of dicts
         """
         # Convert actions to JAX format
-        # actions[:, 0] = acceleration (-1 to 1), actions[:, 1:4] = stance logits
         accel = jnp.array(scale_acceleration_batch(actions, self.max_accel))
         stance_int = jnp.array(extract_stance_batch(actions))
+
+        # Egocentric action: policy outputs "toward opponent" (positive) / "away" (negative).
+        # Multiply by opponent direction to get absolute acceleration.
+        opponent_dir = jnp.sign(self.jax_states.fighter_b.position - self.jax_states.fighter_a.position)
+        opponent_dir = jnp.where(opponent_dir == 0.0, 1.0, opponent_dir)
+        accel = accel * opponent_dir
 
         # Track stance usage per episode
         for i in range(self.n_envs):

@@ -173,7 +173,7 @@ class AtomCombatEnv(gym.Env):
         Execute one step in the environment.
 
         Args:
-            action: numpy array [accel, logit_neutral, logit_extended, logit_defending]
+            action: numpy array [accel_toward_opponent, stance_selector]
 
         Returns:
             observation, reward, terminated, truncated, info
@@ -182,6 +182,13 @@ class AtomCombatEnv(gym.Env):
         acceleration, stance_idx = scale_and_validate_action(
             action, self.config.max_acceleration
         )
+
+        # Egocentric action: policy outputs "toward opponent" (positive) / "away" (negative).
+        # Multiply by opponent direction to get absolute acceleration.
+        opponent_dir = float(np.sign(float(self.opponent.position) - float(self.fighter.position)))
+        if opponent_dir == 0.0:
+            opponent_dir = 1.0  # arbitrary when overlapping
+        acceleration *= opponent_dir
         self.stance_ticks[stance_idx] += 1
 
         # Use integer stance for JAX arena, string stance for Python arena
