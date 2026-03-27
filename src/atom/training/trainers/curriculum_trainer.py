@@ -377,7 +377,8 @@ class CurriculumTrainer:
                  level1_sanity_gate_min_overall_win_rate: float = 0.12,
                  min_mean_damage_dealt: float = 5.0,
                  min_nonzero_damage_rate: float = 0.3,
-                 backend=None):
+                 backend=None,
+                 test_opponents: str = None):
         """
         Initialize the curriculum trainer.
 
@@ -418,6 +419,7 @@ class CurriculumTrainer:
         self.level1_sanity_gate_min_overall_win_rate = level1_sanity_gate_min_overall_win_rate
         self.abort_reason = None
         self.backend = backend or SB3PPOBackend(device=device)
+        self.test_opponents = test_opponents
 
         # Validate override
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
@@ -536,10 +538,41 @@ class CurriculumTrainer:
 
     def _build_curriculum(self) -> List[CurriculumLevel]:
         """Build the training curriculum based on backend type."""
+        if self.test_opponents:
+            return self._build_test_curriculum()
         backend = getattr(self, 'backend', None)
         if backend and not backend.capabilities.on_policy:
             return self._build_offpolicy_curriculum()
         return self._build_onpolicy_curriculum()
+
+    def _build_test_curriculum(self) -> List[CurriculumLevel]:
+        """Build a single-level curriculum with specific opponents for testing."""
+        td = Path("fighters/test_dummies/atomic")
+        ex = Path("fighters/examples")
+
+        opponent_names = [n.strip() for n in self.test_opponents.split(",")]
+        opponent_paths = []
+        for name in opponent_names:
+            # Try test_dummies first, then examples
+            td_path = td / f"{name}.py"
+            ex_path = ex / f"{name}.py"
+            if td_path.exists():
+                opponent_paths.append(str(td_path))
+            elif ex_path.exists():
+                opponent_paths.append(str(ex_path))
+            else:
+                raise ValueError(f"Unknown test opponent: {name} (not found in {td} or {ex})")
+
+        return [
+            CurriculumLevel(
+                name="Test",
+                description=f"Test opponents: {', '.join(opponent_names)}",
+                opponents=opponent_paths,
+                win_rate_threshold=0.75,
+                min_episodes=100,
+                reward_profile="fundamentals",
+            ),
+        ]
 
     def _build_offpolicy_curriculum(self) -> List[CurriculumLevel]:
         """Build phased mixed curriculum for off-policy backends (SAC).
