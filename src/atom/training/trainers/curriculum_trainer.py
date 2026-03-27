@@ -164,16 +164,38 @@ class OpponentMasteryTracker:
         min_per_opponent_nonzero: float = 0.5,
         min_mastery_episodes: int = 10,
         mastery_window: int = 20,
+        retention_revoke_wr: float = 0.25,
     ):
         self.mastery_win_rate = mastery_win_rate
         self.min_damage = min_per_opponent_damage
         self.min_nonzero = min_per_opponent_nonzero
         self.min_episodes = min_mastery_episodes
         self.mastery_window = mastery_window
+        self.retention_revoke_wr = retention_revoke_wr
 
     def check_mastery(self, progress, level_opponent_names):
-        """Check per-opponent mastery. Returns (all_mastered, pool_changed)."""
+        """Check per-opponent mastery and retention. Returns (all_mastered, pool_changed)."""
         pool_changed = False
+
+        # Check retention: revoke mastery if WR drops below threshold
+        for opp in list(progress.mastered_opponents):
+            if opp not in level_opponent_names:
+                continue
+            recent = progress.per_opponent_recent.get(opp, [])
+            if len(recent) < self.mastery_window:
+                continue
+            window = recent[-self.mastery_window:]
+            wr = sum(window) / len(window)
+            if wr < self.retention_revoke_wr:
+                progress.mastered_opponents.discard(opp)
+                progress.pending_mastery.discard(opp)
+                pool_changed = True
+                import logging
+                logging.getLogger("mastery").warning(
+                    f"Mastery REVOKED for '{opp}': WR {wr:.0%} < {self.retention_revoke_wr:.0%} threshold"
+                )
+
+        # Check for new mastery
         for opp in level_opponent_names:
             if opp in progress.mastered_opponents:
                 continue
