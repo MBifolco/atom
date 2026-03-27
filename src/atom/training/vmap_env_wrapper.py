@@ -204,6 +204,45 @@ class VmapEnvWrapper(gym.Env):
         # Initialize environments
         self.reset()
 
+    def reweight_opponents(self, mastered_opponents: set):
+        """Rebalance env→opponent assignment to focus on unmastered opponents.
+
+        Unmastered opponents get 3x the env allocation of mastered ones.
+        This gives SAC concentrated practice on what it's failing at.
+        """
+        if not self.use_multi_opponent or not hasattr(self.opponent_decide, 'reweight'):
+            return
+
+        names = self._resolved_opponent_names
+        n_opponents = len(names)
+        if n_opponents == 0:
+            return
+
+        # Weight: 3x for unmastered, 1x for mastered
+        weights = []
+        for name in names:
+            weights.append(1.0 if name in mastered_opponents else 3.0)
+
+        total_weight = sum(weights)
+        assignment = []
+        for opp_idx, w in enumerate(weights):
+            count = max(1, int(self.n_envs * w / total_weight))
+            assignment.extend([opp_idx] * count)
+
+        # Trim or pad to exactly n_envs
+        assignment = assignment[:self.n_envs]
+        while len(assignment) < self.n_envs:
+            assignment.append(assignment[-1])
+
+        # Update JAX dispatch and name mapping
+        self.opponent_decide.reweight(assignment)
+        self.env_to_opponent_name = [names[idx] for idx in assignment]
+
+        import logging
+        logger = logging.getLogger("vmap_env")
+        unmastered = [n for n in names if n not in mastered_opponents]
+        logger.info(f"Reweighted opponents: {len(unmastered)} unmastered get 3x envs")
+
     def reset(self, seed=None, options=None):
         """
         Reset all environments in parallel.

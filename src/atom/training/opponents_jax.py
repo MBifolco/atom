@@ -1064,16 +1064,32 @@ def create_multi_opponent_func(opponent_paths, config, n_envs=250):
         for f in opponent_funcs
     ]
 
-    # Capture n_envs in closure for env→opponent mapping
+    # Build default uniform assignment: each opponent gets n_envs/n_opponents envs
     _n_envs = int(n_envs)
     _envs_per_opponent = max(1, _n_envs // n_opponents)
+    default_assignment = jnp.array([
+        min(i // _envs_per_opponent, n_opponents - 1) for i in range(_n_envs)
+    ], dtype=jnp.int32)
+
+    # Mutable container so reweight_opponents can update the assignment
+    assignment_holder = [default_assignment]
 
     # Create vmapped selector for batch processing
     def single_opponent_decide(state, env_idx):
         """Select and execute opponent logic for a single environment."""
-        opponent_idx = env_idx // _envs_per_opponent
-        opponent_idx = jnp.minimum(opponent_idx, n_opponents - 1)
+        opponent_idx = assignment_holder[0][env_idx]
         return lax.switch(opponent_idx, wrapped_funcs, state)
 
     func = jax.jit(jax.vmap(single_opponent_decide))
+
+    def reweight(env_to_opponent_idx):
+        """Update env→opponent assignment and re-JIT."""
+        nonlocal func
+        assignment_holder[0] = jnp.array(env_to_opponent_idx, dtype=jnp.int32)
+        func = jax.jit(jax.vmap(single_opponent_decide))
+
+    func.reweight = reweight
+    func.get_assignment = lambda: assignment_holder[0]
+    func.n_opponents = n_opponents
+
     return func, resolved_names

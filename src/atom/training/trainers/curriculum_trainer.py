@@ -1384,6 +1384,12 @@ class CurriculumTrainer:
             for opp in sorted(self.progress.mastered_opponents & set(level_names)):
                 self.logger.info(f"  ✓ {opp} mastered")
 
+            # Reweight env allocation to focus on unmastered opponents
+            if self.use_vmap and self.envs is not None:
+                inner = getattr(self.envs, 'vmap_env', None)
+                if inner is not None and hasattr(inner, 'reweight_opponents'):
+                    inner.reweight_opponents(self.progress.mastered_opponents)
+
         # Log per-opponent mastery snapshot on ANY state transition:
         # pending entry, pending revocation, or mastered promotion.
         state_changed = (
