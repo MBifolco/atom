@@ -28,6 +28,7 @@ _CURRICULUM_TRAINING_CONFIG = {
     "tau": 0.005,
     "gamma": 0.99,
     "ent_coef": "auto",
+    "target_entropy": -4.0,  # Tighter than default -2.0: forces meaningful deterministic policy
     "train_freq": 1,
     "gradient_steps": 2,
 }
@@ -40,6 +41,7 @@ _POPULATION_TRAINING_CONFIG = {
     "tau": 0.005,
     "gamma": 0.99,
     "ent_coef": "auto",
+    "target_entropy": -4.0,  # Tighter than default -2.0: forces meaningful deterministic policy
     "train_freq": 1,
     "gradient_steps": 2,
 }

@@ -168,8 +168,8 @@ class OpponentMasteryTracker:
         min_per_opponent_damage: float = 10.0,
         min_per_opponent_nonzero: float = 0.5,
         min_mastery_episodes: int = 10,
-        mastery_window: int = 20,
-        retention_revoke_wr: float = 0.40,
+        mastery_window: int = 50,
+        retention_revoke_wr: float = 0.25,
     ):
         self.mastery_win_rate = mastery_win_rate
         self.min_damage = min_per_opponent_damage
