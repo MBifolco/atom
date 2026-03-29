@@ -17,30 +17,30 @@ from .protocol import BackendCapabilities
 
 
 _POLICY_ARCH = {
-    "net_arch": [256, 256],
+    "net_arch": [512, 512, 256],
 }
 
 _CURRICULUM_TRAINING_CONFIG = {
     "learning_rate": 3e-4,
-    "buffer_size": 300_000,
-    "learning_starts": 2000,
+    "buffer_size": 1_000_000,
+    "learning_starts": 10_000,
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": 0.1,  # Fixed — auto-tuning collapses to ~0.001 and kills exploration
-    "train_freq": 4,
+    "ent_coef": "auto",
+    "train_freq": 1,
     "gradient_steps": 2,
 }
 
 _POPULATION_TRAINING_CONFIG = {
     "learning_rate": 3e-4,
-    "buffer_size": 100_000,
-    "learning_starts": 1000,
+    "buffer_size": 500_000,
+    "learning_starts": 5000,
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": 0.1,
-    "train_freq": 4,
+    "ent_coef": "auto",
+    "train_freq": 1,
     "gradient_steps": 2,
 }
 

@@ -27,12 +27,12 @@ DEFAULT_REWARD_WEIGHTS = {"proximity": 1.0, "inaction": 1.0, "stance": 1.0, "sta
 
 LEVEL_REWARD_WEIGHTS = {
     "fundamentals":  {"proximity": 10.0, "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "basic_skills":  {"proximity": 5.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "intermediate":  {"proximity": 3.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "advanced":      {"proximity": 1.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "adaptive":      {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "expert":        {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
-    "gauntlet":      {"proximity": 0.0,  "inaction": 0.0, "stance": 0.0, "stamina": 0.0},
+    "basic_skills":  {"proximity": 5.0,  "inaction": 0.5, "stance": 0.5, "stamina": 0.5},
+    "intermediate":  {"proximity": 3.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "advanced":      {"proximity": 1.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "adaptive":      {"proximity": 0.5,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "expert":        {"proximity": 0.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
+    "gauntlet":      {"proximity": 0.0,  "inaction": 1.0, "stance": 1.0, "stamina": 1.0},
 }
 
 _STANCE_NAME_TO_INT = {
@@ -294,23 +294,40 @@ def build_observation_batch(
     # Normalized position (0-1) for general arena awareness
     position_in_arena = you_position / float(arena_width)
 
-    obs = np.stack(
+    # Normalize distances and velocities to [0,1] or [-1,1] range
+    aw = float(arena_width)
+    max_vel = 5.0  # config.max_velocity
+    distance_norm = distance / aw
+    closing_vel_norm = closing_velocity / max_vel
+    opp_closing_vel_norm = opp_closing_velocity / max_vel
+    wall_toward_norm = wall_dist_toward / aw
+    wall_behind_norm = wall_dist_behind / aw
+
+    # One-hot encode stances (removes spurious ordinal relationships)
+    opp_stance_i = _to_stance_array(opponent_stance).astype(np.int32)
+    you_stance_i = _to_stance_array(you_stance).astype(np.int32) if you_stance is not None else np.zeros_like(you_position, dtype=np.int32)
+    n = you_position.shape[0] if you_position.ndim > 0 else 1
+    opp_stance_oh = np.zeros((n, 3), dtype=np.float32)
+    you_stance_oh = np.zeros((n, 3), dtype=np.float32)
+    opp_stance_oh[np.arange(n), opp_stance_i.flatten()] = 1.0
+    you_stance_oh[np.arange(n), you_stance_i.flatten()] = 1.0
+
+    obs = np.concatenate(
         [
-            distance,                # [0]
-            closing_velocity,        # [1]
-            hp_norm,                 # [2]
-            stamina_norm,            # [3]
-            opp_hp_norm,             # [4]
-            opp_stamina_norm,        # [5]
-            opponent_stance_int,     # [6]
-            you_stance_int,          # [7]
-            wall_dist_toward,        # [8]
-            wall_dist_behind,        # [9]
-            np.full_like(you_position, float(arena_width), dtype=np.float32),  # [10]
-            tick_fraction,           # [11]
-            hit_cooldown_fraction,   # [12]
-            position_in_arena,       # [13]
-            opp_closing_velocity,    # [14]
+            distance_norm.reshape(n, 1),        # [0]  normalized 0-1
+            closing_vel_norm.reshape(n, 1),      # [1]  normalized -1 to 1
+            hp_norm.reshape(n, 1),               # [2]  0-1
+            stamina_norm.reshape(n, 1),           # [3]  0-1
+            opp_hp_norm.reshape(n, 1),            # [4]  0-1
+            opp_stamina_norm.reshape(n, 1),       # [5]  0-1
+            opp_stance_oh,                        # [6,7,8]   one-hot
+            you_stance_oh,                        # [9,10,11]  one-hot
+            wall_toward_norm.reshape(n, 1),       # [12] normalized 0-1
+            wall_behind_norm.reshape(n, 1),       # [13] normalized 0-1
+            tick_fraction.reshape(n, 1),          # [14] 0-1
+            hit_cooldown_fraction.reshape(n, 1),  # [15] 0-1
+            position_in_arena.reshape(n, 1),      # [16] 0-1
+            opp_closing_vel_norm.reshape(n, 1),   # [17] normalized -1 to 1
         ],
         axis=1,
     ).astype(np.float32)
@@ -440,34 +457,34 @@ def compute_step_rewards_batch(
     # Mid-episode shaping rewards.
     if np.any(mid_mask):
         # 1) Damage differential and close-range hit bonus.
-        damage_component += np.where(mid_mask, (damage_dealt - damage_taken) * 10.0, 0.0)
+        damage_component += np.where(mid_mask, (damage_dealt - damage_taken) * 3.0, 0.0)
         close_range_mask = mid_mask & (damage_dealt > 0.0) & (distance < float(arena_width) * 0.3)
-        damage_component += np.where(close_range_mask, damage_dealt * 2.0, 0.0)
+        damage_component += np.where(close_range_mask, damage_dealt * 1.0, 0.0)
 
         # 2) Stamina-aware shaping.
         stamina_adv_mask = mid_mask & (stamina_pct > opp_stamina_pct + 0.2)
-        stamina_component += np.where(stamina_adv_mask, 0.02, 0.0)
+        stamina_component += np.where(stamina_adv_mask, 0.10, 0.0)
 
         low_stamina_penalty_mask = (
             mid_mask & (stamina_pct < 0.2) & (fighter_stance != STANCE_DEFENDING)
         )
-        stamina_component += np.where(low_stamina_penalty_mask, -0.05, 0.0)
+        stamina_component += np.where(low_stamina_penalty_mask, -0.25, 0.0)
 
         # 3) Proximity shaping.
         if last_distance is not None:
             last_distance_arr = _to_float_array(last_distance)
             distance_delta = last_distance_arr - distance
 
-            # Bootstrap approach: reward closing distance when no damage dealt yet.
-            # This drives the fighter to engage fleeing opponents. Fades once
-            # combat starts (damage_dealt > 0 means the fighter knows how to fight).
-            no_damage_yet = episode_damage_dealt == 0.0
-            bootstrap_mask = mid_mask & no_damage_yet & (distance_delta > 0.05)
-            proximity_component += np.where(bootstrap_mask, 0.3, 0.0)
+            # Bootstrap approach: reward closing distance, fading as damage is dealt.
+            # Drives initial engagement against fleeing opponents without
+            # rewarding blind aggression once combat is underway.
+            approach_weight = np.clip(1.0 - episode_damage_dealt / 20.0, 0.0, 1.0)
+            bootstrap_mask = mid_mask & (approach_weight > 0.01) & (distance_delta > 0.05)
+            proximity_component += np.where(bootstrap_mask, 0.3 * approach_weight, 0.0)
 
-            # Also penalize not closing when far away and no damage yet
-            far_no_damage = mid_mask & no_damage_yet & (distance > float(arena_width) * 0.3)
-            proximity_component += np.where(far_no_damage, -0.05, 0.0)
+            # Penalize staying far when approach weight is active
+            far_no_engage = mid_mask & (approach_weight > 0.01) & (distance > float(arena_width) * 0.3)
+            proximity_component += np.where(far_no_engage, -0.05 * approach_weight, 0.0)
 
             pursue_cond = (opponent_hp_pct < 0.3) | (opp_stamina_pct < 0.2)
             recover_cond = (~pursue_cond) & (stamina_pct < 0.2)
@@ -488,12 +505,12 @@ def compute_step_rewards_batch(
         # 4) Stance-appropriate shaping.
         stance_component += np.where(
             mid_mask & (fighter_stance == STANCE_EXTENDED) & (opponent_hp_pct < 0.5),
-            0.05,
+            0.25,
             0.0,
         )
         stance_component += np.where(
             mid_mask & (fighter_stance == STANCE_DEFENDING) & (stamina_pct < 0.3),
-            0.10,
+            0.50,
             0.0,
         )
 

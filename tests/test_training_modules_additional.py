@@ -149,8 +149,9 @@ class TestWorldConfigVariations:
         env = AtomCombatEnv(opponent_func, config=config)
         obs, _ = env.reset()
 
-        # Arena width should be in observation
-        assert obs[10] == 20.0
+        # All obs normalized, 18D
+        assert len(obs) == 18
+        assert obs.max() <= 1.0
 
     def test_small_arena(self):
         """Test with small arena."""
@@ -160,7 +161,7 @@ class TestWorldConfigVariations:
         env = AtomCombatEnv(opponent_func, config=config)
         obs, _ = env.reset()
 
-        assert obs[10] == 5.0
+        assert len(obs) == 18
 
 
 class TestReplayStoreComprehensive:

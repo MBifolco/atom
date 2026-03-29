@@ -20,10 +20,10 @@
       "episode_stamina_used": 4.0
     },
     "expected": {
-      "reward": 15.593334197998047,
-      "damage_component": 15.5,
-      "proximity_component": 0.07333333790302277,
-      "stamina_component": 0.019999999552965164,
+      "reward": 5.603332996368408,
+      "damage_component": 5.25,
+      "proximity_component": 0.25333333015441895,
+      "stamina_component": 0.10000000149011612,
       "stance_component": 0.0,
       "inaction_component": 0.0,
       "terminal_component": 0.0,

@@ -171,12 +171,13 @@ class TestCreateOpponentDecideFunc:
 
         # Check that model received correct observation
         assert model.last_obs is not None
-        assert model.last_obs.shape == (15,)
-        # Egocentric layout: obs[0] = distance, obs[2] = hp_norm
-        assert model.last_obs[0] == 8.0  # distance = |10 - 2|
-        assert model.last_obs[2] == 0.5  # 50/100 hp_norm
-        # Opponent stance at index 6
-        assert model.last_obs[6] == 0.0  # neutral
+        assert model.last_obs.shape == (18,)
+        # Egocentric layout: obs[0] = normalized distance, obs[2] = hp_norm
+        import numpy as np
+        assert np.isclose(model.last_obs[0], 8.0 / 12.5, atol=1e-4)  # distance normalized
+        assert np.isclose(model.last_obs[2], 0.5, atol=1e-4)  # 50/100 hp_norm
+        # Opponent stance one-hot at indices 6,7,8 — neutral = [1,0,0]
+        assert model.last_obs[6] == 1.0  # neutral one-hot
 
 
 class TestCreateVmapEnvironment:

@@ -44,7 +44,7 @@ def test_observation_batch_matches_scalar():
         arena_width=15.0,
     )
 
-    assert batch.shape == (n, 15)
+    assert batch.shape == (n, 18)
 
     for i in range(n):
         # Compute direction to match batch auto-computation (np.sign(opp - you))

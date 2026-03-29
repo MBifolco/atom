@@ -64,7 +64,12 @@ class VmapEnvAdapter(VecEnv):
     def step_wait(self):
         """Execute stored actions and return results."""
         obs, rewards, dones, truncated, infos = self.vmap_env.step(self.actions)
-        # SBX expects combined done
+        # SB3/SBX handles truncation via TimeLimit.truncated in infos.
+        # Timeouts should bootstrap from the value estimate (not treat as
+        # terminal with zero future value).
+        for i in range(len(dones)):
+            if truncated[i] and not dones[i]:
+                infos[i]["TimeLimit.truncated"] = True
         dones = np.logical_or(dones, truncated)
         return obs, rewards, dones, infos
 
@@ -164,7 +169,7 @@ class OpponentMasteryTracker:
         min_per_opponent_nonzero: float = 0.5,
         min_mastery_episodes: int = 10,
         mastery_window: int = 20,
-        retention_revoke_wr: float = 0.25,
+        retention_revoke_wr: float = 0.40,
     ):
         self.mastery_win_rate = mastery_win_rate
         self.min_damage = min_per_opponent_damage

@@ -74,13 +74,13 @@ class AtomCombatEnv(gym.Env):
         self.reward_weights = reward_weights
         self.opponent_name = opponent_name
 
-        # Define observation space (14 values for enhanced training)
-        # Egocentric 15D: [distance, closing_vel, hp, stamina, opp_hp, opp_stamina,
-        #  opp_stance, you_stance, wall_toward, wall_behind, arena_width,
+        # Egocentric 18D, all normalized to [-1, 1] or [0, 1]:
+        # [distance, closing_vel, hp, stamina, opp_hp, opp_stamina,
+        #  opp_stance_oh(3), you_stance_oh(3), wall_toward, wall_behind,
         #  tick_frac, hit_cooldown, position_norm, opp_closing_vel]
         self.observation_space = spaces.Box(
-            low=np.array([0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5], dtype=np.float32),
-            high=np.array([15, 5, 1, 1, 1, 1, 2, 2, 15, 15, 15, 1, 1, 1, 5], dtype=np.float32),
+            low=np.array([0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1], dtype=np.float32),
+            high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32),
             dtype=np.float32
         )
 

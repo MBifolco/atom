@@ -176,10 +176,10 @@ class TestReplayRecorderSnapshotConversion:
 
             assert isinstance(obs, np.ndarray)
             assert obs.dtype == np.float32
-            assert len(obs) == 15  # Enhanced observation space
+            assert len(obs) == 18  # Enhanced observation space
 
-            # Check specific values (egocentric layout)
-            assert obs[0] == 4.0  # distance (|7-3|)
+            # Check specific values (normalized egocentric layout)
+            assert np.isclose(obs[0], 4.0 / 12.5, atol=1e-4)  # distance normalized
             assert obs[2] == 0.8  # hp_norm (80/100)
             assert obs[3] == 0.5  # stamina_norm (50/100)
             assert obs[4] == 0.9  # opp_hp_norm (90/100)
@@ -496,8 +496,8 @@ class TestReplayRecorderEdgeCases:
             }
 
             obs = recorder._snapshot_to_obs(snapshot)
-            # Arena width should be in the observation
-            assert obs[10] == 20.0
+            # Distances are normalized by arena_width, obs is 18D
+            assert len(obs) == 18
 
     def test_multiple_save_replay_index_overwrites(self):
         """Test that saving index multiple times overwrites."""

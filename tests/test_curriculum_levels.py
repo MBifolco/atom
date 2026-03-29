@@ -73,6 +73,7 @@ def _build_curriculum():
     # CurriculumTrainer.__init__ does heavy work; call _build_curriculum directly
     # via an unbound approach: create a minimal instance.
     trainer = object.__new__(CurriculumTrainer)
+    trainer.test_opponents = None
     return trainer._build_curriculum()
 
 

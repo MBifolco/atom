@@ -188,15 +188,19 @@ class TestObservationContents:
         assert isinstance(obs[1], (float, np.floating))
         assert isinstance(obs[5], (float, np.floating))
 
-    def test_observation_arena_width(self):
-        """Test arena width in observation."""
+    def test_observation_normalized_and_onehot(self):
+        """Test observation is normalized with one-hot stances."""
         config = WorldConfig(arena_width=15.0)
         opponent_func = lambda state: {"stance": "neutral", "acceleration": 0}
         env = AtomCombatEnv(opponent_func, config=config)
         obs, _ = env.reset()
 
-        # obs[10] = arena_width (egocentric layout)
-        assert obs[10] == 15.0
+        # All obs values should be in [-1, 1] range (normalized)
+        assert obs.min() >= -1.0
+        assert obs.max() <= 1.0
+        # Stance one-hot: exactly one 1.0 in each group of 3
+        assert sum(obs[6:9]) == 1.0   # opponent stance one-hot
+        assert sum(obs[9:12]) == 1.0  # fighter stance one-hot
 
 
 class TestInfoDict:
@@ -240,7 +244,7 @@ class TestStanceSelection:
         action = np.array([0.0, 0.0], dtype=np.float32)  # Neutral
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
 
     def test_extended_stance_selection(self):
         """Test selecting extended stance (1)."""
@@ -251,7 +255,7 @@ class TestStanceSelection:
         action = np.array([0.0, 0.7], dtype=np.float32)  # Extended
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
 
     def test_defending_stance_selection(self):
         """Test selecting defending stance (2)."""
@@ -262,7 +266,7 @@ class TestStanceSelection:
         action = np.array([0.0, -0.7], dtype=np.float32)  # Defending
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
 
     def test_stance_clamping(self):
         """Test that out-of-range stance values are handled."""
@@ -274,7 +278,7 @@ class TestStanceSelection:
         action = np.array([0.0, 5.0], dtype=np.float32)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
 
 
 class TestAccelerationHandling:
@@ -290,7 +294,7 @@ class TestAccelerationHandling:
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
         assert isinstance(reward, float)
 
     def test_negative_acceleration(self):
@@ -303,7 +307,7 @@ class TestAccelerationHandling:
         obs, reward, terminated, truncated, info = env.step(action)
 
         # Should complete step without error
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
         assert isinstance(reward, float)
 
     def test_zero_acceleration(self):
@@ -315,7 +319,7 @@ class TestAccelerationHandling:
         action = np.array([0.0, 0.0], dtype=np.float32)
         obs, _, _, _, _ = env.step(action)
 
-        assert obs.shape == (15,)
+        assert obs.shape == (18,)
 
 
 class TestEpisodeDamageTracking:
@@ -358,7 +362,7 @@ class TestMultipleEpisodes:
 
         for episode in range(5):
             obs, _ = env.reset()
-            assert obs.shape == (15,)
+            assert obs.shape == (18,)
 
             for _ in range(25):
                 action = env.action_space.sample()
