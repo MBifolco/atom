@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
-from stable_baselines3 import PPO, SAC
+from stable_baselines3 import PPO
+from sbx import SAC
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecCheckNan, VecNormalize

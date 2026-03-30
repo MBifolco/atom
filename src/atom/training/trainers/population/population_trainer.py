@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 
-from stable_baselines3 import PPO, SAC
+from stable_baselines3 import PPO
+from sbx import SAC
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -362,7 +363,8 @@ def _load_opponent_models_for_training(
     Returns:
         List of (name, mass, model) tuples
     """
-    from stable_baselines3 import PPO, SAC
+    from stable_baselines3 import PPO
+    from sbx import SAC
 
     opponent_models = []
     for opp_name, opp_mass, opp_path in opponent_data:
@@ -579,7 +581,8 @@ def _train_single_fighter_parallel(
     # Required imports (after threading config)
     import numpy as np
     from pathlib import Path
-    from stable_baselines3 import PPO, SAC
+    from stable_baselines3 import PPO
+    from sbx import SAC
     from src.atom.runtime.arena import WorldConfig
 
     # Reconstruct config and load opponents
