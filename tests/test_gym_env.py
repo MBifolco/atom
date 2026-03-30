@@ -42,9 +42,9 @@ class TestAtomCombatEnv:
             opponent_decision_func=simple_opponent,
         )
 
-        assert env.observation_space.shape == (18,)  # Egocentric observation space
-        assert len(env.observation_space.low) == 18
-        assert len(env.observation_space.high) == 18
+        assert env.observation_space.shape == (26,)  # Egocentric observation space
+        assert len(env.observation_space.low) == 26
+        assert len(env.observation_space.high) == 26
 
     def test_action_space(self):
         """Test action space is correct for 3 stances."""
@@ -67,7 +67,7 @@ class TestAtomCombatEnv:
 
         obs, info = env.reset()
 
-        assert obs.shape == (18,)  # Enhanced observation space
+        assert obs.shape == (26,)  # Enhanced observation space
         assert not np.any(np.isnan(obs))
         assert not np.any(np.isinf(obs))
         assert isinstance(info, dict)
@@ -86,7 +86,7 @@ class TestAtomCombatEnv:
         assert len(result) == 5, "Step should return 5-tuple (Gymnasium API)"
         obs, reward, done, truncated, info = result
 
-        assert obs.shape == (18,)  # Enhanced observation space
+        assert obs.shape == (26,)  # Enhanced observation space
         assert isinstance(reward, (int, float))
         assert isinstance(done, bool)
         assert isinstance(truncated, bool)

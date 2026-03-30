@@ -41,6 +41,134 @@ _STANCE_NAME_TO_INT = {
     "defending": STANCE_DEFENDING,
 }
 
+# --- Observation dimensions ---
+BASE_OBS_DIM = 18   # Egocentric single-tick snapshot
+EMA_OBS_DIM = 8     # Temporal features (EMAs + ticks_since_damage)
+OBS_DIM = BASE_OBS_DIM + EMA_OBS_DIM  # 26
+
+# EMA decay rates: alpha = 2 / (window + 1)
+EMA_ALPHAS = {
+    "distance": 0.065,           # 30-tick window
+    "opp_hp_delta": 0.095,       # 20-tick window
+    "self_hp_delta": 0.095,      # 20-tick window
+    "opp_stance_change": 0.065,  # 30-tick window
+    "stamina_delta": 0.074,      # 25-tick window
+    "closing_vel": 0.065,        # 30-tick window
+    "engagement": 0.095,         # 20-tick window
+}
+TICKS_SINCE_DAMAGE_NORM = 50.0
+
+
+class ObservationBuilder:
+    """Maintains per-environment temporal state (EMAs) for enriched observations.
+
+    This is a stateful observation-system component. The contract shifts from
+    "observation is a pure function of current state" to "observation depends
+    on current state + accumulated history." Used by both training envs and
+    exported fighters to ensure parity.
+    """
+
+    def __init__(self, n_envs: int):
+        self.n_envs = n_envs
+        # EMA accumulators
+        self.ema_distance = np.zeros(n_envs, dtype=np.float32)
+        self.ema_opp_hp_delta = np.zeros(n_envs, dtype=np.float32)
+        self.ema_self_hp_delta = np.zeros(n_envs, dtype=np.float32)
+        self.ema_opp_stance_change = np.zeros(n_envs, dtype=np.float32)
+        self.ema_stamina_delta = np.zeros(n_envs, dtype=np.float32)
+        self.ema_closing_vel = np.zeros(n_envs, dtype=np.float32)
+        self.ema_engagement = np.zeros(n_envs, dtype=np.float32)
+        self.ticks_since_damage = np.zeros(n_envs, dtype=np.float32)
+        # Previous-tick trackers for delta computation
+        self.prev_opp_hp = np.zeros(n_envs, dtype=np.float32)
+        self.prev_self_hp = np.zeros(n_envs, dtype=np.float32)
+        self.prev_stamina = np.zeros(n_envs, dtype=np.float32)
+        self.prev_opp_stance = np.zeros(n_envs, dtype=np.int32)
+        self._initialized = np.zeros(n_envs, dtype=bool)
+
+    def reset(self, mask: np.ndarray, *,
+              distance: np.ndarray,
+              opp_hp: np.ndarray,
+              self_hp: np.ndarray,
+              stamina: np.ndarray,
+              opp_stance_int: np.ndarray):
+        """Reset EMA state for environments indicated by boolean mask."""
+        self.ema_distance[mask] = 0.0
+        self.ema_opp_hp_delta[mask] = 0.0
+        self.ema_self_hp_delta[mask] = 0.0
+        self.ema_opp_stance_change[mask] = 0.0
+        self.ema_stamina_delta[mask] = 0.0
+        self.ema_closing_vel[mask] = 0.0
+        self.ema_engagement[mask] = 0.0
+        self.ticks_since_damage[mask] = 0.0
+        # Set prev-trackers to initial values so first deltas are zero
+        self.prev_opp_hp[mask] = np.asarray(opp_hp, dtype=np.float32)[mask]
+        self.prev_self_hp[mask] = np.asarray(self_hp, dtype=np.float32)[mask]
+        self.prev_stamina[mask] = np.asarray(stamina, dtype=np.float32)[mask]
+        self.prev_opp_stance[mask] = np.asarray(opp_stance_int, dtype=np.int32)[mask]
+        self._initialized[mask] = True
+
+    def update_and_get_temporal(
+        self,
+        distance: np.ndarray,
+        opp_hp: np.ndarray,
+        self_hp: np.ndarray,
+        stamina: np.ndarray,
+        opp_stance_int: np.ndarray,
+        closing_vel: np.ndarray,
+        damage_dealt: np.ndarray,
+        damage_taken: np.ndarray,
+    ) -> np.ndarray:
+        """Update EMAs and return (n_envs, 8) temporal features."""
+        distance = np.asarray(distance, dtype=np.float32)
+        opp_hp = np.asarray(opp_hp, dtype=np.float32)
+        self_hp = np.asarray(self_hp, dtype=np.float32)
+        stamina = np.asarray(stamina, dtype=np.float32)
+        opp_stance_int = np.asarray(opp_stance_int, dtype=np.int32)
+        closing_vel = np.asarray(closing_vel, dtype=np.float32)
+        damage_dealt = np.asarray(damage_dealt, dtype=np.float32)
+        damage_taken = np.asarray(damage_taken, dtype=np.float32)
+
+        # Compute deltas from previous tick
+        opp_hp_delta = self.prev_opp_hp - opp_hp          # positive = dealing damage
+        self_hp_delta = self_hp - self.prev_self_hp        # positive = taking damage (hp decreased)
+        # Correction: self_hp decreased means damage taken
+        self_hp_delta = self.prev_self_hp - self_hp        # positive = taking damage
+        stamina_delta = stamina - self.prev_stamina        # positive = regenerating
+        stance_changed = (opp_stance_int != self.prev_opp_stance).astype(np.float32)
+        any_damage = ((damage_dealt > 0) | (damage_taken > 0)).astype(np.float32)
+
+        # Update EMAs
+        a = EMA_ALPHAS
+        self.ema_distance = a["distance"] * distance + (1 - a["distance"]) * self.ema_distance
+        self.ema_opp_hp_delta = a["opp_hp_delta"] * opp_hp_delta + (1 - a["opp_hp_delta"]) * self.ema_opp_hp_delta
+        self.ema_self_hp_delta = a["self_hp_delta"] * self_hp_delta + (1 - a["self_hp_delta"]) * self.ema_self_hp_delta
+        self.ema_opp_stance_change = a["opp_stance_change"] * stance_changed + (1 - a["opp_stance_change"]) * self.ema_opp_stance_change
+        self.ema_stamina_delta = a["stamina_delta"] * stamina_delta + (1 - a["stamina_delta"]) * self.ema_stamina_delta
+        self.ema_closing_vel = a["closing_vel"] * closing_vel + (1 - a["closing_vel"]) * self.ema_closing_vel
+        self.ema_engagement = a["engagement"] * any_damage + (1 - a["engagement"]) * self.ema_engagement
+
+        # Ticks since damage: counter, reset on any damage event
+        self.ticks_since_damage = np.where(any_damage > 0, 0.0, self.ticks_since_damage + 1.0)
+
+        # Update prev-trackers for next tick
+        self.prev_opp_hp = opp_hp.copy()
+        self.prev_self_hp = self_hp.copy()
+        self.prev_stamina = stamina.copy()
+        self.prev_opp_stance = opp_stance_int.copy()
+
+        # Build (n_envs, 8) output, normalized to [-1, 1] or [0, 1]
+        return np.stack([
+            np.clip(self.ema_distance, 0.0, 1.0),                    # [0, 1]
+            np.clip(self.ema_opp_hp_delta, -1.0, 1.0),               # [-1, 1]
+            np.clip(self.ema_self_hp_delta, -1.0, 1.0),              # [-1, 1]
+            np.clip(self.ema_opp_stance_change, 0.0, 1.0),           # [0, 1]
+            np.clip(self.ema_stamina_delta, -1.0, 1.0),              # [-1, 1]
+            np.clip(self.ema_closing_vel, -1.0, 1.0),                # [-1, 1]
+            np.clip(self.ema_engagement, 0.0, 1.0),                  # [0, 1]
+            np.clip(self.ticks_since_damage / TICKS_SINCE_DAMAGE_NORM, 0.0, 1.0),  # [0, 1]
+        ], axis=-1)
+
 
 def hp_pct(hp: float, max_hp: float) -> float:
     """Return HP as a fraction of max HP (0.0 – 1.0)."""
@@ -103,8 +231,9 @@ def build_observation(
     tick_fraction: float = 0.0,
     opponent_direction: float = 0.0,
     hit_cooldown_fraction: float = 1.0,
+    temporal_features: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Build a single 15-dimensional egocentric training observation."""
+    """Build a single egocentric training observation (18D base, 26D with temporal)."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -124,6 +253,7 @@ def build_observation(
         tick_fraction=np.array([tick_fraction], dtype=np.float32),
         opponent_direction=np.array([opponent_direction], dtype=np.float32),
         hit_cooldown_fraction=np.array([hit_cooldown_fraction], dtype=np.float32),
+        temporal_features=temporal_features.reshape(1, -1) if temporal_features is not None else None,
     )
     return obs[0]
 
@@ -218,8 +348,9 @@ def build_observation_batch(
     tick_fraction=None,
     opponent_direction=None,
     hit_cooldown_fraction=None,
+    temporal_features: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Build batched 15-dimensional egocentric observations.
+    """Build batched egocentric observations (18D base, 26D with temporal).
 
     All spatial features are relative to the opponent's direction so
     the policy sees the same observation regardless of which side the
@@ -331,6 +462,13 @@ def build_observation_batch(
         ],
         axis=1,
     ).astype(np.float32)
+
+    # Concatenate temporal features if provided (18D → 26D)
+    if temporal_features is not None:
+        temporal_features = np.asarray(temporal_features, dtype=np.float32)
+        if temporal_features.ndim == 1:
+            temporal_features = temporal_features.reshape(1, -1)
+        obs = np.concatenate([obs, temporal_features], axis=1)
 
     # Keep observation safety behavior aligned with AtomCombatEnv.
     return np.nan_to_num(obs, nan=0.0, posinf=100.0, neginf=-100.0)

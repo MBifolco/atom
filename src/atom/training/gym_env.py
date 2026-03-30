@@ -11,7 +11,7 @@ from gymnasium import spaces
 # Use relative imports within the src package
 from src.atom.runtime.arena import WorldConfig, FighterState, Arena1DJAXJit
 from src.atom.runtime.protocol import generate_snapshot
-from .signal_engine import build_observation, compute_step_reward_scalar, hp_pct
+from .signal_engine import build_observation, compute_step_reward_scalar, hp_pct, ObservationBuilder
 from .action_codec import (
     ACTION_SPACE_LOW, ACTION_SPACE_HIGH,
     extract_stance, scale_and_validate_action,
@@ -74,13 +74,16 @@ class AtomCombatEnv(gym.Env):
         self.reward_weights = reward_weights
         self.opponent_name = opponent_name
 
-        # Egocentric 18D, all normalized to [-1, 1] or [0, 1]:
-        # [distance, closing_vel, hp, stamina, opp_hp, opp_stamina,
-        #  opp_stance_oh(3), you_stance_oh(3), wall_toward, wall_behind,
-        #  tick_frac, hit_cooldown, position_norm, opp_closing_vel]
+        # 26D = 18D base (egocentric snapshot) + 8D temporal (EMAs)
         self.observation_space = spaces.Box(
-            low=np.array([0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1], dtype=np.float32),
-            high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32),
+            low=np.array([
+                0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1,  # base 18D
+                0, -1, -1, 0, -1, -1, 0, 0,  # temporal 8D
+            ], dtype=np.float32),
+            high=np.array([
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,    # base 18D
+                1, 1, 1, 1, 1, 1, 1, 1,      # temporal 8D
+            ], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -102,6 +105,8 @@ class AtomCombatEnv(gym.Env):
         self.episode_damage_taken = 0
         self.last_distance = None  # initialized to real distance in reset()
         self.stamina_used = 0
+        self.obs_builder = ObservationBuilder(n_envs=1)
+        self._temporal_features = None
         self.hits_landed = 0
         self.hits_taken = 0
 
@@ -161,6 +166,17 @@ class AtomCombatEnv(gym.Env):
         self.episode_terminal_reward = 0
         self.episode_stamina_reward = 0
         self.episode_stance_reward = 0
+
+        # Reset temporal observation builder
+        self.obs_builder.reset(
+            mask=np.array([True]),
+            distance=np.array([self.last_distance / self.config.arena_width], dtype=np.float32),
+            opp_hp=np.array([self.opponent.hp / self.opponent.max_hp], dtype=np.float32),
+            self_hp=np.array([self.fighter.hp / self.fighter.max_hp], dtype=np.float32),
+            stamina=np.array([self.fighter.stamina / self.fighter.max_stamina], dtype=np.float32),
+            opp_stance_int=np.array([int(self.opponent.stance)], dtype=np.int32),
+        )
+        self._temporal_features = np.zeros(8, dtype=np.float32)
 
         # Return initial observation
         obs = self._get_observation()
@@ -233,7 +249,25 @@ class AtomCombatEnv(gym.Env):
 
         self.tick += 1
 
-        # Get new observation
+        # Update temporal features before building observation
+        distance = float(abs(self.fighter.position - self.opponent.position))
+        opp_dir = float(np.sign(float(self.opponent.position) - float(self.fighter.position)))
+        if opp_dir == 0.0:
+            opp_dir = 1.0
+        closing_vel = float(self.fighter.velocity) * opp_dir
+
+        self._temporal_features = self.obs_builder.update_and_get_temporal(
+            distance=np.array([distance / self.config.arena_width], dtype=np.float32),
+            opp_hp=np.array([float(self.opponent.hp) / float(self.opponent.max_hp)], dtype=np.float32),
+            self_hp=np.array([float(self.fighter.hp) / float(self.fighter.max_hp)], dtype=np.float32),
+            stamina=np.array([float(self.fighter.stamina) / float(self.fighter.max_stamina)], dtype=np.float32),
+            opp_stance_int=np.array([int(self.opponent.stance)], dtype=np.int32),
+            closing_vel=np.array([closing_vel / 5.0], dtype=np.float32),
+            damage_dealt=np.array([max(0, damage_dealt)], dtype=np.float32),
+            damage_taken=np.array([max(0, damage_taken)], dtype=np.float32),
+        )[0]  # [0] to get scalar (8,) from (1, 8)
+
+        # Get new observation (includes temporal features)
         obs = self._get_observation()
 
         # Check termination
@@ -318,7 +352,7 @@ class AtomCombatEnv(gym.Env):
         return obs, reward, terminated, truncated, info
 
     def _get_observation(self):
-        """Get current observation as numpy array (15 dimensions, egocentric)."""
+        """Get current observation as numpy array (26D: 18D base + 8D temporal)."""
         opponent_direction = float(np.sign(float(self.opponent.position) - float(self.fighter.position)))
         ticks_since_hit = max(0, self.tick - int(self.fighter.last_hit_tick))
         hit_cooldown_fraction = min(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0)
@@ -341,6 +375,7 @@ class AtomCombatEnv(gym.Env):
             tick_fraction=self.tick / self.max_ticks,
             opponent_direction=opponent_direction,
             hit_cooldown_fraction=hit_cooldown_fraction,
+            temporal_features=self._temporal_features,
         )
         # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
         if np.isnan(obs).any() or np.isinf(obs).any():

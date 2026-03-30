@@ -390,6 +390,14 @@ def _create_opponent_decide_func(model):
     def decide(snapshot):
         obs = build_observation_from_snapshot(snapshot)
 
+        # Pad to model's expected dim if it expects temporal features (zeros = no history)
+        try:
+            expected_dim = model.observation_space.shape[0]
+        except (AttributeError, TypeError):
+            expected_dim = obs.shape[0]
+        if obs.shape[0] < expected_dim:
+            obs = np.concatenate([obs, np.zeros(expected_dim - obs.shape[0], dtype=np.float32)])
+
         action, _ = model.predict(obs, deterministic=False)
 
         from src.atom.training.action_codec import extract_stance
@@ -1114,6 +1122,14 @@ class PopulationTrainer:
         """Create a decision function for a trained fighter."""
         def decide(snapshot):
             obs = build_observation_from_snapshot(snapshot)
+
+            # Pad to model's expected dim if it expects temporal features
+            try:
+                expected_dim = fighter.model.observation_space.shape[0]
+            except (AttributeError, TypeError):
+                expected_dim = obs.shape[0]
+            if obs.shape[0] < expected_dim:
+                obs = np.concatenate([obs, np.zeros(expected_dim - obs.shape[0], dtype=np.float32)])
 
             # Get action from model
             action, _ = fighter.model.predict(obs, deterministic=False)

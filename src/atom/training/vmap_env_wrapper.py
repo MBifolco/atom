@@ -26,6 +26,7 @@ from src.atom.runtime.arena.arena_1d_jax_jit import (
 from .signal_engine import (
     build_observation_batch,
     compute_step_rewards_batch,
+    ObservationBuilder,
 )
 from .action_codec import (
     ACTION_SPACE_LOW, ACTION_SPACE_HIGH,
@@ -137,11 +138,17 @@ class VmapEnvWrapper(gym.Env):
             self.use_multi_opponent = False
             self.use_opponent_models = False
 
-        # Define observation/action spaces (enhanced to match AtomCombatEnv)
-        # Egocentric 18D obs (normalized, one-hot stances) — see signal_engine.build_observation_batch
+        # Define observation/action spaces
+        # 26D = 18D base (egocentric snapshot) + 8D temporal (EMAs)
         self.observation_space = spaces.Box(
-            low=np.array([0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1], dtype=np.float32),
-            high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32),
+            low=np.array([
+                0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1,  # base 18D
+                0, -1, -1, 0, -1, -1, 0, 0,  # temporal 8D
+            ], dtype=np.float32),
+            high=np.array([
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,    # base 18D
+                1, 1, 1, 1, 1, 1, 1, 1,      # temporal 8D
+            ], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -200,6 +207,10 @@ class VmapEnvWrapper(gym.Env):
         self.episode_stance_reward = None
         self.episode_inaction_penalty = None
         self.episode_terminal_reward = None
+
+        # Temporal observation builder (EMA features)
+        self.obs_builder = ObservationBuilder(n_envs)
+        self._temporal_features = None  # (n_envs, 8), set during step()
 
         # Initialize environments
         self.reset()
@@ -302,6 +313,17 @@ class VmapEnvWrapper(gym.Env):
         self.episode_inaction_penalty = np.zeros(self.n_envs, dtype=np.float32)
         self.episode_terminal_reward = np.zeros(self.n_envs, dtype=np.float32)
 
+        # Reset temporal observation builder
+        self.obs_builder.reset(
+            mask=np.ones(self.n_envs, dtype=bool),
+            distance=self.last_distance / self.arena_width,
+            opp_hp=self.prev_opponent_hp / np.maximum(np.array(self.jax_states.fighter_b.max_hp, dtype=np.float32), 1.0),
+            self_hp=self.prev_fighter_hp / np.maximum(np.array(self.jax_states.fighter_a.max_hp, dtype=np.float32), 1.0),
+            stamina=self.prev_fighter_stamina / np.maximum(np.array(self.jax_states.fighter_a.max_stamina, dtype=np.float32), 1.0),
+            opp_stance_int=np.array(self.jax_states.fighter_b.stance, dtype=np.int32),
+        )
+        self._temporal_features = np.zeros((self.n_envs, 8), dtype=np.float32)
+
         # Get initial observations
         obs = self._get_observations()
 
@@ -380,7 +402,33 @@ class VmapEnvWrapper(gym.Env):
             print(f"Opponent: pos={self.jax_states.fighter_b.position[i]:.2f}, vel={self.jax_states.fighter_b.velocity[i]:.2f}, HP={self.jax_states.fighter_b.hp[i]:.1f}, stamina={self.jax_states.fighter_b.stamina[i]:.1f}")
             print(f"Distance: {abs(self.jax_states.fighter_b.position[i] - self.jax_states.fighter_a.position[i]):.2f}")
 
-        # Get observations
+        # Update temporal features BEFORE building observations.
+        # Compute HP deltas early (duplicates part of _calculate_rewards, but
+        # temporal features must be ready before _get_observations).
+        current_fighter_hp = np.array(self.jax_states.fighter_a.hp, dtype=np.float32)
+        current_opp_hp = np.array(self.jax_states.fighter_b.hp, dtype=np.float32)
+        early_damage_dealt = np.maximum(0.0, self.prev_opponent_hp - current_opp_hp)
+        early_damage_taken = np.maximum(0.0, self.prev_fighter_hp - current_fighter_hp)
+
+        fighter_pos = np.array(self.jax_states.fighter_a.position, dtype=np.float32)
+        opp_pos = np.array(self.jax_states.fighter_b.position, dtype=np.float32)
+        distance = np.abs(opp_pos - fighter_pos)
+        opp_dir = np.sign(opp_pos - fighter_pos)
+        opp_dir = np.where(opp_dir == 0.0, 1.0, opp_dir)
+        closing_vel = np.array(self.jax_states.fighter_a.velocity, dtype=np.float32) * opp_dir
+
+        self._temporal_features = self.obs_builder.update_and_get_temporal(
+            distance=distance / self.arena_width,
+            opp_hp=current_opp_hp / np.maximum(np.array(self.jax_states.fighter_b.max_hp, dtype=np.float32), 1.0),
+            self_hp=current_fighter_hp / np.maximum(np.array(self.jax_states.fighter_a.max_hp, dtype=np.float32), 1.0),
+            stamina=np.array(self.jax_states.fighter_a.stamina, dtype=np.float32) / np.maximum(np.array(self.jax_states.fighter_a.max_stamina, dtype=np.float32), 1.0),
+            opp_stance_int=np.array(self.jax_states.fighter_b.stance, dtype=np.int32),
+            closing_vel=closing_vel / 5.0,  # normalize by max_velocity
+            damage_dealt=early_damage_dealt,
+            damage_taken=early_damage_taken,
+        )
+
+        # Get observations (includes temporal features)
         obs = self._get_observations()
 
         # Check dones and truncated BEFORE calculating rewards
@@ -512,7 +560,7 @@ class VmapEnvWrapper(gym.Env):
         return vmap(single_step)(states, actions_a, actions_b)
 
     def _get_observations(self):
-        """Extract enhanced observations from JAX states."""
+        """Extract enhanced 26D observations from JAX states (18D base + 8D temporal)."""
         opponent_direction = np.sign(np.array(self.jax_states.fighter_b.position) - np.array(self.jax_states.fighter_a.position))
         ticks_since_hit = np.maximum(0, np.array(self.tick_counts) - np.array(self.jax_states.fighter_a.last_hit_tick))
         hit_cooldown_fraction = np.minimum(ticks_since_hit / self.config.hit_cooldown_ticks, 1.0).astype(np.float32)
@@ -535,6 +583,7 @@ class VmapEnvWrapper(gym.Env):
             tick_fraction=np.array(self.tick_counts / self.max_ticks, dtype=np.float32),
             opponent_direction=opponent_direction,
             hit_cooldown_fraction=hit_cooldown_fraction,
+            temporal_features=self._temporal_features,
         )
 
     def _get_opponent_observations(self):
@@ -805,6 +854,19 @@ class VmapEnvWrapper(gym.Env):
                 self.episode_terminal_reward[i] = 0.0
 
         # Note: last_distance doesn't need per-env reset, it's updated each step
+
+        # Reset temporal observation builder for done environments
+        fresh_distance = np.abs(opponent.position - fighter.position)
+        n_reset = int(np.sum(reset_mask))
+        if n_reset > 0:
+            self.obs_builder.reset(
+                mask=reset_mask,
+                distance=np.full(self.n_envs, fresh_distance / self.arena_width, dtype=np.float32),
+                opp_hp=np.full(self.n_envs, opponent.hp / opponent.max_hp, dtype=np.float32),
+                self_hp=np.full(self.n_envs, fighter.hp / fighter.max_hp, dtype=np.float32),
+                stamina=np.full(self.n_envs, fighter.stamina / fighter.max_stamina, dtype=np.float32),
+                opp_stance_int=np.zeros(self.n_envs, dtype=np.int32),
+            )
 
     def close(self):
         """Clean up JAX resources and free memory."""

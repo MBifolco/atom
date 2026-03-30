@@ -120,6 +120,10 @@ class TestRealProgressiveReplayIntegration:
 
             obs = build_observation_from_snapshot(snapshot)
 
+            # Pad to 26D (model expects temporal features; zeros = no history)
+            if obs.shape[0] < 26:
+                obs = np.concatenate([obs, np.zeros(26 - obs.shape[0], dtype=np.float32)])
+
             # Model should be able to predict with this observation
             action, _ = trainer.model.predict(np.array([obs]), deterministic=True)
 
