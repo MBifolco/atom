@@ -535,7 +535,14 @@ def compute_step_rewards_batch(
         )
         rewards = np.where(mid_mask, mid_total, rewards)
 
-    rewards = np.nan_to_num(rewards, nan=0.0, posinf=1000.0, neginf=-1000.0).astype(np.float32)
+    # --- Reward normalization ---
+    # Terminal rewards are O(100) while shaping rewards are O(0.1).  This 1000x
+    # mismatch destabilises SAC's entropy auto-tuning and prevents the
+    # deterministic (mean) policy from converging.  Dividing by a constant
+    # brings everything into a [-1, +2] range without changing relative ordering.
+    rewards = rewards / 100.0
+
+    rewards = np.nan_to_num(rewards, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
 
     return RewardStepBatchResult(
         rewards=rewards,

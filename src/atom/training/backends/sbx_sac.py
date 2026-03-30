@@ -27,8 +27,7 @@ _CURRICULUM_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": "auto",
-    "target_entropy": -4.0,  # Tighter than default -2.0: forces meaningful deterministic policy
+    "ent_coef": 0.02,  # Fixed: auto-tuning oscillates due to reward scale variance
     "train_freq": 1,
     "gradient_steps": 2,
 }
@@ -40,8 +39,7 @@ _POPULATION_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": "auto",
-    "target_entropy": -4.0,  # Tighter than default -2.0: forces meaningful deterministic policy
+    "ent_coef": 0.02,  # Fixed: auto-tuning oscillates due to reward scale variance
     "train_freq": 1,
     "gradient_steps": 2,
 }
