@@ -27,7 +27,7 @@ _CURRICULUM_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": 0.02,  # Fixed: auto-tuning oscillates due to reward scale variance
+    "ent_coef": 0.005,  # Fixed low: 0.02 swamped shaping rewards (O(0.001)) causing deterministic collapse
     "train_freq": 1,
     "gradient_steps": 2,
 }
@@ -39,10 +39,13 @@ _POPULATION_TRAINING_CONFIG = {
     "batch_size": 256,
     "tau": 0.005,
     "gamma": 0.99,
-    "ent_coef": 0.02,  # Fixed: auto-tuning oscillates due to reward scale variance
+    "ent_coef": 0.005,  # Fixed low: 0.02 swamped shaping rewards (O(0.001)) causing deterministic collapse
     "train_freq": 1,
     "gradient_steps": 2,
 }
+
+
+_EMA_DECAY = 0.995  # Polyak averaging for evaluation actor (smooths oscillation)
 
 
 class SBXSACBackend:
@@ -54,7 +57,7 @@ class SBXSACBackend:
 
     def __init__(self):
         # SBX/JAX handles device automatically
-        pass
+        self._ema_actor_params = None  # Polyak-averaged actor for stable deterministic eval
 
     @property
     def capabilities(self) -> BackendCapabilities:
@@ -103,8 +106,33 @@ class SBXSACBackend:
         model.save(path)
 
     def predict(self, model: Any, obs: np.ndarray, deterministic: bool = False) -> np.ndarray:
+        if deterministic and self._ema_actor_params is not None:
+            # Use Polyak-averaged actor for deterministic eval — much more
+            # stable than raw training actor which oscillates across opponents.
+            from sbx.common.policies import BaseJaxPolicy
+            actor_state = model.policy.actor_state
+            ema_state = actor_state.replace(params=self._ema_actor_params)
+            action = BaseJaxPolicy.select_action(ema_state, np.atleast_2d(obs))
+            action = np.asarray(action).reshape((-1, *model.action_space.shape))
+            action = np.clip(action, -1, 1)
+            action = model.policy.unscale_action(action)
+            if obs.ndim == 1:
+                action = action.squeeze(axis=0)
+            return action
         action, _ = model.predict(obs, deterministic=deterministic)
         return np.asarray(action)
+
+    def update_ema_actor(self, model: Any) -> None:
+        """Update Polyak-averaged actor params from current training actor."""
+        current_params = model.policy.actor_state.params
+        if self._ema_actor_params is None:
+            self._ema_actor_params = jax.tree.map(lambda p: p.copy(), current_params)
+        else:
+            self._ema_actor_params = jax.tree.map(
+                lambda ema, cur: _EMA_DECAY * ema + (1 - _EMA_DECAY) * cur,
+                self._ema_actor_params,
+                current_params,
+            )
 
     def learn(
         self,
@@ -114,6 +142,12 @@ class SBXSACBackend:
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> Any:
+        # Initialize EMA from current actor params before training starts
+        if self._ema_actor_params is None:
+            self._ema_actor_params = jax.tree.map(
+                lambda p: p.copy(), model.policy.actor_state.params
+            )
+
         return model.learn(
             total_timesteps=total_timesteps,
             callback=callback,
@@ -147,6 +181,12 @@ class SBXSACBackend:
         model._last_obs = envs.reset()
         model._last_episode_starts = np.ones((envs.num_envs,), dtype=bool)
         model.num_timesteps = 0
+
+        # Re-initialize EMA from the (preserved) actor params so the
+        # evaluation policy tracks the new level's training trajectory.
+        self._ema_actor_params = jax.tree.map(
+            lambda p: p.copy(), model.policy.actor_state.params
+        )
 
     def get_policy_arch(self) -> dict:
         return dict(_POLICY_ARCH)

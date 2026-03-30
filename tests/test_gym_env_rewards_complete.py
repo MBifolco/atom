@@ -34,7 +34,7 @@ class TestTerminalRewardBranches:
 
             if done:
                 # Win reward should include time bonus
-                assert reward > 2.0, f"Quick win should have bonus (normalized /100), got {reward}"
+                assert reward > 5.0, f"Quick win should have bonus (terminal /10), got {reward}"
                 break
 
     def test_win_with_hp_differential_bonus(self):
@@ -136,7 +136,7 @@ class TestTerminalRewardBranches:
             if done:
                 # Loss should give negative reward
                 if obs[2] == 0:  # We died
-                    assert reward < -1.0, f"Loss should be heavily penalized (normalized /100), got {reward}"
+                    assert reward < -5.0, f"Loss should be heavily penalized (terminal /10), got {reward}"
                 break
 
 

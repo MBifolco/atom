@@ -387,7 +387,7 @@ class TestTerminationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
-        assert reward > 1.0  # Should be positive win reward with bonuses (normalized /100)
+        assert reward > 5.0  # Should be positive win reward with bonuses (normalized /100)
 
     def test_loss_reward_when_fighter_hp_zero(self):
         """Test reward when fighter loses by KO."""
@@ -403,7 +403,7 @@ class TestTerminationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
-        assert reward < -1.0  # Should be negative loss penalty (normalized /100)
+        assert reward < -5.0  # Should be negative loss penalty (normalized /100)
 
     def test_tie_reward_both_die(self):
         """Test reward when both fighters die simultaneously."""
@@ -419,7 +419,7 @@ class TestTerminationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert terminated is True
-        assert abs(reward - (-0.25)) < 1e-4  # Tie penalty -25/100 (normalized)
+        assert abs(reward - (-2.5)) < 1e-4  # Tie penalty -25/10 for terminals
 
 
 class TestTruncationRewards:
@@ -440,7 +440,7 @@ class TestTruncationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
-        assert reward > 1.0  # Clear win reward (normalized /100)
+        assert reward > 5.0  # Clear win reward (normalized /100)
 
     def test_slight_win_on_timeout(self):
         """Test reward when fighter has slight HP advantage at timeout."""
@@ -456,7 +456,7 @@ class TestTruncationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
-        assert abs(reward) < 0.01  # Slight win is neutral (normalized /100)
+        assert abs(reward) < 0.1  # Slight win is neutral (normalized /100)
 
     def test_clear_loss_on_timeout(self):
         """Test reward when fighter has clear HP disadvantage at timeout."""
@@ -472,7 +472,7 @@ class TestTruncationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
-        assert reward < -1.0  # Clear loss penalty (normalized /100)
+        assert reward < -5.0  # Clear loss penalty (normalized /100)
 
     def test_slight_loss_on_timeout(self):
         """Test reward when fighter has slight HP disadvantage at timeout."""
@@ -488,7 +488,7 @@ class TestTruncationRewards:
         obs, reward, terminated, truncated, info = env.step(action)
 
         assert truncated is True
-        assert abs(reward - (-0.50)) < 1e-4  # Slight loss penalty -50/100 (normalized)
+        assert abs(reward - (-5.0)) < 1e-4  # Slight loss penalty -50/10 for terminals
 
 
 class TestHitTracking:

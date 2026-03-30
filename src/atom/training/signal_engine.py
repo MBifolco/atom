@@ -536,11 +536,12 @@ def compute_step_rewards_batch(
         rewards = np.where(mid_mask, mid_total, rewards)
 
     # --- Reward normalization ---
-    # Terminal rewards are O(100) while shaping rewards are O(0.1).  This 1000x
-    # mismatch destabilises SAC's entropy auto-tuning and prevents the
-    # deterministic (mean) policy from converging.  Dividing by a constant
-    # brings everything into a [-1, +2] range without changing relative ordering.
-    rewards = rewards / 100.0
+    # Terminal rewards are O(100-175) while shaping rewards are O(0.02-4.0).
+    # Scale terminals by /10 (not /100) so they land at ~10-17.5 — still
+    # dominant over shaping but the shaping signals aren't crushed below
+    # the entropy bonus threshold.  With ent_coef=0.005 the entropy bonus
+    # is ~0.005-0.01 per step; shaping at 0.02-4.0 comfortably exceeds it.
+    rewards = np.where(terminal_mask | timeout_mask, rewards / 10.0, rewards)
 
     rewards = np.nan_to_num(rewards, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
 

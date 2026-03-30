@@ -20,7 +20,7 @@
       "episode_stamina_used": 4.0
     },
     "expected": {
-      "reward": 0.05603332817554474,
+      "reward": 5.603332996368408,
       "damage_component": 5.25,
       "proximity_component": 0.25333333015441895,
       "stamina_component": 0.10000000149011612,
@@ -51,7 +51,7 @@
       "episode_stamina_used": 20.0
     },
     "expected": {
-      "reward": 1.5633334350585938,
+      "reward": 15.633334159851074,
       "damage_component": 0.0,
       "proximity_component": 0.0,
       "stamina_component": 0.0,
@@ -82,7 +82,7 @@
       "episode_stamina_used": 15.0
     },
     "expected": {
-      "reward": -1.149999976158142,
+      "reward": -11.5,
       "damage_component": 0.0,
       "proximity_component": 0.0,
       "stamina_component": 0.0,

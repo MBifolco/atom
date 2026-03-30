@@ -220,7 +220,7 @@ class TestGymEnvRewards:
 
         # If we won, final reward should be large positive
         if done and not truncated:
-            assert reward > 1.0, f"Win reward should be large positive (normalized /100), got {reward}"
+            assert reward > 5.0, f"Win reward should be large positive (terminal /10), got {reward}"
 
     def test_loss_reward_negative(self):
         """Test that losing gives negative reward."""

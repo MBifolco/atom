@@ -327,6 +327,11 @@ class CurriculumCallback(BaseCallback):
         backend = getattr(self.curriculum_trainer, 'backend', None)
         if backend is not None and hasattr(backend, 'capabilities'):
             if backend.capabilities.flush_mode == "step_interval":
+                # Update EMA actor every 100 steps (cheap Polyak avg)
+                if self.n_calls > 0 and self.n_calls % 100 == 0:
+                    if hasattr(backend, 'update_ema_actor'):
+                        backend.update_ema_actor(self.model)
+
                 if self.n_calls > 0 and self.n_calls % 2048 == 0:
                     self._skip_until_rollout_start = False
                     self.curriculum_trainer._flush_pending_holdouts()
@@ -1301,25 +1306,36 @@ class CurriculumTrainer:
         )
 
     def _run_deterministic_sanity_check(self) -> bool:
-        """Run a few deterministic matches to verify the policy can actually fight.
+        """Run deterministic matches to verify the policy can actually fight.
 
-        Returns True if the model deals nonzero damage in at least one match.
-        This catches the stochastic-training-wins / deterministic-inference-collapse
-        failure mode where the policy passes stochastic win-rate checks but cannot
-        fight under deterministic=True.
+        Returns True if the model deals nonzero damage in at least 2 out of 6
+        matches across stationary opponents.  Running multiple matches avoids
+        false negatives from unlucky initial conditions in a single episode.
         """
         sanity_opponents = [
             "fighters/test_dummies/atomic/stationary_neutral.py",
             "fighters/test_dummies/atomic/stationary_defending.py",
         ]
+        passes = 0
+        total = 0
         for opp_path in sanity_opponents:
-            try:
-                result = self._run_holdout_match(opp_path, env_id=9999, deterministic=True)
-                if result.get("damage_dealt", 0) > 0:
-                    return True
-            except Exception as e:
-                self.logger.warning(f"Deterministic sanity check failed for {opp_path}: {e}")
-        return False
+            for env_id_offset in range(3):
+                try:
+                    result = self._run_holdout_match(
+                        opp_path, env_id=9999 + env_id_offset, deterministic=True
+                    )
+                    total += 1
+                    if result.get("damage_dealt", 0) > 0:
+                        passes += 1
+                except Exception as e:
+                    self.logger.warning(f"Deterministic sanity check failed for {opp_path}: {e}")
+                    total += 1
+        passed = passes >= 2
+        if not passed:
+            self.logger.warning(
+                f"Deterministic sanity: {passes}/{total} matches dealt damage (need >= 2)"
+            )
+        return passed
 
     def _apply_opponent_pool_refresh(self):
         """Rebuild vmap envs with only unmastered opponents (deferred from callback)."""
