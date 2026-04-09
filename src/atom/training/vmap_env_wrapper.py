@@ -330,6 +330,9 @@ class VmapEnvWrapper(gym.Env):
             opp_stance_int=np.array(self.jax_states.fighter_b.stance, dtype=np.int32),
         )
         self._temporal_features = np.zeros((self.n_envs, 8), dtype=np.float32)
+        if self.use_history:
+            from .signal_engine import HISTORY_OBS_DIM
+            self._history_flat = np.zeros((self.n_envs, HISTORY_OBS_DIM), dtype=np.float32)
 
         # Get initial observations
         obs = self._get_observations()

@@ -184,6 +184,9 @@ class AtomCombatEnv(gym.Env):
             opp_stance_int=np.array([int(self.opponent.stance)], dtype=np.int32),
         )
         self._temporal_features = np.zeros(8, dtype=np.float32)
+        if self.use_history:
+            from .signal_engine import HISTORY_OBS_DIM
+            self._history_flat = np.zeros(HISTORY_OBS_DIM, dtype=np.float32)
 
         # Return initial observation
         obs = self._get_observation()
