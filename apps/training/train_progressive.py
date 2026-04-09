@@ -53,6 +53,7 @@ Examples:
     parser.add_argument("--evolution-frequency", type=int, default=2, help="Evolve population every N generations (default: 2)")
     parser.add_argument("--backend", choices=["sb3_ppo", "sbx_sac"], default="sb3_ppo", help="Training backend: sb3_ppo (PPO, PyTorch) or sbx_sac (SAC, all-JAX)")
     parser.add_argument("--test-opponents", type=str, default=None, help="Comma-separated opponent names for a quick test (e.g. 'circle_left,circle_right'). Overrides curriculum to a single level with only these opponents.")
+    parser.add_argument("--use-history", action="store_true", default=False, help="Enable 64-tick fight history in observations (666D). Curriculum-only, not supported with population training.")
     return parser
 
 
@@ -95,6 +96,7 @@ def main(argv: list[str] | None = None) -> None:
         checkpoint_interval=args.checkpoint_interval,
         backend=backend,
         test_opponents=args.test_opponents,
+        use_history=args.use_history,
     )
 
     if args.mode == "quick":

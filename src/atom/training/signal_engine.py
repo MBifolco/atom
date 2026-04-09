@@ -46,6 +46,12 @@ BASE_OBS_DIM = 18   # Egocentric single-tick snapshot
 EMA_OBS_DIM = 8     # Temporal features (EMAs + ticks_since_damage)
 OBS_DIM = BASE_OBS_DIM + EMA_OBS_DIM  # 26
 
+# History buffer (opt-in via use_history flag)
+HISTORY_FEATURE_DIM = 10   # Per-tick: distance, closing_vel, self_hp, self_stamina, opp_hp, opp_stamina, opp_stance_oh(3), engagement
+HISTORY_WINDOW = 64        # Number of previous ticks stored
+HISTORY_OBS_DIM = HISTORY_FEATURE_DIM * HISTORY_WINDOW  # 640
+OBS_DIM_WITH_HISTORY = OBS_DIM + HISTORY_OBS_DIM  # 666
+
 # EMA decay rates: alpha = 2 / (window + 1)
 EMA_ALPHAS = {
     "distance": 0.065,           # 30-tick window
@@ -68,8 +74,9 @@ class ObservationBuilder:
     exported fighters to ensure parity.
     """
 
-    def __init__(self, n_envs: int):
+    def __init__(self, n_envs: int, use_history: bool = False):
         self.n_envs = n_envs
+        self.use_history = use_history
         # EMA accumulators
         self.ema_distance = np.zeros(n_envs, dtype=np.float32)
         self.ema_opp_hp_delta = np.zeros(n_envs, dtype=np.float32)
@@ -79,20 +86,34 @@ class ObservationBuilder:
         self.ema_closing_vel = np.zeros(n_envs, dtype=np.float32)
         self.ema_engagement = np.zeros(n_envs, dtype=np.float32)
         self.ticks_since_damage = np.zeros(n_envs, dtype=np.float32)
-        # Previous-tick trackers for delta computation
+        # Previous-tick trackers for delta computation (EMA deltas)
         self.prev_opp_hp = np.zeros(n_envs, dtype=np.float32)
         self.prev_self_hp = np.zeros(n_envs, dtype=np.float32)
         self.prev_stamina = np.zeros(n_envs, dtype=np.float32)
         self.prev_opp_stance = np.zeros(n_envs, dtype=np.int32)
+        # Additional prev-tick trackers for history 10D slice
+        self.prev_distance = np.zeros(n_envs, dtype=np.float32)
+        self.prev_closing_vel = np.zeros(n_envs, dtype=np.float32)
+        self.prev_opp_stamina = np.zeros(n_envs, dtype=np.float32)
+        self.prev_engagement_flag = np.zeros(n_envs, dtype=np.float32)
         self._initialized = np.zeros(n_envs, dtype=bool)
+        # Ring buffer for fight history (opt-in)
+        if use_history:
+            self.history = np.zeros((n_envs, HISTORY_WINDOW, HISTORY_FEATURE_DIM), dtype=np.float32)
+            self.history_ptr = np.zeros(n_envs, dtype=np.int32)
+        else:
+            self.history = None
+            self.history_ptr = None
 
     def reset(self, mask: np.ndarray, *,
               distance: np.ndarray,
               opp_hp: np.ndarray,
               self_hp: np.ndarray,
               stamina: np.ndarray,
-              opp_stance_int: np.ndarray):
-        """Reset EMA state for environments indicated by boolean mask."""
+              opp_stance_int: np.ndarray,
+              closing_vel: np.ndarray = None,
+              opp_stamina: np.ndarray = None):
+        """Reset EMA + history state for environments indicated by boolean mask."""
         self.ema_distance[mask] = 0.0
         self.ema_opp_hp_delta[mask] = 0.0
         self.ema_self_hp_delta[mask] = 0.0
@@ -106,7 +127,20 @@ class ObservationBuilder:
         self.prev_self_hp[mask] = np.asarray(self_hp, dtype=np.float32)[mask]
         self.prev_stamina[mask] = np.asarray(stamina, dtype=np.float32)[mask]
         self.prev_opp_stance[mask] = np.asarray(opp_stance_int, dtype=np.int32)[mask]
+        self.prev_distance[mask] = np.asarray(distance, dtype=np.float32)[mask]
+        self.prev_closing_vel[mask] = (np.asarray(closing_vel, dtype=np.float32)[mask]
+                                       if closing_vel is not None else 0.0)
+        self.prev_opp_stamina[mask] = (np.asarray(opp_stamina, dtype=np.float32)[mask]
+                                       if opp_stamina is not None else
+                                       np.asarray(stamina, dtype=np.float32)[mask])
+        self.prev_engagement_flag[mask] = 0.0
         self._initialized[mask] = True
+        # Reset history ring buffer
+        if self.use_history and self.history is not None:
+            for i in range(self.n_envs):
+                if mask[i]:
+                    self.history[i] = 0.0
+                    self.history_ptr[i] = 0
 
     def update_and_get_temporal(
         self,
@@ -118,8 +152,9 @@ class ObservationBuilder:
         closing_vel: np.ndarray,
         damage_dealt: np.ndarray,
         damage_taken: np.ndarray,
+        opp_stamina: np.ndarray = None,
     ) -> np.ndarray:
-        """Update EMAs and return (n_envs, 8) temporal features."""
+        """Update EMAs (and history if enabled) and return (n_envs, 8) temporal features."""
         distance = np.asarray(distance, dtype=np.float32)
         opp_hp = np.asarray(opp_hp, dtype=np.float32)
         self_hp = np.asarray(self_hp, dtype=np.float32)
@@ -128,11 +163,18 @@ class ObservationBuilder:
         closing_vel = np.asarray(closing_vel, dtype=np.float32)
         damage_dealt = np.asarray(damage_dealt, dtype=np.float32)
         damage_taken = np.asarray(damage_taken, dtype=np.float32)
+        if opp_stamina is not None:
+            opp_stamina = np.asarray(opp_stamina, dtype=np.float32)
+        else:
+            opp_stamina = np.zeros_like(opp_hp)
+
+        # Push PREVIOUS tick's state to history ring buffer BEFORE updating prev-trackers.
+        # This ensures history contains prior ticks only, not the current tick.
+        if self.use_history and self.history is not None:
+            self._push_history()
 
         # Compute deltas from previous tick
         opp_hp_delta = self.prev_opp_hp - opp_hp          # positive = dealing damage
-        self_hp_delta = self_hp - self.prev_self_hp        # positive = taking damage (hp decreased)
-        # Correction: self_hp decreased means damage taken
         self_hp_delta = self.prev_self_hp - self_hp        # positive = taking damage
         stamina_delta = stamina - self.prev_stamina        # positive = regenerating
         stance_changed = (opp_stance_int != self.prev_opp_stance).astype(np.float32)
@@ -156,6 +198,10 @@ class ObservationBuilder:
         self.prev_self_hp = self_hp.copy()
         self.prev_stamina = stamina.copy()
         self.prev_opp_stance = opp_stance_int.copy()
+        self.prev_distance = distance.copy()
+        self.prev_closing_vel = closing_vel.copy()
+        self.prev_opp_stamina = opp_stamina.copy()
+        self.prev_engagement_flag = any_damage.copy()
 
         # Build (n_envs, 8) output, normalized to [-1, 1] or [0, 1]
         return np.stack([
@@ -168,6 +214,46 @@ class ObservationBuilder:
             np.clip(self.ema_engagement, 0.0, 1.0),                  # [0, 1]
             np.clip(self.ticks_since_damage / TICKS_SINCE_DAMAGE_NORM, 0.0, 1.0),  # [0, 1]
         ], axis=-1)
+
+    def _push_history(self):
+        """Push previous tick's 10D features into the ring buffer."""
+        if self.history is None:
+            return
+        # Build 10D feature vector from prev-tick values
+        # [distance, closing_vel, self_hp, self_stamina, opp_hp, opp_stamina,
+        #  opp_stance_oh(3), engagement_flag]
+        n = self.n_envs
+        opp_stance_oh = np.zeros((n, 3), dtype=np.float32)
+        stance_idx = np.clip(self.prev_opp_stance, 0, 2)
+        opp_stance_oh[np.arange(n), stance_idx] = 1.0
+
+        features = np.column_stack([
+            self.prev_distance,         # [0]
+            self.prev_closing_vel,      # [1]
+            self.prev_self_hp,          # [2]
+            self.prev_stamina,          # [3]
+            self.prev_opp_hp,           # [4]
+            self.prev_opp_stamina,      # [5]
+            opp_stance_oh,              # [6,7,8]
+            self.prev_engagement_flag,  # [9]
+        ])  # (n_envs, 10)
+
+        # Write to ring buffer at current pointer, advance
+        for i in range(n):
+            self.history[i, self.history_ptr[i]] = features[i]
+            self.history_ptr[i] = (self.history_ptr[i] + 1) % HISTORY_WINDOW
+
+    def get_flat_history(self) -> np.ndarray:
+        """Return (n_envs, 640) history ordered oldest-first."""
+        if self.history is None:
+            return np.zeros((self.n_envs, HISTORY_OBS_DIM), dtype=np.float32)
+        n = self.n_envs
+        result = np.zeros((n, HISTORY_WINDOW, HISTORY_FEATURE_DIM), dtype=np.float32)
+        for i in range(n):
+            ptr = self.history_ptr[i]
+            # Roll so oldest is first: [ptr, ptr+1, ..., WINDOW-1, 0, 1, ..., ptr-1]
+            result[i] = np.roll(self.history[i], -ptr, axis=0)
+        return result.reshape(n, HISTORY_OBS_DIM)
 
 
 def hp_pct(hp: float, max_hp: float) -> float:
@@ -232,8 +318,9 @@ def build_observation(
     opponent_direction: float = 0.0,
     hit_cooldown_fraction: float = 1.0,
     temporal_features: Optional[np.ndarray] = None,
+    history_features: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Build a single egocentric training observation (18D base, 26D with temporal)."""
+    """Build a single egocentric training observation (18D/26D/666D)."""
     obs = build_observation_batch(
         you_position=np.array([you_position], dtype=np.float32),
         you_velocity=np.array([you_velocity], dtype=np.float32),
@@ -254,6 +341,7 @@ def build_observation(
         opponent_direction=np.array([opponent_direction], dtype=np.float32),
         hit_cooldown_fraction=np.array([hit_cooldown_fraction], dtype=np.float32),
         temporal_features=temporal_features.reshape(1, -1) if temporal_features is not None else None,
+        history_features=history_features.reshape(1, -1) if history_features is not None else None,
     )
     return obs[0]
 
@@ -349,8 +437,9 @@ def build_observation_batch(
     opponent_direction=None,
     hit_cooldown_fraction=None,
     temporal_features: Optional[np.ndarray] = None,
+    history_features: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Build batched egocentric observations (18D base, 26D with temporal).
+    """Build batched egocentric observations (18D base, 26D with temporal, 666D with history).
 
     All spatial features are relative to the opponent's direction so
     the policy sees the same observation regardless of which side the
@@ -469,6 +558,13 @@ def build_observation_batch(
         if temporal_features.ndim == 1:
             temporal_features = temporal_features.reshape(1, -1)
         obs = np.concatenate([obs, temporal_features], axis=1)
+
+    # Concatenate history features if provided (26D → 666D)
+    if history_features is not None:
+        history_features = np.asarray(history_features, dtype=np.float32)
+        if history_features.ndim == 1:
+            history_features = history_features.reshape(1, -1)
+        obs = np.concatenate([obs, history_features], axis=1)
 
     # Keep observation safety behavior aligned with AtomCombatEnv.
     return np.nan_to_num(obs, nan=0.0, posinf=100.0, neginf=-100.0)

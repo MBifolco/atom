@@ -77,6 +77,7 @@ class VmapEnvWrapper(gym.Env):
         seed: int = 42,
         debug: bool = False,
         reward_weights: dict = None,
+        use_history: bool = False,
     ):
         """
         Initialize vectorized environment.
@@ -102,6 +103,7 @@ class VmapEnvWrapper(gym.Env):
         self.seed_base = seed
         self.debug = debug
         self.reward_weights = reward_weights
+        self.use_history = use_history
 
         # Setup opponent system
 
@@ -138,17 +140,21 @@ class VmapEnvWrapper(gym.Env):
             self.use_multi_opponent = False
             self.use_opponent_models = False
 
-        # Define observation/action spaces
-        # 26D = 18D base (egocentric snapshot) + 8D temporal (EMAs)
+        # Define observation space: 26D default, 666D with history
+        base_low = [0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1]   # base 18D
+        base_high = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ema_low = [0, -1, -1, 0, -1, -1, 0, 0]    # temporal 8D
+        ema_high = [1, 1, 1, 1, 1, 1, 1, 1]
+        obs_low = base_low + ema_low
+        obs_high = base_high + ema_high
+        if use_history:
+            from .signal_engine import HISTORY_OBS_DIM
+            # History: 640D, each feature in [-1, 1] or [0, 1]
+            obs_low += [-1.0] * HISTORY_OBS_DIM
+            obs_high += [1.0] * HISTORY_OBS_DIM
         self.observation_space = spaces.Box(
-            low=np.array([
-                0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1,  # base 18D
-                0, -1, -1, 0, -1, -1, 0, 0,  # temporal 8D
-            ], dtype=np.float32),
-            high=np.array([
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,    # base 18D
-                1, 1, 1, 1, 1, 1, 1, 1,      # temporal 8D
-            ], dtype=np.float32),
+            low=np.array(obs_low, dtype=np.float32),
+            high=np.array(obs_high, dtype=np.float32),
             dtype=np.float32
         )
 
@@ -208,9 +214,10 @@ class VmapEnvWrapper(gym.Env):
         self.episode_inaction_penalty = None
         self.episode_terminal_reward = None
 
-        # Temporal observation builder (EMA features)
-        self.obs_builder = ObservationBuilder(n_envs)
+        # Temporal observation builder (EMA features + optional history)
+        self.obs_builder = ObservationBuilder(n_envs, use_history=use_history)
         self._temporal_features = None  # (n_envs, 8), set during step()
+        self._history_flat = None       # (n_envs, 640) if use_history, else None
 
         # Initialize environments
         self.reset()
@@ -426,9 +433,14 @@ class VmapEnvWrapper(gym.Env):
             closing_vel=closing_vel / 5.0,  # normalize by max_velocity
             damage_dealt=early_damage_dealt,
             damage_taken=early_damage_taken,
+            opp_stamina=np.array(self.jax_states.fighter_b.stamina, dtype=np.float32) / np.maximum(np.array(self.jax_states.fighter_b.max_stamina, dtype=np.float32), 1.0),
         )
 
-        # Get observations (includes temporal features)
+        # Get history if enabled
+        if self.use_history:
+            self._history_flat = self.obs_builder.get_flat_history()
+
+        # Get observations (includes temporal + optional history features)
         obs = self._get_observations()
 
         # Check dones and truncated BEFORE calculating rewards
@@ -584,6 +596,7 @@ class VmapEnvWrapper(gym.Env):
             opponent_direction=opponent_direction,
             hit_cooldown_fraction=hit_cooldown_fraction,
             temporal_features=self._temporal_features,
+            history_features=self._history_flat if self.use_history else None,
         )
 
     def _get_opponent_observations(self):

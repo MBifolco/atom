@@ -57,7 +57,8 @@ class ProgressiveTrainer:
                  checkpoint_interval: int = 100000,
                  seed: int = 1337,
                  backend=None,
-                 test_opponents: str = None):
+                 test_opponents: str = None,
+                 use_history: bool = False):
         """
         Initialize the progressive trainer.
 
@@ -89,6 +90,7 @@ class ProgressiveTrainer:
         self.override_episodes_per_level = override_episodes_per_level
         self.checkpoint_interval = checkpoint_interval
         self.test_opponents = test_opponents
+        self.use_history = use_history
         self.seed = int(seed)
         if self.seed < 0:
             raise ValueError(f"seed must be non-negative, got {self.seed}")
@@ -219,6 +221,7 @@ class ProgressiveTrainer:
             seed=self.seed,
             backend=self.backend,
             test_opponents=self.test_opponents,
+            use_history=self.use_history,
         )
 
         # Train through curriculum
@@ -525,6 +528,15 @@ class ProgressiveTrainer:
         )
 
         # Phase 3: Population Training
+        if self.use_history:
+            import logging
+            logger = logging.getLogger("progressive_trainer")
+            logger.warning(
+                "Population training not supported with history-enabled models (666D obs). "
+                "Curriculum graduate saved. Skipping population phase."
+            )
+            return
+
         self.run_population_training(
             generations=population_generations,
             episodes_per_generation=episodes_per_generation,

@@ -51,6 +51,7 @@ class AtomCombatEnv(gym.Env):
         seed: int = None,
         reward_weights: dict = None,
         opponent_name: str = None,
+        use_history: bool = False,
     ):
         """
         Initialize the environment.
@@ -74,16 +75,21 @@ class AtomCombatEnv(gym.Env):
         self.reward_weights = reward_weights
         self.opponent_name = opponent_name
 
-        # 26D = 18D base (egocentric snapshot) + 8D temporal (EMAs)
+        # Observation space: 26D default (18D base + 8D EMA), 666D with history
+        self.use_history = use_history
+        base_low = [0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1]
+        base_high = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ema_low = [0, -1, -1, 0, -1, -1, 0, 0]
+        ema_high = [1, 1, 1, 1, 1, 1, 1, 1]
+        obs_low = base_low + ema_low
+        obs_high = base_high + ema_high
+        if use_history:
+            from .signal_engine import HISTORY_OBS_DIM
+            obs_low += [-1.0] * HISTORY_OBS_DIM
+            obs_high += [1.0] * HISTORY_OBS_DIM
         self.observation_space = spaces.Box(
-            low=np.array([
-                0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1,  # base 18D
-                0, -1, -1, 0, -1, -1, 0, 0,  # temporal 8D
-            ], dtype=np.float32),
-            high=np.array([
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,    # base 18D
-                1, 1, 1, 1, 1, 1, 1, 1,      # temporal 8D
-            ], dtype=np.float32),
+            low=np.array(obs_low, dtype=np.float32),
+            high=np.array(obs_high, dtype=np.float32),
             dtype=np.float32
         )
 
@@ -105,8 +111,9 @@ class AtomCombatEnv(gym.Env):
         self.episode_damage_taken = 0
         self.last_distance = None  # initialized to real distance in reset()
         self.stamina_used = 0
-        self.obs_builder = ObservationBuilder(n_envs=1)
+        self.obs_builder = ObservationBuilder(n_envs=1, use_history=use_history)
         self._temporal_features = None
+        self._history_flat = None
         self.hits_landed = 0
         self.hits_taken = 0
 
@@ -265,9 +272,14 @@ class AtomCombatEnv(gym.Env):
             closing_vel=np.array([closing_vel / 5.0], dtype=np.float32),
             damage_dealt=np.array([max(0, damage_dealt)], dtype=np.float32),
             damage_taken=np.array([max(0, damage_taken)], dtype=np.float32),
+            opp_stamina=np.array([float(self.opponent.stamina) / float(self.opponent.max_stamina)], dtype=np.float32),
         )[0]  # [0] to get scalar (8,) from (1, 8)
 
-        # Get new observation (includes temporal features)
+        # Get history if enabled
+        if self.use_history:
+            self._history_flat = self.obs_builder.get_flat_history()[0]  # (640,)
+
+        # Get new observation (includes temporal + optional history)
         obs = self._get_observation()
 
         # Check termination
@@ -376,6 +388,7 @@ class AtomCombatEnv(gym.Env):
             opponent_direction=opponent_direction,
             hit_cooldown_fraction=hit_cooldown_fraction,
             temporal_features=self._temporal_features,
+            history_features=self._history_flat if self.use_history else None,
         )
         # Sanitize NaN/Inf to match vmap_env_wrapper behaviour
         if np.isnan(obs).any() or np.isinf(obs).any():

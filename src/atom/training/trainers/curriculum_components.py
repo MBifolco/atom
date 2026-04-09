@@ -1115,6 +1115,7 @@ class EnvFactory:
         vmap_adapter_cls,
         seed_base: int,
         reward_weights_fn=None,
+        use_history: bool = False,
     ):
         self.n_envs = n_envs
         self.max_ticks = max_ticks
@@ -1126,6 +1127,7 @@ class EnvFactory:
         self.vmap_adapter_cls = vmap_adapter_cls
         self.seed_base = seed_base
         self.reward_weights_fn = reward_weights_fn
+        self.use_history = use_history
 
     def create_envs_for_level(self, level):
         if self.use_vmap:
@@ -1158,6 +1160,7 @@ class EnvFactory:
             seed=self.seed_base,
             debug=self.debug,
             reward_weights=reward_weights,
+            use_history=self.use_history,
         )
 
         if self.verbose:

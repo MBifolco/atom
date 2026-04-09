@@ -410,7 +410,8 @@ class CurriculumTrainer:
                  min_mean_damage_dealt: float = 5.0,
                  min_nonzero_damage_rate: float = 0.3,
                  backend=None,
-                 test_opponents: str = None):
+                 test_opponents: str = None,
+                 use_history: bool = False):
         """
         Initialize the curriculum trainer.
 
@@ -452,6 +453,7 @@ class CurriculumTrainer:
         self.abort_reason = None
         self.backend = backend or SB3PPOBackend(device=device)
         self.test_opponents = test_opponents
+        self.use_history = use_history
 
         # Validate override
         if self.override_episodes_per_level is not None and self.override_episodes_per_level <= 0:
@@ -548,6 +550,7 @@ class CurriculumTrainer:
             vmap_adapter_cls=VmapEnvAdapter,
             seed_base=self.seed,
             reward_weights_fn=_reward_weights_for_level,
+            use_history=self.use_history,
         )
         self.model_factory = ModelFactory(
             logs_dir=self.logs_dir,
