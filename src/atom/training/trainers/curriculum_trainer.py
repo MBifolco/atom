@@ -937,6 +937,7 @@ class CurriculumTrainer:
             opponent_mass=70.0,
             seed=self.seed + env_id,
             reward_weights=self._current_reward_weights(),
+            use_history=self.use_history,
         )
 
     def create_envs_for_level(self, level: CurriculumLevel) -> Any:
