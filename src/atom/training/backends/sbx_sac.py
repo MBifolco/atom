@@ -15,6 +15,12 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 from .protocol import BackendCapabilities
 
+# Low-temperature stochastic sampling for deterministic evaluation.
+# SAC's mean (tanh(mean)) is never directly optimized, so pure deterministic
+# can be arbitrarily bad. Low-temp sampling (mean + std*temp*noise) preserves
+# the distribution shape while being much more consistent.
+DETERMINISTIC_TEMPERATURE = 0.2
+
 
 _POLICY_ARCH = {
     "net_arch": [512, 512, 256],
@@ -58,6 +64,7 @@ class SBXSACBackend:
     def __init__(self):
         # SBX/JAX handles device automatically
         self._ema_actor_params = None  # Polyak-averaged actor for stable deterministic eval
+        self._eval_key = jax.random.PRNGKey(42)  # RNG key for low-temp sampling
 
     @property
     def capabilities(self) -> BackendCapabilities:
@@ -119,21 +126,39 @@ class SBXSACBackend:
         model.save(path)
 
     def predict(self, model: Any, obs: np.ndarray, deterministic: bool = False) -> np.ndarray:
-        if deterministic and self._ema_actor_params is not None:
-            # Use Polyak-averaged actor for deterministic eval — much more
-            # stable than raw training actor which oscillates across opponents.
-            from sbx.common.policies import BaseJaxPolicy
+        if deterministic:
+            # Low-temperature stochastic: mean + std * 0.2 * noise.
+            # SAC's pure deterministic (tanh(mean)) is never directly optimized
+            # and can be arbitrarily bad. Low-temp sampling preserves the learned
+            # distribution while being much more consistent than full stochastic.
             actor_state = model.policy.actor_state
-            ema_state = actor_state.replace(params=self._ema_actor_params)
-            action = BaseJaxPolicy.select_action(ema_state, np.atleast_2d(obs))
+            if self._ema_actor_params is not None:
+                actor_state = actor_state.replace(params=self._ema_actor_params)
+            obs_2d = np.atleast_2d(obs)
+            self._eval_key, subkey = jax.random.split(self._eval_key)
+            action = self._low_temp_sample(actor_state, obs_2d, subkey)
             action = np.asarray(action).reshape((-1, *model.action_space.shape))
             action = np.clip(action, -1, 1)
             action = model.policy.unscale_action(action)
             if obs.ndim == 1:
                 action = action.squeeze(axis=0)
             return action
-        action, _ = model.predict(obs, deterministic=deterministic)
+        action, _ = model.predict(obs, deterministic=False)
         return np.asarray(action)
+
+    @staticmethod
+    @jax.jit
+    def _low_temp_sample(actor_state, observations, key):
+        """Sample from the policy with reduced temperature (std * 0.2)."""
+        dist = actor_state.apply_fn(actor_state.params, observations)
+        # Get the underlying normal distribution (before tanh transform)
+        normal = dist.distribution
+        mean = normal.loc
+        std = normal.scale.diag  # LinearOperatorDiag → plain array
+        noise = jax.random.normal(key, mean.shape)
+        # Low-temp: sample close to mean but not exactly at it
+        raw_action = mean + std * DETERMINISTIC_TEMPERATURE * noise
+        return jnp.tanh(raw_action)
 
     def update_ema_actor(self, model: Any) -> None:
         """Update Polyak-averaged actor params from current training actor."""
