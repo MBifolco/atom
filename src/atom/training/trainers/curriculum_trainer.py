@@ -713,9 +713,9 @@ class CurriculumTrainer:
                 # Keep ALL opponents active — gauntlet adds focus on hard ones
                 # via weighted sampling, but never drops earlier opponents.
                 opponents=phase1_opponents + phase2_new + phase3_new,
-                min_episodes=600,
+                min_episodes=2000,
                 graduation_win_rate=0.60,
-                graduation_episodes=200,
+                graduation_episodes=400,
                 description="Maintain mastery across all opponents while proving expert-level play",
             ),
         ]
