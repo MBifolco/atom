@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+import jax
 import flax.linen as nn
 import jax.numpy as jnp
 import tensorflow_probability.substrates.jax as tfp
@@ -23,6 +24,96 @@ from sbx.common.policies import Flatten
 from .signal_engine import OBS_DIM, HISTORY_OBS_DIM, HISTORY_FEATURE_DIM, HISTORY_WINDOW
 
 tfd = tfp.distributions
+
+# Mixture of Gaussians config
+NUM_MIXTURE_COMPONENTS = 4
+
+class TanhMixtureDistribution:
+    """Mixture of K TanhTransformed Gaussians for multi-modal SAC policy.
+
+    Implements .sample(seed=), .log_prob(), and .mode() to be compatible
+    with SBX's SAC training loop.
+    """
+
+    def __init__(self, means, log_stds, logits, log_std_min=-20, log_std_max=2):
+        """
+        Args:
+            means: (batch, K, action_dim) — per-component means
+            log_stds: (batch, K, action_dim) — per-component log stds
+            logits: (batch, K) — mixture gating logits (unnormalized)
+        """
+        self.means = means
+        self.log_stds = jnp.clip(log_stds, log_std_min, log_std_max)
+        self.logits = logits
+        self.K = means.shape[1]
+        self.action_dim = means.shape[2]
+
+    def sample(self, seed):
+        """Sample from the mixture: pick component, then sample from it."""
+        key1, key2 = jax.random.split(seed)
+        # Sample component indices from categorical(logits)
+        component_idx = jax.random.categorical(key1, self.logits)  # (batch,)
+        batch_size = self.means.shape[0]
+        batch_idx = jnp.arange(batch_size)
+
+        # Get selected component's mean and std
+        mean = self.means[batch_idx, component_idx]      # (batch, action_dim)
+        log_std = self.log_stds[batch_idx, component_idx]  # (batch, action_dim)
+        std = jnp.exp(log_std)
+
+        # Sample from the selected Gaussian, then tanh
+        noise = jax.random.normal(key2, mean.shape)
+        raw_action = mean + std * noise
+        return jnp.tanh(raw_action)
+
+    def log_prob(self, action):
+        """Log probability under the mixture (log-sum-exp over components).
+
+        For each component k:
+          log p_k(action) = log_prob_normal(atanh(action)) - log(1 - action^2)
+        Then:
+          log p(action) = log_sum_exp(log_weights + log_p_k) over k
+        """
+        # Inverse tanh to get raw action
+        # Clip to avoid atanh(±1) = ±inf
+        action_clipped = jnp.clip(action, -0.999, 0.999)
+        raw_action = jnp.arctanh(action_clipped)  # (batch, action_dim)
+
+        # Expand for K components: (batch, 1, action_dim)
+        raw_expanded = raw_action[:, None, :]
+
+        # Per-component log probs under Normal
+        stds = jnp.exp(self.log_stds)  # (batch, K, action_dim)
+        var = stds ** 2
+        log_normal = -0.5 * (
+            jnp.sum((raw_expanded - self.means) ** 2 / var, axis=-1)
+            + jnp.sum(jnp.log(var), axis=-1)
+            + self.action_dim * jnp.log(2 * jnp.pi)
+        )  # (batch, K)
+
+        # Tanh correction: -sum(log(1 - tanh(raw)^2)) per dimension
+        tanh_correction = jnp.sum(
+            jnp.log(jnp.maximum(1.0 - action_clipped ** 2, 1e-6)), axis=-1
+        )  # (batch,)
+
+        # Per-component log prob = normal_log_prob - tanh_correction
+        component_log_probs = log_normal - tanh_correction[:, None]  # (batch, K)
+
+        # Mixture log prob: log_sum_exp(log_weights + component_log_probs)
+        log_weights = jax.nn.log_softmax(self.logits)  # (batch, K)
+        mixture_log_prob = jax.nn.logsumexp(
+            log_weights + component_log_probs, axis=-1
+        )  # (batch,)
+
+        return mixture_log_prob
+
+    def mode(self):
+        """Deterministic output: mean of the highest-weight component."""
+        best_idx = jnp.argmax(self.logits, axis=-1)  # (batch,)
+        batch_idx = jnp.arange(self.means.shape[0])
+        best_mean = self.means[batch_idx, best_idx]  # (batch, action_dim)
+        return jnp.tanh(best_mean)
+
 
 # Observation split point: first OBS_DIM (26) is current, rest is history
 CURRENT_OBS_DIM = OBS_DIM       # 26
@@ -62,7 +153,12 @@ class HistoryEncoder(nn.Module):
 
 
 class SquashedGaussianActorWithHistory(nn.Module):
-    """SAC actor that uses CNN encoder for fight history.
+    """SAC actor with CNN history encoder and Mixture of Gaussians output.
+
+    K=4 mixture components allow the policy to maintain distinct strategies
+    for different opponent archetypes (aggressive, defensive, counter-punch,
+    distance management). The gating network selects components based on
+    the CNN context vector (opponent behavioral fingerprint).
 
     Compatible with SBX's SACPolicy.build() which passes:
         action_dim, net_arch, activation_fn
@@ -72,13 +168,14 @@ class SquashedGaussianActorWithHistory(nn.Module):
     log_std_min: float = -20
     log_std_max: float = 2
     activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
+    n_components: int = NUM_MIXTURE_COMPONENTS
 
     def get_std(self):
         # Required for gSDE compatibility
         return jnp.array(0.0)
 
     @nn.compact
-    def __call__(self, x: jnp.ndarray) -> tfd.Distribution:
+    def __call__(self, x: jnp.ndarray) -> TanhMixtureDistribution:
         x = Flatten()(x)
 
         # Split observation: current (26D) + history (640D)
@@ -91,18 +188,26 @@ class SquashedGaussianActorWithHistory(nn.Module):
         # Concatenate current + context → 90D input to MLP
         x = jnp.concatenate([current_obs, context], axis=-1)
 
-        # Standard MLP actor
+        # Shared MLP backbone
         for n_units in self.net_arch:
             x = nn.Dense(n_units)(x)
             x = self.activation_fn(x)
 
-        mean = nn.Dense(self.action_dim)(x)
-        log_std = nn.Dense(self.action_dim)(x)
-        log_std = jnp.clip(log_std, self.log_std_min, self.log_std_max)
-        dist = TanhTransformedDistribution(
-            tfd.MultivariateNormalDiag(loc=mean, scale_diag=jnp.exp(log_std)),
+        # K mixture components: each has (mean, log_std) for action_dim
+        K = self.n_components
+        means = nn.Dense(K * self.action_dim)(x)       # (batch, K*action_dim)
+        log_stds = nn.Dense(K * self.action_dim)(x)    # (batch, K*action_dim)
+        logits = nn.Dense(K)(x)                         # (batch, K)
+
+        # Reshape to (batch, K, action_dim)
+        batch_size = x.shape[0]
+        means = means.reshape(batch_size, K, self.action_dim)
+        log_stds = log_stds.reshape(batch_size, K, self.action_dim)
+
+        return TanhMixtureDistribution(
+            means, log_stds, logits,
+            log_std_min=self.log_std_min, log_std_max=self.log_std_max,
         )
-        return dist
 
 
 class ContinuousCriticWithHistory(nn.Module):

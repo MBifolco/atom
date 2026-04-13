@@ -149,14 +149,28 @@ class SBXSACBackend:
     @staticmethod
     @jax.jit
     def _low_temp_sample(actor_state, observations, key):
-        """Sample from the policy with reduced temperature (std * 0.2)."""
+        """Sample from the policy with reduced temperature (std * 0.2).
+
+        Works with both standard TanhTransformedDistribution and
+        TanhMixtureDistribution (MoG).
+        """
         dist = actor_state.apply_fn(actor_state.params, observations)
-        # Get the underlying normal distribution (before tanh transform)
-        normal = dist.distribution
-        mean = normal.loc
-        std = normal.scale.diag  # LinearOperatorDiag → plain array
+
+        # Check if this is a MoG (has .means attribute) or standard Gaussian
+        if hasattr(dist, 'means'):
+            # MoG: pick best component, sample with low temp
+            best_idx = jnp.argmax(dist.logits, axis=-1)  # (batch,)
+            batch_idx = jnp.arange(dist.means.shape[0])
+            mean = dist.means[batch_idx, best_idx]         # (batch, action_dim)
+            log_std = dist.log_stds[batch_idx, best_idx]   # (batch, action_dim)
+            std = jnp.exp(log_std)
+        else:
+            # Standard TanhTransformedDistribution
+            normal = dist.distribution
+            mean = normal.loc
+            std = normal.scale.diag
+
         noise = jax.random.normal(key, mean.shape)
-        # Low-temp: sample close to mean but not exactly at it
         raw_action = mean + std * DETERMINISTIC_TEMPERATURE * noise
         return jnp.tanh(raw_action)
 
