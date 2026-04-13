@@ -520,6 +520,16 @@ class ProgressiveTrainer:
             # n_envs defaults to 8 for CPU or 250 for GPU (auto-configured)
         )
 
+        # Phase 2 & 3: Population — blocked for history-enabled models
+        if self.use_history:
+            import logging
+            logger = logging.getLogger("progressive_trainer")
+            logger.warning(
+                "Population training not supported with history-enabled models (666D obs). "
+                "Curriculum graduate saved to %s. Skipping population phase.", model_path
+            )
+            return
+
         # Phase 2: Initialize Population
         self.initialize_population_from_curriculum(
             curriculum_model_path=model_path,
@@ -528,15 +538,6 @@ class ProgressiveTrainer:
         )
 
         # Phase 3: Population Training
-        if self.use_history:
-            import logging
-            logger = logging.getLogger("progressive_trainer")
-            logger.warning(
-                "Population training not supported with history-enabled models (666D obs). "
-                "Curriculum graduate saved. Skipping population phase."
-            )
-            return
-
         self.run_population_training(
             generations=population_generations,
             episodes_per_generation=episodes_per_generation,
