@@ -81,6 +81,19 @@ class SBXSACBackend:
         """Create a new SAC model."""
         config = dict(_CURRICULUM_TRAINING_CONFIG) if mode == "curriculum" else dict(_POPULATION_TRAINING_CONFIG)
 
+        policy_kwargs = dict(_POLICY_ARCH)
+
+        # Use CNN history encoder when observation space is 666D
+        from ..signal_engine import OBS_DIM_WITH_HISTORY
+        obs_dim = envs.observation_space.shape[0]
+        if obs_dim == OBS_DIM_WITH_HISTORY:
+            from ..history_encoder import (
+                SquashedGaussianActorWithHistory,
+                VectorCriticWithHistory,
+            )
+            policy_kwargs["actor_class"] = SquashedGaussianActorWithHistory
+            policy_kwargs["vector_critic_class"] = VectorCriticWithHistory
+
         # Force verbose=0 for SAC — SBX logs rollout/train stats every few
         # episodes even at verbose=1, creating massive output. Our own
         # progress logging (every 100 episodes) provides all needed info.
@@ -89,7 +102,7 @@ class SBXSACBackend:
             "MlpPolicy",
             envs,
             seed=seed,
-            policy_kwargs=dict(_POLICY_ARCH),
+            policy_kwargs=policy_kwargs,
             tensorboard_log=tensorboard_log,
             verbose=sac_verbose,
             **config,
