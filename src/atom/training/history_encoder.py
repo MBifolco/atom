@@ -35,65 +35,62 @@ class TanhMixtureDistribution:
     with SBX's SAC training loop.
     """
 
-    def __init__(self, means, log_stds, logits, log_std_min=-20, log_std_max=2):
+    def __init__(self, means, log_stds, logits, log_std_min=-5, log_std_max=2):
         """
         Args:
             means: (batch, K, action_dim) — per-component means
             log_stds: (batch, K, action_dim) — per-component log stds
             logits: (batch, K) — mixture gating logits (unnormalized)
         """
-        self.means = means
+        # Clip for numerical stability
+        self.means = jnp.clip(means, -5.0, 5.0)
         self.log_stds = jnp.clip(log_stds, log_std_min, log_std_max)
-        self.logits = logits
+        self.logits = jnp.clip(logits, -10.0, 10.0)
         self.K = means.shape[1]
         self.action_dim = means.shape[2]
 
     def sample(self, seed):
-        """Sample from the mixture: pick component, then sample from it."""
-        key1, key2 = jax.random.split(seed)
-        # Sample component indices from categorical(logits)
-        component_idx = jax.random.categorical(key1, self.logits)  # (batch,)
-        batch_size = self.means.shape[0]
-        batch_idx = jnp.arange(batch_size)
+        """Reparameterized soft-mixture sampling.
 
-        # Get selected component's mean and std
-        mean = self.means[batch_idx, component_idx]      # (batch, action_dim)
-        log_std = self.log_stds[batch_idx, component_idx]  # (batch, action_dim)
-        std = jnp.exp(log_std)
-
-        # Sample from the selected Gaussian, then tanh
-        noise = jax.random.normal(key2, mean.shape)
-        raw_action = mean + std * noise
+        Instead of hard categorical selection (which blocks gradients to
+        unselected components), compute all component samples and take a
+        weighted sum. This gives gradient flow to all components and logits,
+        preventing component drift that causes NaN after many updates.
+        """
+        noise = jax.random.normal(seed, self.means.shape)  # (batch, K, action_dim)
+        stds = jnp.exp(self.log_stds)
+        all_raw = self.means + stds * noise                # (batch, K, action_dim)
+        weights = jax.nn.softmax(self.logits, axis=-1)     # (batch, K)
+        # Weighted sum of component samples
+        raw_action = jnp.sum(weights[:, :, None] * all_raw, axis=1)  # (batch, action_dim)
+        raw_action = jnp.clip(raw_action, -5.0, 5.0)
         return jnp.tanh(raw_action)
 
     def log_prob(self, action):
         """Log probability under the mixture (log-sum-exp over components).
 
-        For each component k:
-          log p_k(action) = log_prob_normal(atanh(action)) - log(1 - action^2)
-        Then:
-          log p(action) = log_sum_exp(log_weights + log_p_k) over k
+        Uses numerically stable formulation: divides by std (not var) and
+        uses log_std directly instead of log(exp(log_std)^2).
         """
-        # Inverse tanh to get raw action
-        # Clip to avoid atanh(±1) = ±inf
-        action_clipped = jnp.clip(action, -0.999, 0.999)
+        # Inverse tanh — tight clip to preserve precision
+        action_clipped = jnp.clip(action, -0.99999, 0.99999)
         raw_action = jnp.arctanh(action_clipped)  # (batch, action_dim)
 
         # Expand for K components: (batch, 1, action_dim)
         raw_expanded = raw_action[:, None, :]
 
-        # Per-component log probs under Normal
+        # Per-component log probs under Normal (numerically stable formulation)
         stds = jnp.exp(self.log_stds)  # (batch, K, action_dim)
-        var = stds ** 2
+        normalized_diff = (raw_expanded - self.means) / stds  # divide by std, not var
         log_normal = -0.5 * (
-            jnp.sum((raw_expanded - self.means) ** 2 / var, axis=-1)
-            + jnp.sum(jnp.log(var), axis=-1)
+            jnp.sum(normalized_diff ** 2, axis=-1)       # squared Mahalanobis
+            + 2.0 * jnp.sum(self.log_stds, axis=-1)     # log(var) = 2*log_std
             + self.action_dim * jnp.log(2 * jnp.pi)
         )  # (batch, K)
 
         # Tanh correction: -sum(log(1 - tanh(raw)^2)) per dimension
         tanh_correction = jnp.sum(
-            jnp.log(jnp.maximum(1.0 - action_clipped ** 2, 1e-6)), axis=-1
+            jnp.log(jnp.maximum(1.0 - action_clipped ** 2, 1e-8)), axis=-1
         )  # (batch,)
 
         # Per-component log prob = normal_log_prob - tanh_correction
@@ -105,7 +102,8 @@ class TanhMixtureDistribution:
             log_weights + component_log_probs, axis=-1
         )  # (batch,)
 
-        return mixture_log_prob
+        # Safety clamp to prevent inf/nan propagation into loss
+        return jnp.clip(mixture_log_prob, -100.0, 100.0)
 
     def mode(self):
         """Deterministic output: mean of the highest-weight component."""
