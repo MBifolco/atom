@@ -1518,14 +1518,20 @@ class CurriculumTrainer:
                         )
                     return False
 
-        # Deterministic sanity gate
+        # Deterministic sanity gate — throttled to avoid blocking training.
+        # Only check every 500 episodes to prevent the sanity check loop
+        # (6 matches × ~12 seconds each, firing every callback).
         if decision.reason != "override":
-            if not self._run_deterministic_sanity_check():
-                self.logger.warning(
-                    "Deterministic sanity check FAILED — policy deals 0 damage "
-                    "under deterministic=True. Continuing training."
-                )
-                return False
+            episodes_at_level = self.progress.episodes_at_level
+            last_check = getattr(self, '_last_det_sanity_ep', 0)
+            if episodes_at_level - last_check >= 500:
+                self._last_det_sanity_ep = episodes_at_level
+                if not self._run_deterministic_sanity_check():
+                    self.logger.warning(
+                        "Deterministic sanity check FAILED — policy deals 0 damage "
+                        "under deterministic=True. Continuing training."
+                    )
+                    return False
 
         # All gates passed — log and graduate
         if decision.reason != "override":
